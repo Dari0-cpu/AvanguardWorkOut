@@ -1,0 +1,53 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Scheda {
+  id           String     @id @default(cuid())
+  name         String
+  description  String?
+  durationWeeks Int       @default(4)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  exercises    Exercise[]
+}
+
+model Exercise {
+  id         String   @id @default(cuid())
+  schedaId   String
+  scheda     Scheda   @relation(fields: [schedaId], references: [id], onDelete: Cascade)
+  name       String
+  dayOfWeek  Int      @default(1) // 1=Lun, 2=Mar, 3=Mer, 4=Gio, 5=Ven, 6=Sab, 7=Dom
+  sets       Int      @default(4)
+  reps       String   @default("8-12")
+  restSec    Int      @default(90)
+  notes      String?
+  order      Int      @default(0)
+  loads      Load[]
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model Load {
+  id             String   @id @default(cuid())
+  exerciseId     String
+  exercise       Exercise @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+  weekNumber     Int      @default(1)
+  setNumber      Int      @default(1)
+  weight         String   @default("") // stringa per supportare "20kg", "BW", "5+5"
+  shouldIncrease Boolean  @default(false) // flag "aumenta il giorno dopo"
+  completed      Boolean  @default(false)
+  notes          String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([exerciseId, weekNumber, setNumber])
+}
