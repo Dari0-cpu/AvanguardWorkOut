@@ -1,679 +1,283 @@
 <!DOCTYPE html>
-<html lang="it" class="dark">
+<html lang="it" data-theme="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Gym Tracker PRO</title>
+    <title>Avanguard Workout</title>
+
+    <!-- Tailwind (CDN) -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
-        tailwind.config = {
-            darkMode: 'class',
-            theme: {
-                extend: {
-                    colors: {
-                        brand: {
-                            400: 'var(--brand-400)',
-                            500: 'var(--brand-500)',
-                            600: 'var(--brand-600)',
-                            900: 'var(--brand-900)'
-                        },
-                        surface: '#121212',
-                        surfaceLight: '#1e1e1e',
-                        background: '#050505',
-                    }
-                }
-            }
-        }
+        tailwind.config = { darkMode: 'class' };
     </script>
+
+    <!-- Phosphor Icons -->
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
-    <!-- Libreria Supabase per il Cloud Sync -->
+
+    <!-- Supabase (Cloud Sync) -->
     <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
-    <style>
-        :root {
-            --brand-400: #f87171; --brand-500: #ef4444; --brand-600: #dc2626; --brand-900: #7f1d1d; --brand-rgb: 239, 68, 68;
-        }
-        body { background-color: #050505; color: #f5f5f5; -webkit-tap-highlight-color: transparent; }
-        .hide-scrollbar::-webkit-scrollbar { display: none; }
-        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-        
-        .glass-header {
-            background: rgba(5, 5, 5, 0.9); backdrop-filter: blur(12px);
-            border-bottom: 1px solid rgba(var(--brand-rgb), 0.2);
-        }
-        .exercise-card {
-            background: linear-gradient(145deg, #161616, #1a1a1a); border: 1px solid #2a2a2a; transition: all 0.2s ease;
-        }
-        .exercise-card.done {
-            background: rgba(var(--brand-rgb), 0.08); border-color: rgba(var(--brand-rgb), 0.4); opacity: 0.7;
-        }
-        .custom-checkbox input:checked + div {
-            background-color: var(--brand-500); border-color: var(--brand-500);
-            box-shadow: 0 0 10px rgba(var(--brand-rgb), 0.4);
-        }
-        .custom-checkbox input:checked + div i { opacity: 1; transform: scale(1); }
-        .custom-checkbox div i { opacity: 0; transform: scale(0.5); transition: all 0.2s; }
-        .accordion-content { transition: max-height 0.4s ease-in-out; max-height: 0; overflow: hidden; }
-        .accordion-content.open { max-height: 5000px; }
-    </style>
+
+    <!-- Chart.js (grafico peso corporeo) -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+    <!-- Font Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+
+    <!-- Stili locali -->
+    <link rel="stylesheet" href="styles.css">
 </head>
 <body class="antialiased pb-28">
 
-    <!-- Header Fisso -->
-    <header class="fixed top-0 left-0 right-0 glass-header z-40 px-4 py-4">
-        <div class="max-w-3xl mx-auto flex flex-col gap-4">
+    <!-- ============ HEADER FISSO ============ -->
+    <header class="fixed top-0 left-0 right-0 glass-header z-40 px-4 py-3">
+        <div class="max-w-3xl mx-auto flex flex-col gap-3">
+
+            <!-- Riga 1: titolo + controlli -->
             <div class="flex justify-between items-center">
-                <h1 class="text-2xl font-black text-white flex items-center gap-2">
-                    <i class="ph-fill ph-barbell text-brand-500"></i> WORKOUT
+                <h1 class="text-xl font-black text-app flex items-center gap-2">
+                    <i class="ph-fill ph-barbell brand-text"></i>
+                    <span>AVANGUARD</span>
                 </h1>
-                
-                <!-- Controlli Header (Tema, Cloud, Settimane) -->
-                <div class="flex items-center gap-4">
-                    <button onclick="openModal('theme-modal')" class="text-neutral-400 hover:text-brand-500 transition-colors">
-                        <i class="ph-bold ph-palette text-2xl"></i>
+
+                <div class="flex items-center gap-2">
+                    <!-- Peso corporeo -->
+                    <button onclick="openWeightModal()" class="header-chip flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-app hover:brand-text transition-colors" title="Peso corporeo">
+                        <i class="ph-bold ph-scales"></i>
+                        <span id="weight-pill-text">— kg</span>
                     </button>
-                    <button onclick="openModal('cloud-modal')" class="relative text-neutral-400 hover:text-brand-500 transition-colors">
-                        <i id="cloud-icon" class="ph-bold ph-cloud text-2xl"></i>
-                        <span id="cloud-status-dot" class="absolute top-0 right-0 w-2.5 h-2.5 bg-neutral-600 rounded-full border border-background"></span>
+                    <!-- Temi -->
+                    <button onclick="openModal('theme-modal')" class="w-9 h-9 rounded-full flex items-center justify-center text-muted hover:brand-text transition-colors" title="Stile">
+                        <i class="ph-bold ph-palette text-xl"></i>
                     </button>
-                    <div class="flex items-center gap-2 bg-surfaceLight rounded-full px-3 py-1 border border-neutral-800">
-                        <button onclick="changeWeek(-1)" class="p-1 text-neutral-400 hover:text-white"><i class="ph ph-minus"></i></button>
-                        <span class="font-bold text-sm">SETT <span id="week-display" class="text-brand-500">1</span></span>
-                        <button onclick="changeWeek(1)" class="p-1 text-neutral-400 hover:text-white"><i class="ph ph-plus"></i></button>
-                    </div>
+                    <!-- Cloud -->
+                    <button onclick="openModal('cloud-modal')" class="relative w-9 h-9 rounded-full flex items-center justify-center text-muted hover:brand-text transition-colors" title="Cloud Sync">
+                        <i id="cloud-icon" class="ph-bold ph-cloud text-xl"></i>
+                        <span id="cloud-status-dot" class="absolute top-0 right-0 w-2.5 h-2.5 rounded-full" style="border-color: var(--bg);"></span>
+                    </button>
                 </div>
             </div>
 
-            <!-- Selettore Utente -->
-            <div class="flex gap-2 w-full">
-                <div class="relative flex-1">
-                    <select id="user-selector" onchange="switchUser(this.value)" class="w-full bg-surface border border-neutral-800 rounded-xl px-4 py-2.5 text-white font-bold focus:outline-none focus:border-brand-500 appearance-none"></select>
-                    <i class="ph-bold ph-caret-down absolute right-4 top-1/2 -translate-y-1/2 text-neutral-500 pointer-events-none"></i>
+            <!-- Riga 2: settimane + utente -->
+            <div class="flex items-center gap-2">
+                <!-- User selector -->
+                <div class="relative flex-1 min-w-0">
+                    <select id="user-selector" onchange="switchUser(this.value)" class="field !py-2.5 !rounded-xl appearance-none font-bold cursor-pointer pr-10">
+                        <option value="">— Nessun profilo —</option>
+                    </select>
+                    <i class="ph-bold ph-caret-down absolute right-4 top-1/2 -translate-y-1/2 text-dim pointer-events-none"></i>
                 </div>
-                <button onclick="openEditUserModal()" class="bg-surfaceLight border border-neutral-800 text-neutral-300 px-3.5 py-2.5 rounded-xl font-bold hover:bg-neutral-800 transition-colors">
+                <button onclick="openEditUserModal()" class="btn btn-ghost !p-2.5 !rounded-xl" title="Modifica profilo">
                     <i class="ph-bold ph-pencil-simple text-lg"></i>
                 </button>
-                <button onclick="openModal('add-user-modal')" class="bg-brand-500/10 border border-brand-500/30 text-brand-400 px-3.5 py-2.5 rounded-xl font-bold hover:bg-brand-500 hover:text-white transition-colors">
+                <button onclick="openModal('add-user-modal')" class="btn btn-outline !p-2.5 !rounded-xl" title="Nuovo profilo">
                     <i class="ph-bold ph-user-plus text-lg"></i>
                 </button>
+                <!-- Week pill -->
+                <div class="week-pill">
+                    <button onclick="changeWeek(-1)" title="Settimana precedente"><i class="ph ph-minus"></i></button>
+                    <div class="label">SETT <span id="week-display" class="num">1</span></div>
+                    <button onclick="changeWeek(1)" title="Settimana successiva"><i class="ph ph-plus"></i></button>
+                </div>
             </div>
         </div>
     </header>
 
-    <main class="max-w-3xl mx-auto mt-40 px-4" id="days-container">
+    <!-- ============ MAIN ============ -->
+    <main class="max-w-3xl mx-auto mt-32 px-4" id="days-container">
         <!-- Generato dinamicamente -->
     </main>
 
-    <!-- Controlli Inferiori -->
-    <div class="max-w-3xl mx-auto px-4 mt-6 flex flex-col gap-4">
-        <button onclick="openModal('add-day-modal')" class="w-full py-4 border-2 border-dashed border-neutral-800 rounded-2xl text-neutral-500 font-bold flex items-center justify-center gap-2 hover:border-brand-500 hover:text-brand-400 transition-colors">
+    <!-- ============ CONTROLLI INFERIORI ============ -->
+    <div class="max-w-3xl mx-auto px-4 mt-6 flex flex-col gap-3">
+        <button onclick="openModal('add-day-modal')" class="btn-dashed">
             <i class="ph ph-plus-circle text-xl"></i> AGGIUNGI NUOVO GIORNO
         </button>
-        <button onclick="openExportModal()" class="w-full py-4 bg-brand-900/20 border border-brand-500/30 rounded-2xl text-brand-400 font-bold flex items-center justify-center gap-2 hover:bg-brand-500 hover:text-white transition-colors">
+        <button onclick="openExportModal()" class="btn btn-ghost w-full !py-4">
             <i class="ph-bold ph-chart-line-up text-xl"></i> REPORT CARICHI
         </button>
     </div>
 
-    <!-- MODAL: Cloud Sincronizzazione -->
-    <div id="cloud-modal" class="fixed inset-0 bg-black/90 z-50 hidden flex-col justify-center p-4">
-        <div class="bg-surface border border-neutral-800 rounded-3xl w-full max-w-sm mx-auto p-6">
+    <!-- ============ MODAL: CLOUD ============ -->
+    <div id="cloud-modal" class="fixed inset-0 modal-overlay z-50 hidden flex-col justify-center p-4">
+        <div class="modal-card w-full max-w-sm mx-auto p-6">
             <div class="flex justify-between items-center mb-4">
-                <h3 class="text-xl font-bold flex items-center gap-2"><i class="ph-bold ph-cloud-arrow-up text-brand-500"></i> Cloud Sync</h3>
-                <button onclick="closeModal('cloud-modal')" class="text-neutral-500 hover:text-white"><i class="ph ph-x text-xl"></i></button>
+                <h3 class="text-lg font-extrabold flex items-center gap-2"><i class="ph-bold ph-cloud-arrow-up brand-text"></i> Cloud Sync</h3>
+                <button onclick="closeModal('cloud-modal')" class="text-dim hover:text-app"><i class="ph ph-x text-xl"></i></button>
             </div>
-            <p class="text-xs text-neutral-400 mb-4">Inserisci una chiave segreta qualsiasi. Usando la stessa chiave su altri dispositivi, sincronizzerai tutti i dati al volo.</p>
-            <input type="text" id="cloud-sync-key" class="w-full bg-background border border-neutral-700 rounded-xl px-4 py-3 text-white font-mono mb-4 text-center" placeholder="es. dario-secret-2026">
-            <button onclick="saveCloudKey()" class="w-full bg-brand-600 text-white font-bold py-3 rounded-xl hover:bg-brand-500 transition-colors">CONNETTI E SINCRONIZZA</button>
-            <div id="cloud-warning" class="text-[11px] text-yellow-500 mt-3 text-center hidden">Supabase non configurato nel codice. Funzionamento solo locale.</div>
+            <p class="text-xs text-muted mb-4 leading-relaxed">Inserisci una chiave segreta qualsiasi. Usando la stessa chiave su altri dispositivi sincronizzerai tutti i dati al volo.</p>
+            <input type="text" id="cloud-sync-key" class="field mb-4 text-center font-mono" placeholder="es. dario-secret-2026">
+            <button onclick="saveCloudKey()" class="btn btn-primary w-full">CONNETTI E SINCRONIZZA</button>
+            <div id="cloud-warning" class="text-[11px] text-yellow-500 mt-3 text-center hidden">Supabase non configurato. Funzionamento solo locale.</div>
         </div>
     </div>
 
-    <!-- MODAL: Temi -->
-    <div id="theme-modal" class="fixed inset-0 bg-black/90 z-50 hidden flex-col justify-center p-4">
-        <div class="bg-surface border border-neutral-800 rounded-3xl w-full max-w-sm mx-auto p-6">
-            <div class="flex justify-between items-center mb-6">
-                <h3 class="text-xl font-bold flex items-center gap-2"><i class="ph-bold ph-palette text-brand-500"></i> Stile App</h3>
-                <button onclick="closeModal('theme-modal')" class="text-neutral-500 hover:text-white"><i class="ph ph-x text-xl"></i></button>
+    <!-- ============ MODAL: TEMI ============ -->
+    <div id="theme-modal" class="fixed inset-0 modal-overlay z-50 hidden flex-col justify-center p-4">
+        <div class="modal-card w-full max-w-sm mx-auto p-6">
+            <div class="flex justify-between items-center mb-5">
+                <h3 class="text-lg font-extrabold flex items-center gap-2"><i class="ph-bold ph-palette brand-text"></i> Stile App</h3>
+                <button onclick="closeModal('theme-modal')" class="text-dim hover:text-app"><i class="ph ph-x text-xl"></i></button>
             </div>
-            <div class="grid grid-cols-3 gap-4">
-                <button onclick="setTheme('red')" class="h-16 rounded-2xl bg-[#ef4444] border-2 border-transparent focus:border-white"></button>
-                <button onclick="setTheme('blue')" class="h-16 rounded-2xl bg-[#3b82f6] border-2 border-transparent focus:border-white"></button>
-                <button onclick="setTheme('green')" class="h-16 rounded-2xl bg-[#22c55e] border-2 border-transparent focus:border-white"></button>
-                <button onclick="setTheme('yellow')" class="h-16 rounded-2xl bg-[#eab308] border-2 border-transparent focus:border-white"></button>
-                <button onclick="setTheme('purple')" class="h-16 rounded-2xl bg-[#a855f7] border-2 border-transparent focus:border-white"></button>
-                <button onclick="setTheme('orange')" class="h-16 rounded-2xl bg-[#f97316] border-2 border-transparent focus:border-white"></button>
+
+            <!-- Mode (chiaro / scuro) -->
+            <label class="block text-xs font-bold text-dim uppercase tracking-wider mb-2">Modalità</label>
+            <div class="flex gap-2 mb-5">
+                <button data-mode-btn="dark" onclick="setMode('dark')" class="theme-mode-btn">
+                    <i class="ph-bold ph-moon"></i> Scuro
+                </button>
+                <button data-mode-btn="light" onclick="setMode('light')" class="theme-mode-btn">
+                    <i class="ph-bold ph-sun"></i> Chiaro
+                </button>
+            </div>
+
+            <!-- Colori accent -->
+            <label class="block text-xs font-bold text-dim uppercase tracking-wider mb-2">Colore</label>
+            <div class="grid grid-cols-4 gap-3">
+                <button data-color-swatch="red"    onclick="setTheme('red')"    class="theme-swatch" style="background: #ef4444;"></button>
+                <button data-color-swatch="blue"   onclick="setTheme('blue')"   class="theme-swatch" style="background: #3b82f6;"></button>
+                <button data-color-swatch="green"  onclick="setTheme('green')"  class="theme-swatch" style="background: #22c55e;"></button>
+                <button data-color-swatch="yellow" onclick="setTheme('yellow')" class="theme-swatch" style="background: #eab308;"></button>
+                <button data-color-swatch="purple" onclick="setTheme('purple')" class="theme-swatch" style="background: #a855f7;"></button>
+                <button data-color-swatch="orange" onclick="setTheme('orange')" class="theme-swatch" style="background: #f97316;"></button>
+                <button data-color-swatch="pink"   onclick="setTheme('pink')"   class="theme-swatch" style="background: #ec4899;"></button>
+                <button data-color-swatch="cyan"   onclick="setTheme('cyan')"   class="theme-swatch" style="background: #06b6d4;"></button>
             </div>
         </div>
     </div>
 
-    <!-- MODAL: Aggiungi Utente -->
-    <div id="add-user-modal" class="fixed inset-0 bg-black/90 z-50 hidden flex-col justify-center p-4">
-        <div class="bg-surface border border-neutral-800 rounded-3xl w-full max-w-md mx-auto p-6">
+    <!-- ============ MODAL: PESO CORPOREO ============ -->
+    <div id="weight-modal" class="fixed inset-0 modal-overlay z-50 hidden flex-col justify-center p-4">
+        <div class="modal-card w-full max-w-md mx-auto p-6">
             <div class="flex justify-between items-center mb-4">
-                <h3 class="text-xl font-bold">Nuova Persona</h3>
-                <button onclick="closeModal('add-user-modal')" class="text-neutral-500 hover:text-white"><i class="ph ph-x text-xl"></i></button>
+                <h3 class="text-lg font-extrabold flex items-center gap-2"><i class="ph-bold ph-scales brand-text"></i> Peso Corporeo</h3>
+                <button onclick="closeModal('weight-modal')" class="text-dim hover:text-app"><i class="ph ph-x text-xl"></i></button>
             </div>
-            <input type="text" id="new-user-name" class="w-full bg-background border border-neutral-700 rounded-xl px-4 py-3 text-white mb-4" placeholder="Nome della persona...">
-            <button onclick="saveUser()" class="w-full bg-brand-600 text-white font-bold py-3 rounded-xl">Crea Profilo</button>
+
+            <label class="block text-xs font-bold text-dim uppercase tracking-wider mb-2">Peso settimana <span id="weight-week-label">1</span></label>
+            <div class="flex gap-2 mb-4">
+                <input type="number" step="0.1" inputmode="decimal" id="weight-input" class="field text-center font-bold text-lg" placeholder="0.0">
+                <button onclick="saveWeight()" class="btn btn-primary">Salva</button>
+            </div>
+
+            <div class="bg-surface-2 border border-app rounded-2xl p-4">
+                <div class="text-xs font-bold text-dim uppercase tracking-wider mb-3">Trend 6 settimane</div>
+                <div style="height: 180px;">
+                    <canvas id="weight-chart"></canvas>
+                </div>
+            </div>
+
+            <p class="text-xs text-muted mt-3 leading-relaxed">Inserisci il peso per ogni settimana per visualizzare l'andamento. Lo troverai sempre aggiornato nella barra in alto.</p>
         </div>
     </div>
 
-    <!-- MODAL: Modifica/Elimina Utente -->
-    <div id="edit-user-modal" class="fixed inset-0 bg-black/90 z-50 hidden flex-col justify-center p-4">
-        <div class="bg-surface border border-neutral-800 rounded-3xl w-full max-w-md mx-auto p-6">
+    <!-- ============ MODAL: ADD USER ============ -->
+    <div id="add-user-modal" class="fixed inset-0 modal-overlay z-50 hidden flex-col justify-center p-4">
+        <div class="modal-card w-full max-w-md mx-auto p-6">
             <div class="flex justify-between items-center mb-4">
-                <h3 class="text-xl font-bold">Gestisci Profilo</h3>
-                <button onclick="closeModal('edit-user-modal')" class="text-neutral-500 hover:text-white"><i class="ph ph-x text-xl"></i></button>
+                <h3 class="text-lg font-extrabold">Nuovo Profilo</h3>
+                <button onclick="closeModal('add-user-modal')" class="text-dim hover:text-app"><i class="ph ph-x text-xl"></i></button>
             </div>
-            <label class="block text-xs font-bold text-neutral-400 uppercase tracking-wider mb-2">Rinomina</label>
-            <input type="text" id="edit-user-name" class="w-full bg-background border border-neutral-700 rounded-xl px-4 py-3 text-white mb-6">
+            <input type="text" id="new-user-name" class="field mb-4" placeholder="Nome della persona...">
+            <button onclick="saveUser()" class="btn btn-primary w-full">Crea Profilo</button>
+        </div>
+    </div>
+
+    <!-- ============ MODAL: EDIT USER ============ -->
+    <div id="edit-user-modal" class="fixed inset-0 modal-overlay z-50 hidden flex-col justify-center p-4">
+        <div class="modal-card w-full max-w-md mx-auto p-6">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-extrabold">Gestisci Profilo</h3>
+                <button onclick="closeModal('edit-user-modal')" class="text-dim hover:text-app"><i class="ph ph-x text-xl"></i></button>
+            </div>
+            <label class="block text-xs font-bold text-dim uppercase tracking-wider mb-2">Rinomina</label>
+            <input type="text" id="edit-user-name" class="field mb-6">
             <div class="flex gap-3">
-                <button onclick="deleteUser()" class="flex-1 bg-neutral-900 border border-brand-900 text-brand-500 font-bold py-3 rounded-xl">Elimina Profilo</button>
-                <button onclick="updateUser()" class="flex-1 bg-brand-600 text-white font-bold py-3 rounded-xl">Salva</button>
+                <button onclick="deleteUser()" class="btn btn-danger flex-1">Elimina Profilo</button>
+                <button onclick="updateUser()" class="btn btn-primary flex-1">Salva</button>
             </div>
         </div>
     </div>
 
-    <!-- MODAL: Aggiungi Giorno -->
-    <div id="add-day-modal" class="fixed inset-0 bg-black/90 z-50 hidden flex-col justify-center p-4">
-        <div class="bg-surface border border-neutral-800 rounded-3xl w-full max-w-md mx-auto p-6">
+    <!-- ============ MODAL: ADD DAY ============ -->
+    <div id="add-day-modal" class="fixed inset-0 modal-overlay z-50 hidden flex-col justify-center p-4">
+        <div class="modal-card w-full max-w-md mx-auto p-6">
             <div class="flex justify-between items-center mb-4">
-                <h3 class="text-xl font-bold">Nuovo Giorno</h3>
-                <button onclick="closeModal('add-day-modal')" class="text-neutral-500 hover:text-white"><i class="ph ph-x text-xl"></i></button>
+                <h3 class="text-lg font-extrabold">Nuovo Giorno</h3>
+                <button onclick="closeModal('add-day-modal')" class="text-dim hover:text-app"><i class="ph ph-x text-xl"></i></button>
             </div>
-            <input type="text" id="new-day-name" class="w-full bg-background border border-neutral-700 rounded-xl px-4 py-3 text-white mb-4" placeholder="es. Giorno 5 - Gambe">
-            <button onclick="saveDay()" class="w-full bg-brand-600 text-white font-bold py-3 rounded-xl">Aggiungi Giorno</button>
+            <input type="text" id="new-day-name" class="field mb-4" placeholder="es. Giorno 5 - Gambe">
+            <button onclick="saveDay()" class="btn btn-primary w-full">Aggiungi Giorno</button>
         </div>
     </div>
 
-    <!-- MODAL: Aggiungi Esercizio Rapido (Testo) -->
-    <div id="bulk-add-modal" class="fixed inset-0 bg-black/90 z-50 hidden flex-col justify-center p-4">
-        <div class="bg-surface border border-neutral-800 rounded-3xl w-full max-w-md mx-auto p-6">
+    <!-- ============ MODAL: BULK ADD ============ -->
+    <div id="bulk-add-modal" class="fixed inset-0 modal-overlay z-50 hidden flex-col justify-center p-4">
+        <div class="modal-card w-full max-w-md mx-auto p-6">
             <div class="flex justify-between items-center mb-4">
-                <h3 class="text-lg font-bold flex items-center gap-2"><i class="ph ph-lightning text-brand-500"></i> Aggiunta Rapida</h3>
-                <button onclick="closeModal('bulk-add-modal')" class="text-neutral-500 hover:text-white"><i class="ph ph-x text-xl"></i></button>
+                <h3 class="text-lg font-extrabold flex items-center gap-2"><i class="ph ph-lightning brand-text"></i> Aggiunta Rapida</h3>
+                <button onclick="closeModal('bulk-add-modal')" class="text-dim hover:text-app"><i class="ph ph-x text-xl"></i></button>
             </div>
-            <textarea id="bulk-text" rows="6" class="w-full bg-background border border-neutral-700 rounded-xl p-4 text-white mb-4 font-mono text-sm" placeholder="Panca - 4x8\nCroci - 3x12 + 1x15\n..."></textarea>
-            <button onclick="saveBulkExercises()" class="w-full bg-brand-600 text-white font-bold py-3 rounded-xl">Carica Lista</button>
+            <p class="text-xs text-muted mb-3 leading-relaxed">Una riga per ogni esercizio. Usa il trattino per separare nome e target. Il <code>+</code> funziona sempre: <code>3x10 + 3x15</code> = due input, <code>3x10+10</code> = un solo input (reps alternate).</p>
+            <textarea id="bulk-text" rows="7" class="field !font-mono !text-sm mb-4" placeholder="Panca piana - 4x8&#10;Croci - 3x12 + 1x15&#10;Leg curl alternato - 3x10+10&#10;..."></textarea>
+            <button onclick="saveBulkExercises()" class="btn btn-primary w-full">Carica Lista</button>
         </div>
     </div>
 
-    <!-- MODAL: Aggiungi Esercizio Singolo -->
-    <div id="single-add-modal" class="fixed inset-0 bg-black/90 z-50 hidden flex-col justify-center p-4">
-        <div class="bg-surface border border-neutral-800 rounded-3xl w-full max-w-md mx-auto p-6">
+    <!-- ============ MODAL: SINGLE ADD ============ -->
+    <div id="single-add-modal" class="fixed inset-0 modal-overlay z-50 hidden flex-col justify-center p-4">
+        <div class="modal-card w-full max-w-md mx-auto p-6">
             <div class="flex justify-between items-center mb-4">
-                <h3 class="text-lg font-bold">Aggiungi Esercizio</h3>
-                <button onclick="closeModal('single-add-modal')" class="text-neutral-500 hover:text-white"><i class="ph ph-x text-xl"></i></button>
+                <h3 class="text-lg font-extrabold">Aggiungi Esercizio</h3>
+                <button onclick="closeModal('single-add-modal')" class="text-dim hover:text-app"><i class="ph ph-x text-xl"></i></button>
             </div>
-            <input type="text" id="single-ex-name" class="w-full bg-background border border-neutral-700 rounded-xl px-4 py-3 text-white mb-3" placeholder="Nome Esercizio">
-            <input type="text" id="single-ex-target" class="w-full bg-background border border-neutral-700 rounded-xl px-4 py-3 text-white mb-4" placeholder="Target (es. 2x8 + 1x10)">
-            <button onclick="saveSingleExercise()" class="w-full bg-brand-600 text-white font-bold py-3 rounded-xl">Aggiungi</button>
+            <label class="block text-xs font-bold text-dim uppercase tracking-wider mb-2">Nome</label>
+            <input type="text" id="single-ex-name" class="field mb-3" placeholder="Nome esercizio">
+            <label class="block text-xs font-bold text-dim uppercase tracking-wider mb-2">Target</label>
+            <input type="text" id="single-ex-target" class="field mb-4" placeholder="es. 2x8 + 1x10  oppure  3x10+10">
+            <button onclick="saveSingleExercise()" class="btn btn-primary w-full">Aggiungi</button>
         </div>
     </div>
 
-    <!-- MODAL: Esporta Report -->
-    <div id="export-modal" class="fixed inset-0 bg-black/90 z-50 hidden flex-col justify-center p-4">
-        <div class="bg-surface border border-neutral-800 rounded-3xl w-full max-w-md mx-auto p-6 flex flex-col max-h-[85vh]">
+    <!-- ============ MODAL: EDIT EXERCISE ============ -->
+    <div id="edit-ex-modal" class="fixed inset-0 modal-overlay z-50 hidden flex-col justify-center p-4">
+        <div class="modal-card w-full max-w-md mx-auto p-6">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-extrabold flex items-center gap-2"><i class="ph-bold ph-pencil-simple brand-text"></i> Modifica Esercizio</h3>
+                <button onclick="closeModal('edit-ex-modal')" class="text-dim hover:text-app"><i class="ph ph-x text-xl"></i></button>
+            </div>
+            <label class="block text-xs font-bold text-dim uppercase tracking-wider mb-2">Nome</label>
+            <input type="text" id="edit-ex-name" class="field mb-3">
+            <label class="block text-xs font-bold text-dim uppercase tracking-wider mb-2">Target (settimana <span id="edit-ex-week-label">1</span>)</label>
+            <input type="text" id="edit-ex-target" class="field mb-3" placeholder="es. 3x10 + 1x15  oppure  3x10+10">
+            <label class="flex items-center gap-2 text-xs text-muted mb-4 cursor-pointer">
+                <input type="checkbox" id="edit-ex-apply-all" class="w-4 h-4 accent-red-500">
+                Applica a tutte le 6 settimane (sovrascrive)
+            </label>
+            <button onclick="saveEditEx()" class="btn btn-primary w-full">Salva</button>
+        </div>
+    </div>
+
+    <!-- ============ MODAL: EXPORT REPORT ============ -->
+    <div id="export-modal" class="fixed inset-0 modal-overlay z-50 hidden flex-col justify-center p-4">
+        <div class="modal-card w-full max-w-md mx-auto p-6 flex flex-col max-h-[85vh]">
             <div class="flex justify-between items-center mb-4 flex-shrink-0">
-                <h3 class="text-xl font-bold flex items-center gap-2"><i class="ph-bold ph-chart-line-up text-brand-500"></i> Trend Carichi</h3>
-                <button onclick="closeModal('export-modal')" class="text-neutral-500 hover:text-white"><i class="ph ph-x text-xl"></i></button>
+                <h3 class="text-lg font-extrabold flex items-center gap-2"><i class="ph-bold ph-chart-line-up brand-text"></i> Trend Carichi</h3>
+                <button onclick="closeModal('export-modal')" class="text-dim hover:text-app"><i class="ph ph-x text-xl"></i></button>
             </div>
             <div class="relative mb-4 flex-shrink-0">
-                <select id="export-day-selector" onchange="generateReport()" class="w-full bg-background border border-neutral-700 rounded-xl px-4 py-3 text-white font-bold appearance-none focus:outline-none focus:border-brand-500"></select>
-                <i class="ph-bold ph-caret-down absolute right-4 top-1/2 -translate-y-1/2 text-neutral-500 pointer-events-none"></i>
+                <select id="export-day-selector" onchange="generateReport()" class="field appearance-none font-bold pr-10 cursor-pointer"></select>
+                <i class="ph-bold ph-caret-down absolute right-4 top-1/2 -translate-y-1/2 text-dim pointer-events-none"></i>
             </div>
-            <div id="export-preview" class="flex-1 overflow-y-auto bg-background border border-neutral-700 rounded-xl p-4 text-xs font-mono text-neutral-300 mb-4 whitespace-pre-wrap"></div>
-            <button onclick="copyExport()" class="w-full bg-brand-600 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 flex-shrink-0">
+            <div id="export-preview" class="scroll-area flex-1 bg-surface-2 border border-app rounded-xl p-4 text-xs font-mono text-muted mb-4 whitespace-pre-wrap"></div>
+            <button id="copy-export-btn" onclick="copyExport()" class="btn btn-primary w-full flex-shrink-0">
                 <i class="ph-bold ph-copy"></i> Copia Markdown
             </button>
         </div>
     </div>
 
-    <script>
-        // ==========================================
-        // CONFIGURA IL TUO CLOUD SUPABASE QUI SOTTO
-        // ==========================================
-        const SUPABASE_URL = "https://rvodpmmzwvvdcvsiqxhr.supabase.co";
-        const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ2b2RwbW16d3Z2ZGN2c2lxeGhyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQwMjA2NTksImV4cCI6MjA5OTU5NjY1OX0.hcQaVKdaKPfLsTaH896t1NjE3aXfdkxOBezoqWZ5iWA";
-        // ==========================================
-
-        const themes = {
-            red: { 400: '#f87171', 500: '#ef4444', 600: '#dc2626', 900: '#7f1d1d', rgb: '239, 68, 68' },
-            blue: { 400: '#60a5fa', 500: '#3b82f6', 600: '#2563eb', 900: '#1e3a8a', rgb: '59, 130, 246' },
-            green: { 400: '#4ade80', 500: '#22c55e', 600: '#16a34a', 900: '#14532d', rgb: '34, 197, 94' },
-            yellow: { 400: '#facc15', 500: '#eab308', 600: '#ca8a04', 900: '#713f12', rgb: '234, 179, 8' },
-            purple: { 400: '#c084fc', 500: '#a855f7', 600: '#9333ea', 900: '#581c87', rgb: '168, 85, 247' },
-            orange: { 400: '#fb923c', 500: '#f97316', 600: '#ea580c', 900: '#7c2d12', rgb: '249, 115, 22' }
-        };
-
-        const defaultDarioData = {
-            id: 'u_dario', name: 'Dario Pimpini',
-            days: [
-                { id: 'd1', name: 'Giorno 1', isOpen: false, exercises: [
-                    { id: 'e1', name: 'Panca piana', progression: Array(6).fill('2x6 (2 sec ecc - 1 sec iso - 1 sec conc) rec.2 min') },
-                    { id: 'e2', name: 'Panca piana due man.', progression: Array(6).fill('2x8 rec.2 min + 1x12/15') },
-                    { id: 'e3', name: 'Chest press', progression: Array(6).fill('2x8 rec.1.30 min + 1x10') },
-                    { id: 'e4', name: 'Croci su panca piana', progression: ['3x10 rec.1.30','3x10 rec.1.30','4x10 rec.1.30','4x10 rec.1.30','4x12 rec.1.30','4x12 rec.1.30'] },
-                    { id: 'e5', name: 'Curl due man.', progression: ['3x8 rec.1.30','3x8 rec.1.30','3x8 rec.1.30 + 1x15','3x8 rec.1.30 + 1x15','3x8 rec.1.30 + 1x15','3x8 rec.1.30 + 1x15'] },
-                    { id: 'e6', name: 'Curl su panca 45°', progression: Array(6).fill('2x10 rec.1.30 + 1x15') },
-                    { id: 'e7', name: 'French press due man.', progression: Array(6).fill('2x10 rec.1.30 + 1x15') }
-                ]},
-                { id: 'd2', name: 'Giorno 2', isOpen: false, exercises: [
-                    { id: 'e8', name: 'Squat', progression: Array(6).fill('2x8 (ecc 2 sec) rec.2 min + 1x15') },
-                    { id: 'e9', name: 'Pressa obliqua', progression: Array(6).fill('2x8 rec.2 min + 1x10') },
-                    { id: 'e10', name: 'Hyperextension', progression: ['2x10 + 1x10','2x10 + 1x10','2x10 + 1x10','2x10 + 2x10','2x10 + 2x10','2x10 + 2x10'] },
-                    { id: 'e11', name: 'Leg curl alternato', progression: ['3x10+10 rec.1 min','3x10+10 rec.1 min','3x12+12 rec.1 min','3x12+12 rec.1 min','3x12+12 rec.1 min','3x12+12 rec.1 min'] },
-                    { id: 'e12', name: 'Leg extension', progression: ['2x10 + 1x15','2x10 + 1x15','1x10 (sq 2 sec) + 1x15','1x10 (sq 2 sec) + 1x15','2x10 (sq 2 sec) + 1x15','2x10 (sq 2 sec) + 1x15'] }
-                ]},
-                { id: 'd3', name: 'Giorno 3', isOpen: false, exercises: [
-                    { id: 'e13', name: 'Trazioni easy power', progression: Array(6).fill('2x6 (2 sec ecc - 1 sec conc) rec.2 min') },
-                    { id: 'e14', name: 'Lat machine', progression: ['2x8 + 1x15','2x8 + 1x15','2x8 + 1x15','2x8 + 2x15','2x8 + 2x15','2x8 + 2x15'] },
-                    { id: 'e15', name: 'Rematore panca 30°', progression: Array(6).fill('1x8 (conc 2s - ecc 1s) + 2x8 + 1x15') },
-                    { id: 'e16', name: 'Vertical row neutra', progression: ['1x8 + 1x12 + 1x15/20','1x8 + 1x12 + 1x15/20','1x8 + 1x12 + 1x15/20','1x8 + 2x12 + 1x15/20','1x8 + 2x12 + 1x15/20','1x8 + 2x12 + 1x15/20'] },
-                    { id: 'e17', name: 'Pullover cavo basso', progression: ['3x12 rec.1.30','3x12 rec.1.30','3x12 rec.1 min','3x12 rec.1 min','3x15 rec.1 min','3x15 rec.1 min'] },
-                    { id: 'e18', name: 'Aperture panca 45°', progression: Array(6).fill('2x10 rec.1 min + 2x15 rec.1 min') }
-                ]},
-                { id: 'd4', name: 'Giorno 4', isOpen: false, exercises: [
-                    { id: 'e19', name: 'Military press panca 75°', progression: Array(6).fill('2x8 rec.2 min + 1x10') },
-                    { id: 'e20', name: 'Alzate laterali ai cavi', progression: ['3x10 rec.1.30','3x10 rec.1.30','3x10 rec.1.30','2x10 + 1x15','2x10 + 1x15','2x10 + 1x15'] },
-                    { id: 'e21', name: 'Alzate laterali iso', progression: ['3x30 sec rec.1 min','3x30 sec rec.1 min','3x40 sec rec.1 min','3x40 sec rec.1 min','3x50 sec rec.1 min','3x50 sec rec.1 min'] },
-                    { id: 'e22', name: 'Estensioni post. cavo alto', progression: Array(6).fill('3x8 rec.1.30') },
-                    { id: 'e23', name: 'Pushdown corda', progression: Array(6).fill('2x10 (sq 2 sec) + 2x15') },
-                    { id: 'e24', name: 'Panca scott due man.', progression: ['3x12 rec.1 min','3x12 rec.1 min','3x12 rec.1 min','4x12 rec.1 min','4x12 rec.1 min','4x12 rec.1 min'] }
-                ]}
-            ]
-        };
-
-        let appState = { users: [defaultDarioData], currentUserId: 'u_dario', week: 1, logs: {}, theme: 'red', syncKey: '' };
-        let _supabaseClient = null;
-        let tempTargetDayId = null; 
-        let currentExportText = ""; 
-
-        async function init() {
-            // Setup iniziale client cloud
-            if (SUPABASE_URL !== "INSERISCI_QUI_IL_TUO_URL" && SUPABASE_KEY !== "INSERISCI_QUI_LA_TUA_CHIAVE_ANON") {
-                _supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-                document.getElementById('cloud-warning').classList.add('hidden');
-            } else {
-                document.getElementById('cloud-warning').classList.remove('hidden');
-            }
-
-            // Carica da locale prima
-            const savedData = localStorage.getItem('gym_tracker_pro_v5');
-            if (savedData) appState = JSON.parse(savedData);
-            
-            document.getElementById('cloud-sync-key').value = appState.syncKey || '';
-            setTheme(appState.theme || 'red');
-
-            // Se c'è una chiave cloud attiva, tira giù i dati aggiornati
-            if (_supabaseClient && appState.syncKey) {
-                await pullFromCloud();
-            }
-
-            updateCloudStatusUi();
-            renderApp();
-        }
-
-        async function saveData() {
-            localStorage.setItem('gym_tracker_pro_v5', JSON.stringify(appState));
-            if (_supabaseClient && appState.syncKey) {
-                updateCloudStatusUi(true); // stato caricamento in corso
-                try {
-                    await _supabaseClient.from('gym_sync').upsert({ id: appState.syncKey, state: appState });
-                    updateCloudStatusUi();
-                } catch (e) {
-                    console.error("Errore salvataggio cloud: ", e);
-                }
-            }
-        }
-
-        async function pullFromCloud() {
-            if (!_supabaseClient || !appState.syncKey) return;
-            try {
-                const { data, error } = await _supabaseClient.from('gym_sync').select('state').eq('id', appState.syncKey).single();
-                if (data && data.state) {
-                    appState = data.state;
-                    localStorage.setItem('gym_tracker_pro_v5', JSON.stringify(appState));
-                    setTheme(appState.theme || 'red');
-                }
-            } catch(e) {
-                console.error("Errore scaricamento cloud:", e);
-            }
-        }
-
-        async function saveCloudKey() {
-            const key = document.getElementById('cloud-sync-key').value.trim();
-            if (!key) { alert("Inserisci una chiave valida!"); return; }
-            
-            appState.syncKey = key;
-            if (_supabaseClient) {
-                // Tenta di scaricare se esistono già dati per quella chiave
-                await pullFromCloud();
-                // Sincronizza lo stato attuale sul cloud
-                await saveData();
-            }
-            closeModal('cloud-modal');
-            updateCloudStatusUi();
-            renderApp();
-        }
-
-        function updateCloudStatusUi(isSyncing = false) {
-            const dot = document.getElementById('cloud-status-dot');
-            const icon = document.getElementById('cloud-icon');
-            if (!_supabaseClient) {
-                dot.className = "absolute top-0 right-0 w-2.5 h-2.5 bg-neutral-700 rounded-full border border-background";
-                icon.className = "ph-bold ph-cloud-slash text-2xl text-neutral-600";
-            } else if (!appState.syncKey) {
-                dot.className = "absolute top-0 right-0 w-2.5 h-2.5 bg-yellow-500 rounded-full border border-background";
-                icon.className = "ph-bold ph-cloud text-2xl text-yellow-500";
-            } else if (isSyncing) {
-                dot.className = "absolute top-0 right-0 w-2.5 h-2.5 bg-blue-500 rounded-full border border-background animate-ping";
-                icon.className = "ph-bold ph-cloud-arrow-up text-2xl text-blue-400";
-            } else {
-                dot.className = "absolute top-0 right-0 w-2.5 h-2.5 bg-emerald-500 rounded-full border border-background shadow-[0_0_8px_#10b981]";
-                icon.className = "ph-bold ph-cloud text-2xl text-emerald-400";
-            }
-        }
-
-        function setTheme(colorKey) {
-            const t = themes[colorKey];
-            const root = document.documentElement;
-            root.style.setProperty('--brand-400', t[400]);
-            root.style.setProperty('--brand-500', t[500]);
-            root.style.setProperty('--brand-600', t[600]);
-            root.style.setProperty('--brand-900', t[900]);
-            root.style.setProperty('--brand-rgb', t.rgb);
-            appState.theme = colorKey;
-            saveData();
-            closeModal('theme-modal');
-        }
-
-        function renderApp() {
-            document.getElementById('week-display').innerText = appState.week;
-            
-            const userSelector = document.getElementById('user-selector');
-            userSelector.innerHTML = '';
-            appState.users.forEach(user => {
-                const opt = document.createElement('option');
-                opt.value = user.id; opt.textContent = user.name;
-                if (user.id === appState.currentUserId) opt.selected = true;
-                userSelector.appendChild(opt);
-            });
-
-            const currentUser = appState.users.find(u => u.id === appState.currentUserId);
-            const daysContainer = document.getElementById('days-container');
-            daysContainer.innerHTML = '';
-
-            if (!currentUser || !currentUser.days) return;
-
-            currentUser.days.forEach(day => {
-                const dayDiv = document.createElement('div');
-                dayDiv.className = 'bg-surface border border-neutral-800 rounded-3xl mb-4 overflow-hidden';
-                
-                const headerHtml = `
-                    <div class="p-5 flex justify-between items-center cursor-pointer select-none hover:bg-surfaceLight transition-colors" onclick="toggleDay('${day.id}')">
-                        <h2 class="text-xl font-bold">${day.name}</h2>
-                        <div class="flex items-center gap-3">
-                            <button onclick="event.stopPropagation(); deleteDay('${day.id}')" class="text-neutral-600 hover:text-brand-500 p-2"><i class="ph-fill ph-trash"></i></button>
-                            <i id="icon-${day.id}" class="ph-bold ph-caret-down transition-transform duration-300 text-xl text-neutral-400 ${day.isOpen ? 'rotate-180' : ''}"></i>
-                        </div>
-                    </div>
-                `;
-
-                let exHtml = `<div class="space-y-4 px-5 pb-5">`;
-                if (day.exercises.length === 0) exHtml += `<p class="text-neutral-500 text-sm italic text-center py-4">Nessun esercizio. Aggiungine uno!</p>`;
-
-                day.exercises.forEach(ex => {
-                    const logKey = `w${appState.week}_${currentUser.id}_${day.id}_${ex.id}`;
-                    const log = appState.logs[logKey] || { done: false, weights: [], up: false };
-                    
-                    if(log.weight && (!log.weights || log.weights.length === 0)) log.weights = [log.weight];
-                    const weightsArray = log.weights || [];
-
-                    let targetText = ex.progression[appState.week - 1] || ex.progression[ex.progression.length - 1] || "3x10";
-                    const parts = targetText.split('+').map(p => p.trim());
-                    
-                    let upBadgeHtml = '';
-                    if (appState.week > 1) {
-                        const prevLogKey = `w${appState.week - 1}_${currentUser.id}_${day.id}_${ex.id}`;
-                        const prevLog = appState.logs[prevLogKey];
-                        if (prevLog && prevLog.up) {
-                            upBadgeHtml = `<div class="text-[11px] text-brand-400 font-black tracking-widest uppercase mb-2 flex items-center gap-1.5 animate-pulse"><i class="ph-fill ph-fire text-sm"></i> OBIETTIVO: AUMENTA IL CARICO!</div>`;
-                        }
-                    }
-
-                    let inputsHtml = '';
-                    parts.forEach((part, i) => {
-                        const val = weightsArray[i] || '';
-                        inputsHtml += `
-                            <div class="flex items-center justify-between gap-3 mt-3 w-full">
-                                <span class="text-xs font-semibold text-brand-400 uppercase tracking-wide flex-1 leading-tight">${part}</span>
-                                <div class="flex items-center bg-background border border-neutral-700 rounded-xl px-3 py-2 w-28 focus-within:border-brand-500 transition-colors shadow-inner">
-                                    <input type="number" step="0.5" inputmode="decimal" 
-                                        class="w-full bg-transparent text-white font-bold text-lg text-center focus:outline-none placeholder-neutral-700"
-                                        placeholder="0.0" value="${val}"
-                                        onchange="updateWeight('${logKey}', this.value, ${i})">
-                                    <span class="text-neutral-600 font-bold ml-1 text-xs">Kg</span>
-                                </div>
-                            </div>
-                        `;
-                    });
-                    
-                    exHtml += `
-                        <div class="exercise-card p-4 rounded-2xl flex items-start gap-4 ${log.done ? 'done' : ''}">
-                            <label class="custom-checkbox relative flex items-start cursor-pointer mt-1 flex-shrink-0">
-                                <input type="checkbox" class="sr-only" ${log.done ? 'checked' : ''} onchange="toggleDone('${logKey}', this.checked)">
-                                <div class="w-7 h-7 rounded-lg border-2 border-neutral-600 bg-background flex items-center justify-center transition-all">
-                                    <i class="ph-bold ph-check text-white text-sm"></i>
-                                </div>
-                            </label>
-                            <div class="flex-1 min-w-0">
-                                ${upBadgeHtml}
-                                <div class="flex justify-between items-start gap-2 border-b border-neutral-800 pb-2">
-                                    <h3 class="font-bold text-white text-md break-words leading-tight flex-1">${ex.name}</h3>
-                                    <div class="flex gap-2 flex-shrink-0">
-                                        <button onclick="toggleUpFlag('${logKey}')" class="p-1.5 rounded-lg border transition-all ${log.up ? 'bg-brand-500/20 border-brand-500 text-brand-500 shadow-[0_0_10px_rgba(var(--brand-rgb),0.3)]' : 'bg-surfaceLight border-neutral-700 text-neutral-500 hover:text-white'}">
-                                            <i class="ph-bold ph-trend-up text-lg"></i>
-                                        </button>
-                                        <button onclick="deleteEx('${day.id}','${ex.id}')" class="text-neutral-600 hover:text-brand-500 p-1.5"><i class="ph-fill ph-trash text-lg"></i></button>
-                                    </div>
-                                </div>
-                                <div class="flex flex-col">${inputsHtml}</div>
-                            </div>
-                        </div>
-                    `;
-                });
-
-                exHtml += `
-                    <div class="flex gap-2 mt-4 pt-4 border-t border-neutral-800/50">
-                        <button onclick="prepareSingleAdd('${day.id}')" class="flex-1 py-3 bg-surfaceLight rounded-xl text-xs font-bold text-neutral-300 hover:text-white border border-neutral-700 flex items-center justify-center gap-2">
-                            <i class="ph-bold ph-plus"></i> SINGOLO
-                        </button>
-                        <button onclick="prepareBulkAdd('${day.id}')" class="flex-1 py-3 bg-brand-500/10 rounded-xl text-xs font-bold text-brand-400 hover:bg-brand-500 hover:text-white border border-brand-500/30 flex items-center justify-center gap-2">
-                            <i class="ph-bold ph-lightning"></i> INCOLLA LISTA
-                        </button>
-                    </div>
-                </div>`; 
-
-                dayDiv.innerHTML = headerHtml + `<div id="content-${day.id}" class="accordion-content ${day.isOpen ? 'open' : ''}">${exHtml}</div>`;
-                daysContainer.appendChild(dayDiv);
-            });
-        }
-
-        function toggleDay(dayId) {
-            const currentUser = appState.users.find(u => u.id === appState.currentUserId);
-            const day = currentUser.days.find(d => d.id === dayId);
-            day.isOpen = !day.isOpen;
-            const content = document.getElementById(`content-${dayId}`);
-            const icon = document.getElementById(`icon-${dayId}`);
-            if(day.isOpen) { content.classList.add('open'); icon.classList.add('rotate-180'); } 
-            else { content.classList.remove('open'); icon.classList.remove('rotate-180'); }
-            saveData();
-        }
-
-        function switchUser(userId) { appState.currentUserId = userId; saveData(); renderApp(); }
-        function saveUser() {
-            const name = document.getElementById('new-user-name').value.trim();
-            if(!name) return;
-            const newId = 'u_' + Date.now();
-            appState.users.push({ id: newId, name: name, days: [] });
-            appState.currentUserId = newId;
-            document.getElementById('new-user-name').value = '';
-            saveData(); closeModal('add-user-modal'); renderApp();
-        }
-        function openEditUserModal() {
-            const currentUser = appState.users.find(u => u.id === appState.currentUserId);
-            document.getElementById('edit-user-name').value = currentUser.name;
-            openModal('edit-user-modal');
-        }
-        function updateUser() {
-            const newName = document.getElementById('edit-user-name').value.trim();
-            if(!newName) return;
-            const currentUser = appState.users.find(u => u.id === appState.currentUserId);
-            currentUser.name = newName;
-            saveData(); closeModal('edit-user-modal'); renderApp();
-        }
-        function deleteUser() {
-            if(appState.users.length <= 1) { alert("Non puoi eliminare l'unico profilo rimasto!"); return; }
-            if(confirm("Vuoi eliminare questo profilo?")) {
-                appState.users = appState.users.filter(u => u.id !== appState.currentUserId);
-                appState.currentUserId = appState.users[0].id;
-                saveData(); closeModal('edit-user-modal'); renderApp();
-            }
-        }
-
-        function saveDay() {
-            const name = document.getElementById('new-day-name').value.trim();
-            if(!name) return;
-            const currentUser = appState.users.find(u => u.id === appState.currentUserId);
-            currentUser.days.push({ id: 'd_' + Date.now(), name: name, isOpen: true, exercises: [] });
-            document.getElementById('new-day-name').value = '';
-            saveData(); closeModal('add-day-modal'); renderApp();
-        }
-        function deleteDay(dayId) {
-            if(confirm('Eliminare giorno?')) {
-                const currentUser = appState.users.find(u => u.id === appState.currentUserId);
-                currentUser.days = currentUser.days.filter(d => d.id !== dayId);
-                saveData(); renderApp();
-            }
-        }
-
-        function prepareSingleAdd(dayId) { tempTargetDayId = dayId; openModal('single-add-modal'); }
-        function prepareBulkAdd(dayId) { tempTargetDayId = dayId; openModal('bulk-add-modal'); }
-
-        function saveSingleExercise() {
-            const name = document.getElementById('single-ex-name').value.trim();
-            const target = document.getElementById('single-ex-target').value.trim() || '3x10';
-            if(!name) return;
-            const currentUser = appState.users.find(u => u.id === appState.currentUserId);
-            const day = currentUser.days.find(d => d.id === tempTargetDayId);
-            day.exercises.push({ id: 'e_' + Date.now(), name: name, progression: Array(6).fill(target) });
-            document.getElementById('single-ex-name').value = ''; document.getElementById('single-ex-target').value = '';
-            saveData(); closeModal('single-add-modal'); renderApp();
-        }
-
-        function saveBulkExercises() {
-            const text = document.getElementById('bulk-text').value;
-            const lines = text.split('\n').map(l => l.trim()).filter(l => l !== '');
-            if(lines.length === 0) return;
-            const currentUser = appState.users.find(u => u.id === appState.currentUserId);
-            const day = currentUser.days.find(d => d.id === tempTargetDayId);
-            lines.forEach((line, index) => {
-                let name = line, target = "3x10";
-                if(line.includes('-')) {
-                    const parts = line.split('-');
-                    name = parts[0].trim(); target = parts.slice(1).join('-').trim();
-                }
-                day.exercises.push({ id: 'e_bulk_' + Date.now() + '_' + index, name: name, progression: Array(6).fill(target) });
-            });
-            document.getElementById('bulk-text').value = '';
-            saveData(); closeModal('bulk-add-modal'); renderApp();
-        }
-
-        function deleteEx(dayId, exId) {
-            if(confirm('Togliere esercizio?')) {
-                const currentUser = appState.users.find(u => u.id === appState.currentUserId);
-                const day = currentUser.days.find(d => d.id === dayId);
-                day.exercises = day.exercises.filter(e => e.id !== exId);
-                saveData(); renderApp();
-            }
-        }
-
-        function toggleDone(logKey, isChecked) {
-            if(!appState.logs[logKey]) appState.logs[logKey] = { weights: [] };
-            appState.logs[logKey].done = isChecked;
-            saveData(); renderApp();
-        }
-        function updateWeight(logKey, value, index) {
-            if(!appState.logs[logKey]) appState.logs[logKey] = { done: false, weights: [], up: false };
-            if(!appState.logs[logKey].weights) appState.logs[logKey].weights = [];
-            appState.logs[logKey].weights[index] = value;
-            saveData();
-        }
-        function toggleUpFlag(logKey) {
-            if(!appState.logs[logKey]) appState.logs[logKey] = { weights: [] };
-            appState.logs[logKey].up = !appState.logs[logKey].up;
-            saveData(); renderApp();
-        }
-
-        function changeWeek(delta) {
-            let newWeek = appState.week + delta;
-            if(newWeek >= 1 && newWeek <= 6) { appState.week = newWeek; saveData(); renderApp(); }
-        }
-
-        function openExportModal() {
-            const currentUser = appState.users.find(u => u.id === appState.currentUserId);
-            const selector = document.getElementById('export-day-selector');
-            selector.innerHTML = '';
-            if(currentUser.days.length === 0) { alert("Nessun giorno presente."); return; }
-            currentUser.days.forEach(d => {
-                const opt = document.createElement('option'); opt.value = d.id; opt.textContent = d.name;
-                selector.appendChild(opt);
-            });
-            generateReport(); openModal('export-modal');
-        }
-
-        function generateReport() {
-            const dayId = document.getElementById('export-day-selector').value;
-            const currentUser = appState.users.find(u => u.id === appState.currentUserId);
-            const day = currentUser.days.find(d => d.id === dayId);
-            let md = `# Report Carichi: ${day.name}\n\n`;
-            
-            day.exercises.forEach(ex => {
-                md += `### ${ex.name}\n`;
-                let weightsStr = []; let firstW = null, lastW = null;
-                for(let w = 1; w <= 6; w++) {
-                    const logKey = `w${w}_${currentUser.id}_${day.id}_${ex.id}`;
-                    const log = appState.logs[logKey];
-                    let wArray = log ? (log.weights || []) : [];
-                    if(log && log.weight && wArray.length === 0) wArray.push(log.weight);
-                    
-                    if(wArray.length > 0 && wArray.some(val => val !== '')) {
-                        const str = wArray.map(val => val || '-').join(' + ');
-                        weightsStr.push(`S${w}: ${str}kg`);
-                        const firstNum = parseFloat(wArray[0]);
-                        if(!isNaN(firstNum)) { if(firstW === null) firstW = firstNum; lastW = firstNum; }
-                    } else { weightsStr.push(`S${w}: -`); }
-                }
-                md += `Progressione: ${weightsStr.join(' -> ')}\n`;
-                if(firstW !== null && lastW !== null) {
-                    const diff = lastW - firstW;
-                    if(diff > 0) md += `Trend: 📈 +${diff}kg\n`;
-                    else if(diff < 0) md += `Trend: 📉 ${diff}kg\n`;
-                    else md += `Trend: ➖ Stabile\n`;
-                } else { md += `Trend: ⏳ Dati insufficienti\n`; }
-                md += `\n`;
-            });
-            currentExportText = md; document.getElementById('export-preview').textContent = md;
-        }
-
-        function copyExport() {
-            navigator.clipboard.writeText(currentExportText).then(() => { alert("Report copiato!"); });
-        }
-
-        function openModal(id) { document.getElementById(id).classList.remove('hidden'); document.getElementById(id).classList.add('flex'); }
-        function closeModal(id) { document.getElementById(id).classList.add('hidden'); document.getElementById(id).classList.remove('flex'); }
-
-        init();
-    </script>
+    <!-- ============ SCRIPT LOCALE ============ -->
+    <script src="app.js"></script>
 </body>
 </html>
