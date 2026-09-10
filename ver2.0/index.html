@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+  <title>Avanguard Workout</title>
+  <meta name="description" content="Scheda, carichi e peso corporeo — offline, sempre con te.">
+
+  <!-- Anteprime social -->
+  <meta property="og:title" content="Avanguard Workout 2.0">
+  <meta property="og:description" content="La tua scheda palestra come app: offline, installabile, con timer di recupero e record personali.">
+  <meta property="og:image" content="https://dari0-cpu.github.io/AvanguardWorkOut/ver2.0/icons/icon-512.png">
+  <meta property="og:url" content="https://dari0-cpu.github.io/AvanguardWorkOut/ver2.0/index.html">
+  <meta property="og:type" content="website">
+  <meta name="twitter:card" content="summary">
+
+  <!-- PWA -->
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta name="theme-color" content="#0E0F12">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Avanguard">
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+
+  <!-- Stile -->
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <noscript><p style="padding:2rem;font:14px sans-serif;color:#EDEEE8;background:#0E0F12">Avanguard 2.0 ha bisogno di JavaScript attivo.</p></noscript>
+
+  <!-- ============ APP SHELL ============ -->
+  <div id="app" class="app">
+
+    <!-- Topbar -->
+    <header class="topbar">
+      <div class="topbar-inner">
+        <a class="brand" href="#" onclick="return false">
+          <svg class="brand-mark" viewBox="0 0 64 64" aria-hidden="true">
+            <rect x="6" y="29" width="52" height="6" rx="3" fill="currentColor"/>
+            <rect x="47" y="25" width="3" height="14" rx="1" fill="currentColor"/>
+            <rect x="14" y="25" width="3" height="14" rx="1" fill="currentColor"/>
+            <rect x="40" y="12" width="7" height="40" rx="2.5" fill="var(--plate20)"/>
+            <rect x="50" y="6" width="8" height="52" rx="2.5" fill="var(--plate25)"/>
+            <rect x="17" y="12" width="7" height="40" rx="2.5" fill="var(--plate20)"/>
+            <rect x="6" y="6" width="8" height="52" rx="2.5" fill="var(--plate25)"/>
+          </svg>
+          <span class="brand-name">AVANGUARD</span>
+        </a>
+        <div class="topbar-right">
+          <span id="net-dot" class="net-dot" title="Stato connessione"></span>
+          <button class="profile-chip" id="profile-chip" onclick="openProfileSheet()">
+            <span class="profile-avatar" id="profile-avatar">D</span>
+            <span class="profile-name" id="profile-name">Dario</span>
+            <svg viewBox="0 0 24 24" class="chip-caret"><path d="M7 10l5 5 5-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- ============ VISTA: SCHEDA (default) ============ -->
+    <main id="view-scheda" class="view active" aria-label="Scheda">
+      <div class="week-row">
+        <div class="week-stepper">
+          <button class="week-btn" onclick="changeWeek(-1)" aria-label="Settimana precedente">
+            <svg viewBox="0 0 24 24"><path d="M5 12h14M5 12l6-6M5 12l6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+          <div class="week-label">
+            <span class="week-label-top">Settimana</span>
+            <span class="week-label-num"><b id="week-num">1</b><i>/6</i></span>
+          </div>
+          <button class="week-btn" onclick="changeWeek(1)" aria-label="Settimana successiva">
+            <svg viewBox="0 0 24 24"><path d="M19 12H5M19 12l-6-6M19 12l-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+        </div>
+        <div class="week-track" id="week-track"></div>
+      </div>
+
+      <div class="day-chips" id="day-chips" role="tablist" aria-label="Giorni"></div>
+      <div id="day-content"></div>
+    </main>
+
+    <!-- ============ VISTA: STORICO ============ -->
+    <main id="view-storico" class="view" aria-label="Storico">
+      <div id="storico-content"></div>
+    </main>
+
+    <!-- ============ VISTA: PESO ============ -->
+    <main id="view-peso" class="view" aria-label="Peso corporeo">
+      <div id="peso-content"></div>
+    </main>
+
+    <!-- ============ VISTA: ALTRO ============ -->
+    <main id="view-altro" class="view" aria-label="Altro">
+      <div id="altro-content"></div>
+    </main>
+
+    <!-- Tabbar -->
+    <nav class="tabbar" id="tabbar">
+      <button class="tab active" data-view="scheda" onclick="switchTab('scheda')">
+        <svg viewBox="0 0 24 24"><rect x="3" y="9" width="2.4" height="6" rx="1.2" fill="currentColor"/><rect x="7.5" y="6" width="3" height="12" rx="1.4" fill="currentColor"/><rect x="13.5" y="4" width="4.4" height="16" rx="2" fill="currentColor"/><rect x="19.5" y="6" width="3" height="12" rx="1.4" fill="currentColor"/></svg>
+        <span>Scheda</span>
+      </button>
+      <button class="tab" data-view="storico" onclick="switchTab('storico')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/><path d="M12 7v5l3.5 2"/></svg>
+        <span>Storico</span>
+      </button>
+      <button class="tab" data-view="peso" onclick="switchTab('peso')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l5-6 4 3 6-8"/><path d="M14 6h4v4"/><path d="M3 21h18"/></svg>
+        <span>Peso</span>
+      </button>
+      <button class="tab" data-view="altro" onclick="switchTab('altro')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/><circle cx="9" cy="7" r="2.2" fill="var(--bg0)"/><circle cx="15" cy="12" r="2.2" fill="var(--bg0)"/><circle cx="7" cy="17" r="2.2" fill="var(--bg0)"/></svg>
+        <span>Altro</span>
+      </button>
+    </nav>
+  </div>
+
+  <!-- ============ SHEET: DETTAGLIO ESERCIZIO ============ -->
+  <div class="sheet-backdrop" id="sheet-ex-backdrop" onclick="closeSheet('sheet-ex')"></div>
+  <section class="sheet" id="sheet-ex" role="dialog" aria-modal="true"></section>
+
+  <!-- ============ SHEET: PROFILI ============ -->
+  <div class="sheet-backdrop" id="sheet-profile-backdrop" onclick="closeSheet('sheet-profile')"></div>
+  <section class="sheet" id="sheet-profile" role="dialog" aria-modal="true"></section>
+
+  <!-- ============ MODALE GENERICA ============ -->
+  <div class="modal" id="modal-root">
+    <div class="modal-backdrop" onclick="closeModal()"></div>
+    <div class="modal-card" id="modal-card"></div>
+  </div>
+
+  <!-- ============ SESSION PLAYER ============ -->
+  <div class="session" id="session" hidden></div>
+
+  <!-- ============ TOAST ============ -->
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <!-- ============ BANNER INSTALLAZIONE ============ -->
+  <div class="install-tip" id="install-tip" hidden></div>
+
+  <!-- Scripts -->
+  <script src="js/data.js" defer></script>
+  <script src="js/charts.js" defer></script>
+  <script src="js/ui.js" defer></script>
+  <script src="js/views.js" defer></script>
+  <script src="js/session.js" defer></script>
+  <script src="js/pwa.js" defer></script>
+</body>
+</html>
