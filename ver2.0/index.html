@@ -1,152 +1,320 @@
 <!DOCTYPE html>
-<html lang="it">
+<html lang="it" data-theme="dark">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
-  <title>Avanguard Workout</title>
-  <meta name="description" content="Scheda, carichi e peso corporeo — offline, sempre con te.">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Avanguard Workout</title>
 
-  <!-- Anteprime social -->
-  <meta property="og:title" content="Avanguard Workout 2.0">
-  <meta property="og:description" content="La tua scheda palestra come app: offline, installabile, con timer di recupero e record personali.">
-  <meta property="og:image" content="https://dari0-cpu.github.io/AvanguardWorkOut/ver2.0/icons/icon-512.png">
-  <meta property="og:url" content="https://dari0-cpu.github.io/AvanguardWorkOut/ver2.0/index.html">
-  <meta property="og:type" content="website">
-  <meta name="twitter:card" content="summary">
+    <!-- Favicon per la scheda del browser e Google -->
+    <link rel="icon" type="image/png" href="logo.png">
+    <link rel="apple-touch-icon" href="logo.png">
 
-  <!-- PWA -->
-  <link rel="manifest" href="manifest.webmanifest">
-  <meta name="theme-color" content="#0E0F12">
-  <meta name="mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="Avanguard">
-  <link rel="icon" type="image/svg+xml" href="favicon.svg">
-  <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
-  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+    <!-- Anteprima con immagine per Google e chat (WhatsApp, Telegram, Discord) -->
+    <meta property="og:title" content="Avanguard Workout">
+    <meta property="og:description" content="Traccia le tue progressioni e carichi in palestra comodamente online.">
+    <meta property="og:image" content="https://dari0-cpu.github.io/AvanguardWorkOut/logo.png">
+    <meta property="og:url" content="https://dari0-cpu.github.io/AvanguardWorkOut/index.html">
+    <meta property="og:type" content="website">
+    <meta name="twitter:card" content="summary_large_image">
 
-  <!-- Stile -->
-  <link rel="stylesheet" href="css/styles.css">
+    <!-- Tailwind (CDN) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = { darkMode: 'class' };
+    </script>
+
+    <!-- Phosphor Icons -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+
+    <!-- Supabase (Cloud Sync) -->
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+
+    <!-- Chart.js (grafico peso corporeo) -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+
+    <!-- html2pdf (Generazione PDF) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
+    <!-- Font Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+
+    <!-- Stili locali -->
+    <link rel="stylesheet" href="styles.css">
+
+    <link rel="manifest" href="manifest.json">
+
+    <!-- Chart.js (grafico peso corporeo) -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+    <!-- html2pdf (Generazione PDF) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 </head>
-<body>
-  <noscript><p style="padding:2rem;font:14px sans-serif;color:#EDEEE8;background:#0E0F12">Avanguard 2.0 ha bisogno di JavaScript attivo.</p></noscript>
+<body class="antialiased pb-28">
 
-  <!-- ============ APP SHELL ============ -->
-  <div id="app" class="app">
+    <!-- ============ HEADER FISSO ============ -->
+    <header class="fixed top-0 left-0 right-0 glass-header z-40 px-4 py-3">
+        <div class="max-w-3xl mx-auto flex flex-col gap-3">
 
-    <!-- Topbar -->
-    <header class="topbar">
-      <div class="topbar-inner">
-        <a class="brand" href="#" onclick="return false">
-          <svg class="brand-mark" viewBox="0 0 64 64" aria-hidden="true">
-            <rect x="6" y="29" width="52" height="6" rx="3" fill="currentColor"/>
-            <rect x="47" y="25" width="3" height="14" rx="1" fill="currentColor"/>
-            <rect x="14" y="25" width="3" height="14" rx="1" fill="currentColor"/>
-            <rect x="40" y="12" width="7" height="40" rx="2.5" fill="var(--plate20)"/>
-            <rect x="50" y="6" width="8" height="52" rx="2.5" fill="var(--plate25)"/>
-            <rect x="17" y="12" width="7" height="40" rx="2.5" fill="var(--plate20)"/>
-            <rect x="6" y="6" width="8" height="52" rx="2.5" fill="var(--plate25)"/>
-          </svg>
-          <span class="brand-name">AVANGUARD</span>
-        </a>
-        <div class="topbar-right">
-          <span id="net-dot" class="net-dot" title="Stato connessione"></span>
-          <button class="profile-chip" id="profile-chip" onclick="openProfileSheet()">
-            <span class="profile-avatar" id="profile-avatar">D</span>
-            <span class="profile-name" id="profile-name">Dario</span>
-            <svg viewBox="0 0 24 24" class="chip-caret"><path d="M7 10l5 5 5-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          </button>
+            <!-- Riga 1: titolo + controlli -->
+            <div class="flex justify-between items-center">
+                <h1 class="text-xl font-black text-app flex items-center gap-2">
+                    <i class="ph-fill ph-barbell brand-text"></i>
+                    <span>AVANGUARD</span>
+                </h1>
+
+                <div class="flex items-center gap-2">
+                    <!-- Peso corporeo -->
+                    <button onclick="openWeightModal()" class="header-chip flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-app hover:brand-text transition-colors" title="Peso corporeo">
+                        <i class="ph-bold ph-scales"></i>
+                        <span id="weight-pill-text">— kg</span>
+                    </button>
+                    <!-- Temi -->
+                    <button onclick="openModal('theme-modal')" class="w-9 h-9 rounded-full flex items-center justify-center text-muted hover:brand-text transition-colors" title="Stile">
+                        <i class="ph-bold ph-palette text-xl"></i>
+                    </button>
+                    <!-- Cloud -->
+                    <button onclick="openModal('cloud-modal')" class="relative w-9 h-9 rounded-full flex items-center justify-center text-muted hover:brand-text transition-colors" title="Cloud Sync">
+                        <i id="cloud-icon" class="ph-bold ph-cloud text-xl"></i>
+                        <span id="cloud-status-dot" class="absolute top-0 right-0 w-2.5 h-2.5 rounded-full" style="border-color: var(--bg);"></span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Riga 2: settimane + utente -->
+            <div class="flex items-center gap-2">
+                <!-- User selector -->
+                <div class="relative flex-1 min-w-0">
+                    <select id="user-selector" onchange="switchUser(this.value)" class="field !py-2.5 !rounded-xl appearance-none font-bold cursor-pointer pr-10">
+                        <option value="">— Nessun profilo —</option>
+                    </select>
+                    <i class="ph-bold ph-caret-down absolute right-4 top-1/2 -translate-y-1/2 text-dim pointer-events-none"></i>
+                </div>
+                <button onclick="openEditUserModal()" class="btn btn-ghost !p-2.5 !rounded-xl" title="Modifica profilo">
+                    <i class="ph-bold ph-pencil-simple text-lg"></i>
+                </button>
+                <button onclick="openModal('add-user-modal')" class="btn btn-outline !p-2.5 !rounded-xl" title="Nuovo profilo">
+                    <i class="ph-bold ph-user-plus text-lg"></i>
+                </button>
+                <!-- Week pill -->
+                <div class="week-pill">
+                    <button onclick="changeWeek(-1)" title="Settimana precedente"><i class="ph ph-minus"></i></button>
+                    <div class="label">SETT <span id="week-display" class="num">1</span></div>
+                    <button onclick="changeWeek(1)" title="Settimana successiva"><i class="ph ph-plus"></i></button>
+                </div>
+            </div>
         </div>
-      </div>
     </header>
 
-    <!-- ============ VISTA: SCHEDA (default) ============ -->
-    <main id="view-scheda" class="view active" aria-label="Scheda">
-      <div class="week-row">
-        <div class="week-stepper">
-          <button class="week-btn" onclick="changeWeek(-1)" aria-label="Settimana precedente">
-            <svg viewBox="0 0 24 24"><path d="M5 12h14M5 12l6-6M5 12l6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          </button>
-          <div class="week-label">
-            <span class="week-label-top">Settimana</span>
-            <span class="week-label-num"><b id="week-num">1</b><i>/6</i></span>
-          </div>
-          <button class="week-btn" onclick="changeWeek(1)" aria-label="Settimana successiva">
-            <svg viewBox="0 0 24 24"><path d="M19 12H5M19 12l-6-6M19 12l-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          </button>
+    <!-- ============ MAIN ============ -->
+    <main class="max-w-3xl mx-auto mt-32 px-4" id="days-container">
+        <!-- Generato dinamicamente -->
+    </main>
+
+    <!-- ============ CONTROLLI INFERIORI ============ -->
+    <div class="max-w-3xl mx-auto px-4 mt-6 flex flex-col gap-3">
+        <button onclick="openModal('add-day-modal')" class="btn-dashed">
+            <i class="ph ph-plus-circle text-xl"></i> AGGIUNGI NUOVO GIORNO
+        </button>
+        <button onclick="openExportModal()" class="btn btn-ghost w-full !py-4">
+            <i class="ph-bold ph-chart-line-up text-xl"></i> REPORT CARICHI
+        </button>
+    </div>
+
+    <!-- ============ MODAL: CLOUD ============ -->
+    <div id="cloud-modal" class="fixed inset-0 modal-overlay z-50 hidden flex-col justify-center p-4">
+        <div class="modal-card w-full max-w-sm mx-auto p-6">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-extrabold flex items-center gap-2"><i class="ph-bold ph-cloud-arrow-up brand-text"></i> Cloud Sync</h3>
+                <button onclick="closeModal('cloud-modal')" class="text-dim hover:text-app"><i class="ph ph-x text-xl"></i></button>
+            </div>
+            <p class="text-xs text-muted mb-4 leading-relaxed">Inserisci una chiave segreta qualsiasi. Usando la stessa chiave su altri dispositivi sincronizzerai tutti i dati al volo.</p>
+            <input type="text" id="cloud-sync-key" class="field mb-4 text-center font-mono" placeholder="es. dario-secret-2026">
+            <button onclick="saveCloudKey()" class="btn btn-primary w-full">CONNETTI E SINCRONIZZA</button>
+            <div id="cloud-warning" class="text-[11px] text-yellow-500 mt-3 text-center hidden">Supabase non configurato. Funzionamento solo locale.</div>
         </div>
-        <div class="week-track" id="week-track"></div>
-      </div>
+    </div>
 
-      <div class="day-chips" id="day-chips" role="tablist" aria-label="Giorni"></div>
-      <div id="day-content"></div>
-    </main>
+    <!-- ============ MODAL: TEMI ============ -->
+    <div id="theme-modal" class="fixed inset-0 modal-overlay z-50 hidden flex-col justify-center p-4">
+        <div class="modal-card w-full max-w-sm mx-auto p-6">
+            <div class="flex justify-between items-center mb-5">
+                <h3 class="text-lg font-extrabold flex items-center gap-2"><i class="ph-bold ph-palette brand-text"></i> Stile App</h3>
+                <button onclick="closeModal('theme-modal')" class="text-dim hover:text-app"><i class="ph ph-x text-xl"></i></button>
+            </div>
 
-    <!-- ============ VISTA: STORICO ============ -->
-    <main id="view-storico" class="view" aria-label="Storico">
-      <div id="storico-content"></div>
-    </main>
+            <!-- Mode (chiaro / scuro) -->
+            <label class="block text-xs font-bold text-dim uppercase tracking-wider mb-2">Modalità</label>
+            <div class="flex gap-2 mb-5">
+                <button data-mode-btn="dark" onclick="setMode('dark')" class="theme-mode-btn">
+                    <i class="ph-bold ph-moon"></i> Scuro
+                </button>
+                <button data-mode-btn="light" onclick="setMode('light')" class="theme-mode-btn">
+                    <i class="ph-bold ph-sun"></i> Chiaro
+                </button>
+            </div>
 
-    <!-- ============ VISTA: PESO ============ -->
-    <main id="view-peso" class="view" aria-label="Peso corporeo">
-      <div id="peso-content"></div>
-    </main>
+            <!-- Colori accent -->
+            <label class="block text-xs font-bold text-dim uppercase tracking-wider mb-2">Colore</label>
+            <div class="grid grid-cols-4 gap-3">
+                <button data-color-swatch="red"    onclick="setTheme('red')"    class="theme-swatch" style="background: #ef4444;"></button>
+                <button data-color-swatch="blue"   onclick="setTheme('blue')"   class="theme-swatch" style="background: #3b82f6;"></button>
+                <button data-color-swatch="green"  onclick="setTheme('green')"  class="theme-swatch" style="background: #22c55e;"></button>
+                <button data-color-swatch="yellow" onclick="setTheme('yellow')" class="theme-swatch" style="background: #eab308;"></button>
+                <button data-color-swatch="purple" onclick="setTheme('purple')" class="theme-swatch" style="background: #a855f7;"></button>
+                <button data-color-swatch="orange" onclick="setTheme('orange')" class="theme-swatch" style="background: #f97316;"></button>
+                <button data-color-swatch="pink"   onclick="setTheme('pink')"   class="theme-swatch" style="background: #ec4899;"></button>
+                <button data-color-swatch="cyan"   onclick="setTheme('cyan')"   class="theme-swatch" style="background: #06b6d4;"></button>
+            </div>
+        </div>
+    </div>
 
-    <!-- ============ VISTA: ALTRO ============ -->
-    <main id="view-altro" class="view" aria-label="Altro">
-      <div id="altro-content"></div>
-    </main>
+    <!-- ============ MODAL: PESO CORPOREO ============ -->
+    <div id="weight-modal" class="fixed inset-0 modal-overlay z-50 hidden flex-col justify-center p-4">
+        <div class="modal-card w-full max-w-md mx-auto p-6">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-extrabold flex items-center gap-2"><i class="ph-bold ph-scales brand-text"></i> Peso Corporeo</h3>
+                <button onclick="closeModal('weight-modal')" class="text-dim hover:text-app"><i class="ph ph-x text-xl"></i></button>
+            </div>
 
-    <!-- Tabbar -->
-    <nav class="tabbar" id="tabbar">
-      <button class="tab active" data-view="scheda" onclick="switchTab('scheda')">
-        <svg viewBox="0 0 24 24"><rect x="3" y="9" width="2.4" height="6" rx="1.2" fill="currentColor"/><rect x="7.5" y="6" width="3" height="12" rx="1.4" fill="currentColor"/><rect x="13.5" y="4" width="4.4" height="16" rx="2" fill="currentColor"/><rect x="19.5" y="6" width="3" height="12" rx="1.4" fill="currentColor"/></svg>
-        <span>Scheda</span>
-      </button>
-      <button class="tab" data-view="storico" onclick="switchTab('storico')">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/><path d="M12 7v5l3.5 2"/></svg>
-        <span>Storico</span>
-      </button>
-      <button class="tab" data-view="peso" onclick="switchTab('peso')">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l5-6 4 3 6-8"/><path d="M14 6h4v4"/><path d="M3 21h18"/></svg>
-        <span>Peso</span>
-      </button>
-      <button class="tab" data-view="altro" onclick="switchTab('altro')">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/><circle cx="9" cy="7" r="2.2" fill="var(--bg0)"/><circle cx="15" cy="12" r="2.2" fill="var(--bg0)"/><circle cx="7" cy="17" r="2.2" fill="var(--bg0)"/></svg>
-        <span>Altro</span>
-      </button>
-    </nav>
-  </div>
+            <label class="block text-xs font-bold text-dim uppercase tracking-wider mb-2">Peso settimana <span id="weight-week-label">1</span></label>
+            <div class="flex gap-2 mb-4">
+                <input type="number" step="0.1" inputmode="decimal" id="weight-input" class="field text-center font-bold text-lg" placeholder="0.0">
+                <button onclick="saveWeight()" class="btn btn-primary">Salva</button>
+            </div>
 
-  <!-- ============ SHEET: DETTAGLIO ESERCIZIO ============ -->
-  <div class="sheet-backdrop" id="sheet-ex-backdrop" onclick="closeSheet('sheet-ex')"></div>
-  <section class="sheet" id="sheet-ex" role="dialog" aria-modal="true"></section>
+            <div class="bg-surface-2 border border-app rounded-2xl p-4">
+                <div class="text-xs font-bold text-dim uppercase tracking-wider mb-3">Trend 6 settimane</div>
+                <div style="height: 180px;">
+                    <canvas id="weight-chart"></canvas>
+                </div>
+            </div>
 
-  <!-- ============ SHEET: PROFILI ============ -->
-  <div class="sheet-backdrop" id="sheet-profile-backdrop" onclick="closeSheet('sheet-profile')"></div>
-  <section class="sheet" id="sheet-profile" role="dialog" aria-modal="true"></section>
+            <p class="text-xs text-muted mt-3 leading-relaxed">Inserisci il peso per ogni settimana per visualizzare l'andamento. Lo troverai sempre aggiornato nella barra in alto.</p>
+        </div>
+    </div>
 
-  <!-- ============ MODALE GENERICA ============ -->
-  <div class="modal" id="modal-root">
-    <div class="modal-backdrop" onclick="closeModal()"></div>
-    <div class="modal-card" id="modal-card"></div>
-  </div>
+    <!-- ============ MODAL: ADD USER ============ -->
+    <div id="add-user-modal" class="fixed inset-0 modal-overlay z-50 hidden flex-col justify-center p-4">
+        <div class="modal-card w-full max-w-md mx-auto p-6">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-extrabold">Nuovo Profilo</h3>
+                <button onclick="closeModal('add-user-modal')" class="text-dim hover:text-app"><i class="ph ph-x text-xl"></i></button>
+            </div>
+            <input type="text" id="new-user-name" class="field mb-4" placeholder="Nome della persona...">
+            <button onclick="saveUser()" class="btn btn-primary w-full">Crea Profilo</button>
+        </div>
+    </div>
 
-  <!-- ============ SESSION PLAYER ============ -->
-  <div class="session" id="session" hidden></div>
+    <!-- ============ MODAL: EDIT USER ============ -->
+    <div id="edit-user-modal" class="fixed inset-0 modal-overlay z-50 hidden flex-col justify-center p-4">
+        <div class="modal-card w-full max-w-md mx-auto p-6">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-extrabold">Gestisci Profilo</h3>
+                <button onclick="closeModal('edit-user-modal')" class="text-dim hover:text-app"><i class="ph ph-x text-xl"></i></button>
+            </div>
+            <label class="block text-xs font-bold text-dim uppercase tracking-wider mb-2">Rinomina</label>
+            <input type="text" id="edit-user-name" class="field mb-6">
+            <div class="flex gap-3">
+                <button onclick="deleteUser()" class="btn btn-danger flex-1">Elimina Profilo</button>
+                <button onclick="updateUser()" class="btn btn-primary flex-1">Salva</button>
+            </div>
+        </div>
+    </div>
 
-  <!-- ============ TOAST ============ -->
-  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    <!-- ============ MODAL: ADD DAY ============ -->
+    <div id="add-day-modal" class="fixed inset-0 modal-overlay z-50 hidden flex-col justify-center p-4">
+        <div class="modal-card w-full max-w-md mx-auto p-6">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-extrabold">Nuovo Giorno</h3>
+                <button onclick="closeModal('add-day-modal')" class="text-dim hover:text-app"><i class="ph ph-x text-xl"></i></button>
+            </div>
+            <input type="text" id="new-day-name" class="field mb-4" placeholder="es. Giorno 5 - Gambe">
+            <button onclick="saveDay()" class="btn btn-primary w-full">Aggiungi Giorno</button>
+        </div>
+    </div>
 
-  <!-- ============ BANNER INSTALLAZIONE ============ -->
-  <div class="install-tip" id="install-tip" hidden></div>
+    <!-- ============ MODAL: BULK ADD ============ -->
+    <div id="bulk-add-modal" class="fixed inset-0 modal-overlay z-50 hidden flex-col justify-center p-4">
+        <div class="modal-card w-full max-w-md mx-auto p-6">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-extrabold flex items-center gap-2"><i class="ph ph-lightning brand-text"></i> Aggiunta Rapida</h3>
+                <button onclick="closeModal('bulk-add-modal')" class="text-dim hover:text-app"><i class="ph ph-x text-xl"></i></button>
+            </div>
+            <p class="text-xs text-muted mb-3 leading-relaxed">Una riga per ogni esercizio. Usa il trattino per separare nome e target. Il <code>+</code> funziona sempre: <code>3x10 + 3x15</code> = due input, <code>3x10+10</code> = un solo input (reps alternate).</p>
+            <textarea id="bulk-text" rows="7" class="field !font-mono !text-sm mb-4" placeholder="Panca piana - 4x8&#10;Croci - 3x12 + 1x15&#10;Leg curl alternato - 3x10+10&#10;..."></textarea>
+            <button onclick="saveBulkExercises()" class="btn btn-primary w-full">Carica Lista</button>
+        </div>
+    </div>
 
-  <!-- Scripts -->
-  <script src="js/data.js" defer></script>
-  <script src="js/charts.js" defer></script>
-  <script src="js/ui.js" defer></script>
-  <script src="js/views.js" defer></script>
-  <script src="js/session.js" defer></script>
-  <script src="js/pwa.js" defer></script>
+    <!-- ============ MODAL: SINGLE ADD ============ -->
+    <div id="single-add-modal" class="fixed inset-0 modal-overlay z-50 hidden flex-col justify-center p-4">
+        <div class="modal-card w-full max-w-md mx-auto p-6">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-extrabold">Aggiungi Esercizio</h3>
+                <button onclick="closeModal('single-add-modal')" class="text-dim hover:text-app"><i class="ph ph-x text-xl"></i></button>
+            </div>
+            <label class="block text-xs font-bold text-dim uppercase tracking-wider mb-2">Nome</label>
+            <input type="text" id="single-ex-name" class="field mb-3" placeholder="Nome esercizio">
+            <label class="block text-xs font-bold text-dim uppercase tracking-wider mb-2">Target</label>
+            <input type="text" id="single-ex-target" class="field mb-4" placeholder="es. 2x8 + 1x10  oppure  3x10+10">
+            <button onclick="saveSingleExercise()" class="btn btn-primary w-full">Aggiungi</button>
+        </div>
+    </div>
+
+    <!-- ============ MODAL: EDIT EXERCISE ============ -->
+    <div id="edit-ex-modal" class="fixed inset-0 modal-overlay z-50 hidden flex-col justify-center p-4">
+        <div class="modal-card w-full max-w-md mx-auto p-6">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-extrabold flex items-center gap-2"><i class="ph-bold ph-pencil-simple brand-text"></i> Modifica Esercizio</h3>
+                <button onclick="closeModal('edit-ex-modal')" class="text-dim hover:text-app"><i class="ph ph-x text-xl"></i></button>
+            </div>
+            <label class="block text-xs font-bold text-dim uppercase tracking-wider mb-2">Nome</label>
+            <input type="text" id="edit-ex-name" class="field mb-3">
+            <label class="block text-xs font-bold text-dim uppercase tracking-wider mb-2">Target (settimana <span id="edit-ex-week-label">1</span>)</label>
+            <input type="text" id="edit-ex-target" class="field mb-3" placeholder="es. 3x10 + 1x15  oppure  3x10+10">
+            <label class="flex items-center gap-2 text-xs text-muted mb-4 cursor-pointer">
+                <input type="checkbox" id="edit-ex-apply-all" class="w-4 h-4 accent-red-500">
+                Applica a tutte le 6 settimane (sovrascrive)
+            </label>
+            <button onclick="saveEditEx()" class="btn btn-primary w-full">Salva</button>
+        </div>
+    </div>
+
+    <!-- ============ MODAL: EXPORT REPORT ============ -->
+    <div id="export-modal" class="fixed inset-0 modal-overlay z-50 hidden flex-col justify-center p-4">
+        <div class="modal-card w-full max-w-md mx-auto p-6 flex flex-col max-h-[85vh]">
+            <div class="flex justify-between items-center mb-4 flex-shrink-0">
+                <h3 class="text-lg font-extrabold flex items-center gap-2"><i class="ph-bold ph-chart-line-up brand-text"></i> Trend Carichi</h3>
+                <button onclick="closeModal('export-modal')" class="text-dim hover:text-app"><i class="ph ph-x text-xl"></i></button>
+            </div>
+            <div class="relative mb-4 flex-shrink-0">
+                <select id="export-day-selector" onchange="generateReport()" class="field appearance-none font-bold pr-10 cursor-pointer"></select>
+                <i class="ph-bold ph-caret-down absolute right-4 top-1/2 -translate-y-1/2 text-dim pointer-events-none"></i>
+            </div>
+            <div id="export-preview" class="scroll-area flex-1 bg-surface-2 border border-app rounded-xl p-4 text-xs font-mono text-muted mb-4 whitespace-pre-wrap"></div>
+            <button id="copy-export-btn" onclick="copyExport()" class="btn btn-primary w-full flex-shrink-0">
+                <i class="ph-bold ph-copy"></i> Copia Markdown
+            </button>
+            <button onclick="downloadPDF()" class="btn btn-outline w-full flex-shrink-0 mt-2">
+                <i class="ph-bold ph-file-pdf"></i> Scarica PDF
+            </button>
+        </div>
+    </div>
+
+    <!-- ============ SCRIPT LOCALE ============ -->
+    <script src="app.js"></script>
+    <script src="pdfexp.js"></script>
+
+
+    <script>
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('sw.js')
+                .then(() => console.log('Service Worker registrato! L\'app funziona offline.'))
+                .catch(err => console.error('Errore Service Worker:', err));
+        }
+    </script>
 </body>
 </html>

@@ -1,105 +1,60 @@
-# Avanguard Workout 2.0 — FERRO edition
+# 🏋️‍♂️ Avanguard WorkOut
 
-La tua scheda palestra, ma come una vera app: **offline**, **installabile sul telefono**, con un'interfaccia completamente ridisegnata.
+[![Live Demo](https://img.shields.io/badge/Live-Demo-brightgreen.svg?style=for-the-badge)](https://dari0-cpu.github.io/AvanguardWorkOut/index.html)
+[![Supabase](https://img.shields.io/badge/Supabase-Database-3ECF8E?style=for-the-badge&logo=supabase)](https://supabase.com)
 
----
+**Avanguard WorkOut** è un'applicazione web moderna e intuitiva progettata per chi si allena seriamente. Ti permette di gestire le tue schede di allenamento, tracciare i carichi, monitorare il peso corporeo e condividere i dati tra più dispositivi. 
 
-## 🚀 Come pubblicarla su GitHub (2 minuti)
-
-1. Vai sul tuo repo `Dari0-cpu/AvanguardWorkOut`
-2. **Add file → Upload files** (o crea la cartella da terminale)
-3. Carica **tutto il contenuto di questa cartella** dentro una nuova cartella `ver2.0`
-   *(su GitHub: crea il file `ver2.0/.gitkeep` prima, oppure carica i file trascinandoli dentro la cartella appena creata)*
-4. Commit → done
-
-L'app sarà raggiungibile qui:
-
-```
-https://dari0-cpu.github.io/AvanguardWorkOut/ver2.0/
-```
-
-GitHub Pages è già attivo sul tuo repo (la v1 funziona), quindi **non serve configurare nient'altro**: la v2.0 appare da sola accanto alla v1.
-
-> ⚠️ Se Pages non fosse attivo: *Settings → Pages → Source: Deploy from a branch → branch `main`, folder `/ (root)` → Save.*
+Tutto è collegato a un database cloud **Supabase** per garantire che i tuoi massimali e le tue progressioni non vadano mai persi.
 
 ---
 
-## 📲 Come installarla sul telefono (PWA)
+## ✨ Caratteristiche Principali
 
-**Android** — apri il link in Chrome:
-- compare il banner **«Avanguard sul telefono»** → premi *Installa*
-- oppure menu ⋮ → *Installa app*
+- 👥 **Gestione Multi-Utente:** Crea e gestisci diversi profili all'interno della stessa app. Ideale se ti alleni con un partner e volete usare un solo dispositivo.
+- ☁️ **Cloud Sync & Storage:** Usa una chiave segreta per sincronizzare istantaneamente i tuoi dati su qualsiasi dispositivo (PC, tablet, smartphone) tramite Supabase. 
+- ⚡ **Aggiunta Rapida (Smart Input):** Niente più menu infiniti. Inserisci gli esercizi al volo! Il sistema interpreta automaticamente le tue note (es. `3x10 + 3x15` o `3x10+10` per le drop-set).
+- 📈 **Trend dei Carichi & Peso Corporeo:** Tieni d'occhio l'andamento dei tuoi progressi nelle ultime 6 settimane attraverso grafici dinamici.
+- 🎨 **Interfaccia Personalizzabile:** Scegli tra diversi temi visivi ("Stile App") per adattare l'interfaccia ai tuoi gusti.
+- 📱 **Mobile Ready:** Design completamente responsivo, pensato per essere usato comodamente sotto il rack o sulla panca.
 
-**iPhone** — apri il link in Safari:
-- pulsante **Condividi** (quadrato con freccia) → **Aggiungi a Home** → *Aggiungi*
-- (c'è anche una guida guidata dentro l'app, in Altro → Installa l'app)
+## 🚀 Live Demo
 
-Da quel momento si apre a schermo intero come un'app normale e **funziona anche in aereo**, senza rete.
-
----
-
-## 🧠 Da dove arrivano i tuoi dati
-
-- **Stesso browser della v1?** I dati della vecchia app vengono **importati automaticamente** alla prima apertura (stesso dominio = stesso archivio locale).
-- **Altro dispositivo / altro browser?** Due strade:
-  1. *Altro → Dati → Sync cloud*: inserisci la tua solita chiave segreta e premi **Scarica** (usa lo stesso database Supabase della v1)
-  2. *Altro → Dati → Esporta/Importa backup* (file JSON)
-
-I dati vivono nel **localStorage del telefono**: l'app non richiede mai la rete, il cloud è opzionale.
+Puoi provare l'applicazione direttamente online senza dover scaricare o installare nulla.
+👉 **[Apri Avanguard WorkOut](https://dari0-cpu.github.io/AvanguardWorkOut/index.html)**
 
 ---
 
-## 🏋️ Cosa c'è dentro
+## 🛠️ Tecnologie Utilizzate
 
-| Vista | Cosa fa |
-|---|---|
-| **Scheda** | Si apre direttamente qui. Giorni, esercizi, target, carichi per settimana (1–6), delta vs settimana scorsa, piastre da caricare |
-| **Storico** | Sessioni registrate, progressione carichi per esercizio, record, report markdown copia-incolla |
-| **Peso** | Peso corporeo nel tempo: grafico, min/media/max, registrazione al volo |
-| **Altro** | Profili, peso bilanciere, recupero, backup, sync cloud, installazione |
+- **Frontend:** HTML5, CSS3, JavaScript Vanilla
+- **Backend / Database:** [Supabase](https://supabase.com/) (PostgreSQL) per la sincronizzazione cloud
+- **Hosting:** GitHub Pages
+- **Data Viz:** Integrazione su canvas per i grafici di progressione
 
-**Extra rispetto alla v1:**
+## ⚙️ Come funziona il Cloud Sync?
 
-- 🎬 **Modalità allenamento** — «Inizia allenamento» ti guida esercizio per esercizio, serie per serie, con **timer di recupero** automatico (beep + vibrazione)
-- 🏆 **Record personali (PR)** — riconosciuti in automatico, con festeggiamento dedicato
-- 🧮 **Scomposizione piastre** — ti dice esattamente quali piastre montare per lato (25 rossa, 20 blu, 15 gialla, 10 verde, 5 bianca) — il codice colori ufficiale IWF
-- 💪 **1RM stimato** (formula di Epley) nel dettaglio di ogni esercizio
-- 📶 **Zero dipendenze esterne** — niente CDN, niente Tailwind, niente Chart.js: font, icone e grafici sono dentro l'app (offline al 100%)
-- 🔌 **Sync cloud opzionale** — compatibile con la chiave e il database della v1
+Non serve creare un account complesso. Il sistema utilizza un approccio rapido e frictionless:
+1. Apri la sezione **Cloud Sync**.
+2. Inserisci una **chiave segreta** (una parola d'ordine a tua scelta).
+3. Inserisci la stessa chiave sugli altri tuoi dispositivi.
+4. *Boom!* I profili, le schede e i carichi vengono sincronizzati al volo dal database Supabase.
 
----
+*(Nota: se non configuri Supabase o il Cloud Sync, l'app continuerà a funzionare perfettamente in modalità **locale**, salvando i dati nel tuo browser).*
 
-## 🎨 Il linguaggio visivo
+## 💡 Tip: Come usare l'Aggiunta Rapida
 
-Il design si chiama **FERRO**: grafite scura + colori delle piastre olimpioniche. I colori non sono decorazione, sono **semantica**:
+La funzione di *Aggiunta Rapida* è pensata per farti risparmiare tempo mentre ti alleni. Inserisci una riga per ogni esercizio seguendo questa sintassi:
+- Usa il trattino `-` per separare il nome dall'obiettivo.
+- Usa il `+` per unire set diversi o tecniche di intensità.
 
-- 🔴 rosso piastra da 25 — azioni, attenzione
-- 🔵 blu piastra da 20 — installazione, info
-- 🟡 giallo piastra da 15 — record personali
-- 🟢 verde piastra da 10 — progressi, completati
-
-Tipografia: **Archivo Black** per i numeri (i carichi sono i protagonisti), **Barlow Semi Condensed** per tutto il resto.
+**Esempi pratici:**
+- `Panca Piana - 4x8` ➔ Crea 4 serie da 8 rep.
+- `Squat - 3x10 + 3x15` ➔ Crea 3 serie da 10 rep e 3 serie da 15 rep.
+- `Curl Bicipiti - 3x10+10` ➔ Perfetto per i drop set (un solo input con reps alternate).
 
 ---
 
-## 📁 Struttura file
+## 👨‍💻 Autore
 
-```
-ver2.0/
-├── index.html            # shell dell'app
-├── manifest.webmanifest  # definizione PWA
-├── sw.js                 # service worker (cache offline)
-├── favicon.svg
-├── css/styles.css        # design system FERRO
-├── js/
-│   ├── data.js           # storage, migrazione v1, piastre, sync
-│   ├── charts.js         # grafici SVG (peso, bilanciere)
-│   ├── ui.js             # scheda, sheet esercizio, profili
-│   ├── views.js          # storico, peso, altro
-│   ├── session.js        # player allenamento + timer
-│   └── pwa.js            # installazione, offline
-├── fonts/                # Archivo Black + Barlow (self-hosted)
-└── icons/                # icone PWA (bilanciere IWF)
-```
-
-Buon ferro. 🏋️
+Sviluppato da **[Dari0-cpu](https://github.com/Dari0-cpu)**.
