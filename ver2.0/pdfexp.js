@@ -10,21 +10,29 @@ function downloadPDF() {
 
     const themeColor = THEMES[appState.theme] ? THEMES[appState.theme][500] : '#ef4444';
 
-    // Iniziamo a costruire la stringa HTML
+    // 1. Creiamo un contenitore fisico e gli diamo una larghezza fissa fissa da PC
+    const container = document.createElement('div');
+    container.style.width = '800px';
+    container.style.padding = '30px';
+    container.style.backgroundColor = '#ffffff';
+    container.style.fontFamily = "'Inter', sans-serif";
+    container.style.color = '#18181b';
+    container.style.boxSizing = 'border-box';
+
     let html = `
-        <div style="padding: 30px; font-family: 'Inter', sans-serif; color: #18181b; background: #ffffff; width: 800px; box-sizing: border-box;">
-            <div style="text-align: center; margin-bottom: 40px;">
-                <h1 style="color: ${themeColor}; margin: 0; font-size: 32px; font-weight: 900; text-transform: uppercase;">AVANGUARD WORKOUT</h1>
-                <h2 style="margin: 8px 0; font-size: 22px; color: #52525b; font-weight: 800;">Report Carichi: ${escapeHtml(day.name)}</h2>
-                <div style="display: inline-block; background: #f3f4f6; padding: 8px 18px; border-radius: 99px; margin-top: 10px;">
-                    <span style="color: #71717a; font-size: 14px;">Atleta: <strong style="color: #18181b;">${escapeHtml(currentUser.name)}</strong> &nbsp;•&nbsp; Settimana: <strong style="color: #18181b;">S${appState.week}</strong></span>
-                </div>
+        <div style="text-align: center; margin-bottom: 30px;">
+            <h1 style="color: ${themeColor}; margin: 0; font-size: 32px; font-weight: 900; text-transform: uppercase;">AVANGUARD WORKOUT</h1>
+            <h2 style="margin: 8px 0; font-size: 22px; color: #52525b; font-weight: 800;">Report Carichi: ${escapeHtml(day.name)}</h2>
+            <div style="display: inline-block; background: #f3f4f6; padding: 8px 18px; border-radius: 99px; margin-top: 10px;">
+                <span style="color: #71717a; font-size: 14px;">Atleta: <strong style="color: #18181b;">${escapeHtml(currentUser.name)}</strong> &nbsp;•&nbsp; Settimana: <strong style="color: #18181b;">S${appState.week}</strong></span>
             </div>
+        </div>
     `;
 
     day.exercises.forEach(ex => {
+        // NOTA: "page-break-inside: avoid" è la magia che impedisce di tagliare l'esercizio a metà tra due pagine
         html += `
-            <div style="margin-bottom: 24px; border: 1px solid #e4e4e7; border-radius: 16px; padding: 20px; background: #fafafa;">
+            <div style="page-break-inside: avoid; margin-bottom: 24px; border: 1px solid #e4e4e7; border-radius: 8px; padding: 10px; background: #fafafa;">
                 <h3 style="margin-top: 0; margin-bottom: 16px; color: ${themeColor}; font-size: 18px; border-bottom: 2px solid ${themeColor}30; padding-bottom: 10px;">${escapeHtml(ex.name)}</h3>
                 
                 <table style="width: 100%; border-collapse: collapse; table-layout: fixed;">
@@ -71,7 +79,6 @@ function downloadPDF() {
         html += `
                     </tr>
                 </table>
-                
                 <div style="margin-top: 16px; font-size: 14px; text-align: right; font-weight: 700;">
                     Trend di Progressione: ${trendHtml}
                 </div>
@@ -80,24 +87,36 @@ function downloadPDF() {
     });
 
     html += `
-            <div style="text-align: center; margin-top: 40px; font-size: 12px; font-weight: 700; color: #a1a1aa;">
-                Generato automaticamente da Avanguard WorkOut
-            </div>
+        <div style="text-align: center; margin-top: 20px; font-size: 12px; font-weight: 700; color: #a1a1aa; page-break-inside: avoid;">
+            Generato automaticamente 
         </div>
     `;
 
+    container.innerHTML = html;
+
+    // 2. Creiamo un wrapper che non altera il layout ma non fa vedere nulla a schermo
+    const wrapper = document.createElement('div');
+    wrapper.style.height = '0';
+    wrapper.style.overflow = 'hidden';
+    wrapper.appendChild(container);
+    document.body.appendChild(wrapper);
+
+    // 3. Opzioni di html2pdf
     const opt = {
-        margin:       10,
+        margin:       5,
         filename:     `Avanguard_${day.name.replace(/\s+/g, '_')}.pdf`,
         image:        { type: 'jpeg', quality: 0.98 },
         html2canvas:  {
             scale: 2,
             useCORS: true,
-            windowWidth: 800 // Questa regola forza la generazione come se fossi su un monitor da PC
+            scrollY: 0 // RISOLVE LA PAGINA BIANCA (ignora lo scroll utente)
         },
-        jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+        jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' },
+        pagebreak:    { mode: ['avoid-all', 'css', 'legacy'] } // RISOLVE L'ESERCIZIO TAGLIATO A METÀ
     };
 
-    // Usiamo direttamente '.from(html)', niente 'document.appendChild', quindi niente foglio bianco!
-    html2pdf().set(opt).from(html).save();
+    // 4. Generazione
+    html2pdf().set(opt).from(container).save().then(() => {
+        document.body.removeChild(wrapper); // Pulizia a fine download
+    });
 }
