@@ -9,10 +9,10 @@
 ## 📱 Screenshots
 
 <p align="center">
-  <img src="./1.jpeg" width="22%" alt="Schermata Principale Allenamento">
-  <img src="./2.jpeg" width="22%" alt="Grafico Peso Corporeo">
-  <img src="./3.jpeg" width="22%" alt="Cloud Sync Supabase">
-  <img src="./4.jpeg" width="22%" alt="Personalizzazione Tema">
+  <img src="./assets/1.jpeg" width="22%" alt="Schermata Principale Allenamento">
+  <img src="./assets/2.jpeg" width="22%" alt="Grafico Peso Corporeo">
+  <img src="./assets/3.jpeg" width="22%" alt="Cloud Sync Supabase">
+  <img src="./assets/4.jpeg" width="22%" alt="Personalizzazione Tema">
 </p>
 
 ## ✨ Caratteristiche Principali
