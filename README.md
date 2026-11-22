@@ -1,61 +1,139 @@
-# 🏋️‍♂️ Avanguard WorkOut
+<div align="center">
+  <img src="ver2.0/logo.png" alt="Avanguard WorkOut Logo" width="88" height="88" />
+  <h1>AVANGUARD WORKOUT</h1>
+  <p><strong>PWA offline-first per tracciare allenamenti, carichi, recuperi e peso corporeo — con sync cloud protetto da RLS.</strong></p>
 
-[![Live Demo](https://img.shields.io/badge/Live-Demo-brightgreen.svg?style=for-the-badge)](https://dari0-cpu.github.io/AvanguardWorkOut/index.html)
-[![Supabase](https://img.shields.io/badge/Supabase-Database-3ECF8E?style=for-the-badge&logo=supabase)](https://supabase.com)
-[![PWA](https://img.shields.io/badge/PWA-Ready-5A0FC8?style=for-the-badge&logo=pwa)](https://developer.mozilla.org/en-US/docs/Web/Progressive_web_apps)
-
-**Avanguard WorkOut** è un'applicazione web moderna (PWA) progettata per chi si allena seriamente. Permette di gestire le schede di allenamento, tracciare i carichi settimana per settimana, monitorare il peso corporeo e sincronizzare i dati su più dispositivi in tempo reale.
-
-## 📱 Screenshots
-
-<p align="center">
-  <img src="./assets/1.jpeg" width="22%" alt="Schermata Principale Allenamento">
-  <img src="./assets/2.jpeg" width="22%" alt="Grafico Peso Corporeo">
-  <img src="./assets/3.jpeg" width="22%" alt="Cloud Sync Supabase">
-  <img src="./assets/4.jpeg" width="22%" alt="Personalizzazione Tema">
-</p>
-
-## ✨ Caratteristiche Principali
-
-- 📝 **Tracciamento Avanzato dei Carichi:** Gestisci le tue schede con progressioni su 6 settimane. L'app ti suggerisce automaticamente quando è il momento di aumentare il carico[cite: 18].
-- 📈 **Monitoraggio Peso Corporeo:** Tieni d'occhio i tuoi progressi fisici attraverso un grafico interattivo che mostra il trend del tuo peso nelle ultime 6 settimane[cite: 16].
-- ☁️ **Cloud Sync Istantaneo:** Sincronizza i tuoi dati "al volo" su tutti i tuoi dispositivi (PC, tablet, smartphone) semplicemente inserendo una chiave segreta personalizzata[cite: 19].
-- 🎨 **Altamente Personalizzabile:** Scegli tra la modalità chiara o scura e seleziona il tuo colore preferito (accent color) tra 8 varianti disponibili per adattare l'app al tuo stile[cite: 17].
-- 👥 **Profili Multipli:** Supporta la gestione di più utenti sullo stesso dispositivo[cite: 18].
-- 📄 **Esportazione PDF & Markdown:** Genera report visivi eleganti dei tuoi progressi da condividere con il tuo coach o sui social, oppure esportali in formato testuale.
-- 📶 **Funzionamento Offline (PWA):** L'app può essere installata sulla home del telefono e continua a funzionare perfettamente anche in palestra quando non c'è campo, salvando i dati in locale per poi sincronizzarli successivamente.
-
-## 🛠️ Tecnologie Utilizzate
-
-- **Frontend:** HTML5, CSS3, JavaScript (Vanilla)
-- **Styling:** Tailwind CSS (tramite CDN) per un design pulito e responsive
-- **Backend / Database:** Supabase (PostgreSQL) per il Cloud Sync
-- **Grafici:** Chart.js per la visualizzazione dei trend
-- **Esportazione:** html2pdf.js per la generazione dei report
-- **Architettura:** Progressive Web App (PWA) con Service Worker personalizzato
-
-## ⚙️ Come funziona il Cloud Sync?
-
-Non serve registrare nessun account o usare password complesse. Il sistema utilizza un approccio rapido:
-1. Apri la sezione **Cloud Sync** dall'icona a forma di nuvola in alto a destra.
-2. Inserisci una **chiave segreta** (es. `mio-nome-2026`)[cite: 19].
-3. Inserisci la stessa chiave sugli altri tuoi dispositivi.
-4. I profili, le schede e i carichi verranno sincronizzati immediatamente dal database.
-
-*(Nota: se preferisci non usare il Cloud Sync, l'app funziona perfettamente in modalità locale, salvando tutti i progressi direttamente nella memoria del tuo browser).*
-
-## 💡 Aggiunta Rapida (Smart Input)
-
-Per farti risparmiare tempo mentre ti alleni, puoi incollare intere liste di esercizi in una volta sola.
-Usa il trattino `-` per separare il nome dall'obiettivo e il `+` per unire set o indicare tecniche di intensità.
-
-**Esempi:**
-- `Panca Piana - 4x8` ➔ Crea 4 serie da 8 rep.
-- `Squat - 3x10 + 3x15` ➔ Crea 3 serie da 10 rep e 3 serie da 15 rep.
-- `Curl Bicipiti - 3x10+10` ➔ Drop set (reps alternate in un singolo input).
+  <p>
+    <a href="https://avanguardworkout-git-main-dari0-cpus-projects.vercel.app/">
+      <img src="https://img.shields.io/badge/Live-Vercel-000000?style=for-the-badge&logo=vercel&logoColor=white" alt="Live App" />
+    </a>
+    <a href="https://supabase.com/">
+      <img src="https://img.shields.io/badge/Supabase-PostgreSQL%20%2B%20RLS-3ECF8E?style=for-the-badge&logo=supabase&logoColor=white" alt="Supabase" />
+    </a>
+    <a href="#architettura-e-sicurezza">
+      <img src="https://img.shields.io/badge/PWA-Offline%20Ready-f43f5e?style=for-the-badge&logo=pwa&logoColor=white" alt="PWA" />
+    </a>
+    <a href="#stack-tecnologico">
+      <img src="https://img.shields.io/badge/Frontend-Vanilla%20JS%20%2B%20SVG-f59e0b?style=for-the-badge&logo=javascript&logoColor=black" alt="Vanilla JS" />
+    </a>
+  </p>
+</div>
 
 ---
 
-## 👨‍💻 Autore
+## Anteprima
 
-Sviluppato da **[Dari0-cpu](https://github.com/Dari0-cpu)**.
+<div align="center">
+  <table>
+    <tr>
+      <td align="center">
+        <img src="assets/1.jpeg" width="230" alt="Scheda allenamento" /><br />
+        <sub><b>Scheda &amp; Tab Giorni</b></sub>
+      </td>
+      <td align="center">
+        <img src="assets/2.jpeg" width="230" alt="Timer recupero floating" /><br />
+        <sub><b>Timer Recupero per Blocco</b></sub>
+      </td>
+      <td align="center">
+        <img src="assets/3.jpeg" width="230" alt="Grafico peso corporeo SVG" /><br />
+        <sub><b>Peso Corporeo &amp; Traguardo</b></sub>
+      </td>
+    </tr>
+    <tr>
+      <td align="center">
+        <img src="assets/4.jpeg" width="230" alt="Importazione scheda completa" /><br />
+        <sub><b>Import Scheda Multi-Giorno</b></sub>
+      </td>
+      <td align="center">
+        <img src="assets/5.jpeg" width="230" alt="Report PDF vettoriale" /><br />
+        <sub><b>Report PDF Vettoriale</b></sub>
+      </td>
+      <td align="center">
+        <img src="assets/6.jpeg" width="230" alt="Temi e Impostazioni" /><br />
+        <sub><b>10 Temi, Light/Dark &amp; Cloud</b></sub>
+      </td>
+    </tr>
+  </table>
+</div>
+
+---
+
+## Funzionalità Principali
+
+* **Esperienza Mobile-First da App Nativa:** bottom navigation dock, tab scorrevoli dei giorni con **11 icone SVG muscolari** (auto-rilevate dal nome o personalizzabili), barra di avanzamento sessione e menu contestuali puliti.
+* **Esercizi Multi-Blocco & Timer Recupero Integrato:** gestisce blocchi con carichi e recuperi diversi nello stesso esercizio (es. `2x4 (3') + 1x6 (2')`) e distingue le reps alternate (`3x10+10`). Un tap sul recupero avvia il countdown floating con barra di progresso, pulsanti `±15s`, suono e vibrazione.
+* **Progressione su 6 Settimane & Riporto Carichi:** i carichi della settimana precedente vengono riportati automaticamente nella settimana successiva. Il flag *Aumenta Carico* evidenzia gli esercizi su cui spingere alla sessione dopo.
+* **Parser Intelligente "Incolla Scheda Intera":** incolli una scheda testuale completa e l'app riconosce automaticamente giorni, icone muscolari, blocchi e tempi di recupero, mostrando un'anteprima live prima dell'importazione.
+* **Grafico Peso Corporeo 100% SVG con Traguardo:** grafico vettoriale scritto da zero (senza librerie esterne), con **stella SVG dorata** sul peso obiettivo, calcolo automatico della distanza dal traguardo e **scala intelligente** con taglio asse (`≈`) per non schiacciare le variazioni settimanali quando l'obiettivo è lontano.
+* **Report Carichi & PDF Vettoriale (`jsPDF`):** esporta un singolo giorno o l'intera scheda in Markdown oppure in PDF A4 vettoriale multi-pagina con griglia `S1–S6`, target, recuperi e badge trend colorati.
+* **Multi-Profilo, 10 Temi & Backup JSON:** profili illimitati sullo stesso dispositivo, modalità Chiaro/Scuro, 10 palette colore (incluso *Titanium* monocromatico adattivo) ed export/ripristino locale in JSON.
+* **100% Offline-First:** tutte le icone e il grafico sono SVG inline, supportati da Service Worker con strategia *network-first* sugli asset locali.
+
+---
+
+## Sintassi Smart Input (Scheda Intera o Lista Rapida)
+
+Puoi scrivere o incollare la tua scheda in linguaggio naturale. Il parser estrae automaticamente giorni, serie, blocchi separati e recuperi:
+
+```text
+Giorno 1 - Petto e Bicipiti
+Panca piana - 2x4 (3') + 1x6 (2')
+Spinte manubri inclinata - 3x8 (2')
+Curl manubri alternato - 3x10+10 (1'30")
+
+Giorno 2 - Gambe
+Squat - 4x6 (3')
+Leg press - 3x10 (2')
+```
+
+| Sintassi | Interpretazione dell'App |
+| :--- | :--- |
+| `Panca piana - 2x4 (3') + 1x6 (2')` | 2 input carico separati (`2x4` con timer `3'` e `1x6` con timer `2'`) |
+| `Curl alternato - 3x10+10 (1'30")` | 1 solo input carico (reps alternate dx/sx) con timer `1'30"` |
+| `Giorno 3 - Dorso` | Crea il giorno e assegna automaticamente l'icona **Dorso** |
+
+---
+
+## Architettura e Sicurezza
+
+L'app salva istantaneamente in `localStorage` per lavorare anche senza rete in palestra e sincronizza in background con **Supabase PostgreSQL** attraverso una **Vercel Serverless Function** (`/api/sync`).
+
+```mermaid
+flowchart LR
+    PWA["Browser / PWA<br/>(localStorage + Service Worker)"]
+    API["Vercel Serverless<br/>/api/sync"]
+    DB[("Supabase PostgreSQL<br/>RLS Attivo · 0 Policy Pubbliche")]
+
+    PWA <-->|"HTTPS · Header x-sync-key<br/>(zero chiavi DB nel frontend)"| API
+    API <-->|"Secret Key lato server<br/>(Env Variables)"| DB
+```
+
+* **Zero segreti nel frontend:** nessuna chiave Supabase è esposta nel codice client.
+* **Database sigillato:** Row Level Security (RLS) abilitato su tutte le tabelle senza policy pubbliche; l'accesso al database passa esclusivamente dall'endpoint serverless autenticato via `SUPABASE_SERVICE_ROLE_KEY`.
+* **Sync frictionless:** sincronizzazione multi-dispositivo tramite chiave segreta scelta dall'utente, più backup/ripristino manuale in JSON.
+
+---
+
+## Stack Tecnologico
+
+* **Frontend:** HTML5, CSS3 (Design System con CSS Variables), Tailwind CSS, Vanilla JavaScript (ES6+)
+* **Grafica & Data Viz:** SVG inline nativo (icone UI, icone muscolari e grafico peso corporeo custom)
+* **Export PDF:** `jsPDF` (rendering vettoriale A4 multi-pagina)
+* **Backend & Sync:** Vercel Serverless Functions (Node.js `fetch` nativo, zero dipendenze npm)
+* **Database:** Supabase (PostgreSQL + Row Level Security)
+* **PWA:** Web App Manifest + Service Worker custom
+
+---
+<br>
+
+<p align="center">
+  <a href="https://avanguardworkout.vercel.app/">
+    <img src="https://capsule-render.vercel.app/api?type=cylinder&color=0:f43f5e,100:be123c&height=145&text=Apri%20Avanguard%20WorkOut%20%E2%86%92&fontSize=44&fontColor=ffffff&fontAlignY=53&animation=fadeIn" height="42" alt="Prova AvanguardWorkOut" />
+  </a>
+</p>
+
+
+
+<div align="center">
+  Sviluppato da <a href="https://github.com/Dari0-cpu"><b>Dari0-cpu</b></a>
+</div>
