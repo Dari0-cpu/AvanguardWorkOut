@@ -1,7 +1,6 @@
-// api/sync.js - Proxy sicuro verso Supabase (usa fetch nativo di Node su Vercel)
 module.exports = async (req, res) => {
-    const SUPABASE_URL = process.env.SUPABASE_URL;
-    const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    const SUPABASE_URL = (process.env.SUPABASE_URL || '').trim().replace(/\/+$/, '');
+    const SERVICE_KEY = (process.env.SUPABASE_SERVICE_ROLE_KEY || '').trim();
 
     if (!SUPABASE_URL || !SERVICE_KEY) {
         return res.status(500).json({ error: 'Variabili Supabase mancanti su Vercel' });
@@ -14,9 +13,12 @@ module.exports = async (req, res) => {
 
     const headers = {
         apikey: SERVICE_KEY,
-        Authorization: `Bearer ${SERVICE_KEY}`,
         'Content-Type': 'application/json',
     };
+    // Le nuove sb_secret_ non sono JWT: Bearer serve solo per chiavi legacy
+    if (!SERVICE_KEY.startsWith('sb_secret_')) {
+        headers.Authorization = `Bearer ${SERVICE_KEY}`;
+    }
 
     try {
         if (req.method === 'GET') {
