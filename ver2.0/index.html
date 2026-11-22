@@ -12,7 +12,6 @@
     <meta property="og:title" content="Avanguard Workout">
     <meta property="og:description" content="Traccia le tue progressioni, carichi, recuperi e peso corporeo.">
     <meta property="og:image" content="https://dari0-cpu.github.io/AvanguardWorkOut/logo.png">
-    <meta property="og:url" content="https://dari0-cpu.github.io/AvanguardWorkOut/index.html">
     <meta property="og:type" content="website">
     <meta name="twitter:card" content="summary_large_image">
 
@@ -20,10 +19,10 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script>tailwind.config = { darkMode: 'class' };</script>
 
-    <!-- Chart.js -->
+    <!-- Chart.js (Grafico peso corporeo) -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 
-    <!-- jsPDF (PDF vettoriale nitido) -->
+    <!-- jsPDF (Export PDF vettoriale) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
     <!-- Font Inter -->
@@ -34,58 +33,25 @@
     <!-- Stili locali -->
     <link rel="stylesheet" href="styles.css">
 </head>
-<body class="antialiased pb-32">
+<body class="antialiased pb-28">
 
-    <!-- ============ HEADER FISSO ============ -->
-    <header class="fixed top-0 left-0 right-0 glass-header z-40 px-4 py-3">
-        <div class="max-w-3xl mx-auto flex flex-col gap-2.5">
+    <!-- ============ HEADER COMPATTO ============ -->
+    <header class="fixed top-0 left-0 right-0 glass-header z-40 px-4 py-2.5">
+        <div class="max-w-2xl mx-auto flex items-center justify-between gap-3">
 
-            <!-- Riga 1: Brand + Azioni rapide -->
-            <div class="flex justify-between items-center">
-                <h1 class="text-lg font-black tracking-tight text-app flex items-center gap-2.5">
-                    <span class="w-8 h-8 rounded-xl flex items-center justify-center brand-soft-bg brand-text">
-                        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 6.5h11"/><path d="M6.5 17.5h11"/><path d="M3 10v4"/><path d="M21 10v4"/><rect x="5" y="7" width="3" height="10" rx="1"/><rect x="16" y="7" width="3" height="10" rx="1"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
-                    </span>
-                    <span>AVANGUARD</span>
-                </h1>
-
-                <div class="flex items-center gap-1.5">
-                    <!-- Peso corporeo -->
-                    <button onclick="openWeightModal()" class="header-chip flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-app hover:brand-text transition-colors" title="Peso corporeo">
-                        <svg class="w-3.5 h-3.5 brand-text" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M8 10a4 4 0 0 1 8 0"/><path d="M12 10l1.5-2.5"/></svg>
-                        <span id="weight-pill-text" class="tabular-nums">— kg</span>
-                    </button>
-
-                    <!-- Temi -->
-                    <button onclick="openModal('theme-modal')" class="icon-btn" title="Tema e stile">
-                        <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.93 0 1.5-.67 1.5-1.5 0-.39-.15-.74-.39-1.01-.23-.26-.38-.61-.38-.99 0-.83.67-1.5 1.5-1.5H16c3.31 0 6-2.69 6-6 0-4.96-4.49-9-10-9z"/></svg>
-                    </button>
-
-                    <!-- Cloud Sync -->
-                    <button onclick="openModal('cloud-modal')" class="icon-btn relative" title="Cloud Sync & Backup">
-                        <span id="cloud-icon" class="flex items-center justify-center"></span>
-                        <span id="cloud-status-dot" class="absolute top-1 right-1 w-2.5 h-2.5 rounded-full border-2" style="border-color: var(--bg);"></span>
-                    </button>
+            <!-- Brand + Profilo attivo -->
+            <button onclick="switchTab('settings')" class="flex items-center gap-2.5 min-w-0 text-left group">
+                <span class="w-9 h-9 rounded-xl flex items-center justify-center brand-soft-bg brand-text flex-shrink-0">
+                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10v4"/><path d="M21 10v4"/><rect x="5" y="7" width="3" height="10" rx="1"/><rect x="16" y="7" width="3" height="10" rx="1"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+                </span>
+                <div class="min-w-0">
+                    <div class="text-sm font-black tracking-tight text-app leading-none">AVANGUARD</div>
+                    <div id="header-user-name" class="text-[11px] font-semibold text-muted truncate mt-1 group-hover:text-app transition-colors">—</div>
                 </div>
-            </div>
+            </button>
 
-            <!-- Riga 2: Profilo + Settimana -->
-            <div class="flex items-center gap-2">
-                <div class="relative flex-1 min-w-0">
-                    <select id="user-selector" onchange="switchUser(this.value)" class="field !py-2 !pl-3.5 !pr-9 !rounded-xl appearance-none font-bold text-sm cursor-pointer">
-                        <option value="">— Nessun profilo —</option>
-                    </select>
-                    <svg class="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 text-dim pointer-events-none" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
-                </div>
-
-                <button onclick="openEditUserModal()" class="btn btn-ghost !p-2 !rounded-xl" title="Modifica profilo">
-                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
-                </button>
-                <button onclick="openModal('add-user-modal')" class="btn btn-outline !p-2 !rounded-xl" title="Nuovo profilo">
-                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
-                </button>
-
-                <!-- Week pill -->
+            <!-- Settimana + Stato Cloud -->
+            <div class="flex items-center gap-2 flex-shrink-0">
                 <div class="week-pill">
                     <button onclick="changeWeek(-1)" title="Settimana precedente">
                         <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="5" y1="12" x2="19" y2="12"/></svg>
@@ -95,167 +61,252 @@
                         <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                     </button>
                 </div>
+
+                <button onclick="switchTab('settings', 'cloud-section')" class="icon-btn relative" title="Stato Cloud Sync">
+                    <span id="cloud-icon" class="flex items-center justify-center"></span>
+                    <span id="cloud-status-dot" class="absolute top-1.5 right-1.5 w-2 h-2 rounded-full"></span>
+                </button>
             </div>
         </div>
     </header>
 
-    <!-- ============ MAIN ============ -->
-    <main class="max-w-3xl mx-auto mt-[118px] px-4" id="days-container"></main>
+    <!-- ============ MAIN VIEWS ============ -->
+    <main class="max-w-2xl mx-auto pt-[72px] px-4">
 
-    <!-- ============ CONTROLLI INFERIORI ============ -->
-    <div class="max-w-3xl mx-auto px-4 mt-6 flex flex-col gap-2.5">
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-            <button onclick="openAddDayModal()" class="btn-dashed">
-                <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
-                NUOVO GIORNO
-            </button>
-            <button onclick="openImportPlanModal()" class="btn-dashed">
-                <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><polyline points="9 15 12 12 15 15"/></svg>
-                INCOLLA SCHEDA INTERA
-            </button>
-        </div>
-        <button onclick="openExportModal()" class="btn btn-ghost w-full !py-3.5">
-            <svg class="w-4 h-4 brand-text" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
-            REPORT CARICHI & PDF
-        </button>
-    </div>
+        <!-- VIEW 1: SCHEDA ALLENAMENTO -->
+        <section id="view-workout" class="app-view">
+            <div id="day-tabs-strip" class="day-tabs-strip hide-scrollbar"></div>
+            <div id="active-day-container"></div>
+        </section>
+
+        <!-- VIEW 2: PESO CORPOREO -->
+        <section id="view-weight" class="app-view hidden space-y-3.5">
+            <div class="flex items-center justify-between pt-1">
+                <h2 class="text-xl font-black tracking-tight">Peso Corporeo</h2>
+                <span class="pill-tag tabular-nums">Settimana <span id="weight-week-label" class="ml-1">1</span></span>
+            </div>
+
+            <!-- KPI Cards -->
+            <div class="grid grid-cols-3 gap-2.5">
+                <div class="kpi-card">
+                    <span class="kpi-label">Attuale</span>
+                    <span id="kpi-weight-current" class="kpi-value tabular-nums">—</span>
+                </div>
+                <div class="kpi-card kpi-gold">
+                    <span class="kpi-label flex items-center gap-1" style="color:#f59e0b;">
+                        <svg class="w-3 h-3" viewBox="0 0 24 24" fill="#f59e0b"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                        Obiettivo
+                    </span>
+                    <span id="kpi-weight-goal" class="kpi-value tabular-nums" style="color:#f59e0b;">—</span>
+                </div>
+                <div class="kpi-card">
+                    <span class="kpi-label">Differenza</span>
+                    <span id="kpi-weight-delta" class="kpi-value tabular-nums">—</span>
+                </div>
+            </div>
+
+            <!-- Inserimento peso e target -->
+            <div class="panel-card p-4">
+                <div class="grid grid-cols-2 gap-3 mb-3">
+                    <div>
+                        <label class="micro-label">Peso S<span id="weight-week-label-2">1</span> (kg)</label>
+                        <input type="number" step="0.1" inputmode="decimal" id="weight-input" class="field text-center font-bold text-base tabular-nums" placeholder="es. 65.0">
+                    </div>
+                    <div>
+                        <label class="micro-label" style="color:#f59e0b;">Obiettivo (kg)</label>
+                        <input type="number" step="0.1" inputmode="decimal" id="weight-goal-input" class="field text-center font-bold text-base tabular-nums" placeholder="es. 75.0">
+                    </div>
+                </div>
+                <button onclick="saveWeightAndGoal()" class="btn btn-primary w-full">Salva Peso e Obiettivo</button>
+            </div>
+
+            <!-- Grafico andamento -->
+            <div class="panel-card p-4">
+                <div class="flex items-center justify-between mb-3">
+                    <span class="micro-label !mb-0">Trend 6 Settimane</span>
+                    <span class="text-[11px] font-semibold text-muted flex items-center gap-1">
+                        <svg class="w-3 h-3" viewBox="0 0 24 24" fill="#f59e0b"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                        Traguardo
+                    </span>
+                </div>
+                <div style="height: 220px;">
+                    <canvas id="weight-chart"></canvas>
+                </div>
+            </div>
+
+            <!-- Griglia 6 settimane -->
+            <div class="panel-card p-4">
+                <span class="micro-label">Storico Settimane (tocca per modificare)</span>
+                <div id="weight-weeks-grid" class="grid grid-cols-3 sm:grid-cols-6 gap-2 mt-1"></div>
+            </div>
+        </section>
+
+        <!-- VIEW 3: REPORT CARICHI & PDF -->
+        <section id="view-report" class="app-view hidden space-y-3.5">
+            <div class="pt-1">
+                <h2 class="text-xl font-black tracking-tight">Report Carichi</h2>
+                <p class="text-xs text-muted mt-0.5">Esporta le progressioni in PDF vettoriale o copia in Markdown.</p>
+            </div>
+
+            <div class="panel-card p-4 space-y-3">
+                <div class="relative">
+                    <select id="export-day-selector" onchange="generateReport()" class="field appearance-none font-bold text-sm pr-10 cursor-pointer"></select>
+                    <svg class="w-4 h-4 absolute right-3.5 top-1/2 -translate-y-1/2 text-dim pointer-events-none" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                </div>
+
+                <div class="grid grid-cols-2 gap-2.5">
+                    <button id="copy-export-btn" onclick="copyExport()" class="btn btn-ghost w-full">
+                        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                        Copia MD
+                    </button>
+                    <button onclick="downloadPDF()" class="btn btn-primary w-full">
+                        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><polyline points="9 15 12 18 15 15"/></svg>
+                        Scarica PDF
+                    </button>
+                </div>
+
+                <div id="export-preview" class="scroll-area bg-surface-2 border border-app rounded-xl p-3.5 text-xs font-mono text-muted whitespace-pre-wrap"></div>
+            </div>
+        </section>
+
+        <!-- VIEW 4: ALTRO / IMPOSTAZIONI -->
+        <section id="view-settings" class="app-view hidden space-y-3.5">
+            <div class="pt-1">
+                <h2 class="text-xl font-black tracking-tight">Impostazioni</h2>
+            </div>
+
+            <!-- Profilo -->
+            <div class="panel-card p-4">
+                <span class="micro-label">Profilo Atleta</span>
+                <div class="flex items-center gap-2 mt-1">
+                    <div class="relative flex-1 min-w-0">
+                        <select id="user-selector" onchange="switchUser(this.value)" class="field appearance-none font-bold text-sm pr-9 cursor-pointer">
+                            <option value="">— Nessun profilo —</option>
+                        </select>
+                        <svg class="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 text-dim pointer-events-none" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                    </div>
+                    <button onclick="openEditUserModal()" class="btn btn-ghost !p-2.5" title="Modifica profilo">
+                        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
+                    </button>
+                    <button onclick="openModal('add-user-modal')" class="btn btn-outline !p-2.5" title="Nuovo profilo">
+                        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Gestione Scheda -->
+            <div class="panel-card p-4">
+                <span class="micro-label">Gestione Scheda</span>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 mt-1">
+                    <button onclick="openImportPlanModal()" class="btn btn-outline w-full">
+                        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><polyline points="9 15 12 12 15 15"/></svg>
+                        Incolla Scheda Intera
+                    </button>
+                    <button onclick="openAddDayModal()" class="btn btn-ghost w-full">
+                        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+                        Nuovo Giorno
+                    </button>
+                </div>
+            </div>
+
+            <!-- Stile e Temi -->
+            <div class="panel-card p-4">
+                <span class="micro-label">Aspetto</span>
+                <div class="flex gap-2 mt-1 mb-4">
+                    <button data-mode-btn="dark" onclick="setMode('dark')" class="theme-mode-btn">
+                        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
+                        Scuro
+                    </button>
+                    <button data-mode-btn="light" onclick="setMode('light')" class="theme-mode-btn">
+                        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>
+                        Chiaro
+                    </button>
+                </div>
+                <span class="micro-label">Colore Accent</span>
+                <div id="theme-swatches-grid" class="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-1"></div>
+            </div>
+
+            <!-- Cloud Sync & Backup -->
+            <div id="cloud-section" class="panel-card p-4">
+                <div class="flex items-center justify-between mb-1">
+                    <span class="micro-label !mb-0">Cloud Sync Sicuro</span>
+                    <span id="cloud-status-badge" class="text-[11px] font-bold text-muted">Locale</span>
+                </div>
+                <p class="text-xs text-muted mb-3 leading-relaxed">Usa la stessa chiave segreta su tutti i dispositivi per sincronizzare via server protetto.</p>
+                <div class="flex gap-2 mb-4">
+                    <input type="text" id="cloud-sync-key" class="field font-mono text-sm flex-1" placeholder="es. chiave-segreta-2026">
+                    <button onclick="saveCloudKey()" class="btn btn-primary flex-shrink-0">Connetti</button>
+                </div>
+                <div id="cloud-warning" class="text-[11px] text-amber-500 mb-3 hidden">Modalità solo locale attiva.</div>
+
+                <div class="divider-soft pt-3.5">
+                    <span class="micro-label">Backup Locale JSON</span>
+                    <div class="grid grid-cols-2 gap-2 mt-1">
+                        <button onclick="downloadJsonBackup()" class="btn btn-ghost !py-2.5 !text-xs">
+                            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                            Esporta JSON
+                        </button>
+                        <button onclick="document.getElementById('backup-file-input').click()" class="btn btn-ghost !py-2.5 !text-xs">
+                            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                            Ripristina JSON
+                        </button>
+                    </div>
+                    <input type="file" id="backup-file-input" accept=".json,application/json" class="hidden" onchange="importJsonBackup(event)">
+                </div>
+            </div>
+        </section>
+    </main>
 
     <!-- ============ FLOATING REST TIMER BAR ============ -->
     <div id="rest-timer-bar" class="rest-timer-bar hidden">
         <div class="rest-timer-progress-wrap">
             <div id="rest-timer-progress" class="rest-timer-progress" style="width: 100%;"></div>
         </div>
-        <div class="flex items-center justify-between gap-3 px-4 py-3">
+        <div class="flex items-center justify-between gap-2.5 px-3.5 py-2.5">
             <div class="min-w-0 flex-1">
-                <div id="rest-timer-label" class="text-[11px] font-bold text-muted uppercase tracking-wider truncate">Recupero</div>
-                <div id="rest-timer-time" class="text-2xl font-black tabular-nums brand-text leading-tight">02:00</div>
+                <div id="rest-timer-label" class="text-[10.5px] font-bold text-muted uppercase tracking-wider truncate">Recupero</div>
+                <div id="rest-timer-time" class="text-xl font-black tabular-nums brand-text leading-tight">02:00</div>
             </div>
             <div class="flex items-center gap-1.5">
-                <button onclick="adjustRestTimer(-15)" class="timer-chip" title="-15 secondi">-15s</button>
-                <button onclick="adjustRestTimer(15)" class="timer-chip" title="+15 secondi">+15s</button>
-                <button id="rest-timer-toggle" onclick="toggleRestTimerPause()" class="btn btn-primary !p-2.5 !rounded-xl" title="Pausa / Riprendi"></button>
-                <button onclick="stopRestTimer()" class="btn btn-ghost !p-2.5 !rounded-xl" title="Chiudi timer">
+                <button onclick="adjustRestTimer(-15)" class="timer-chip">-15s</button>
+                <button onclick="adjustRestTimer(15)" class="timer-chip">+15s</button>
+                <button id="rest-timer-toggle" onclick="toggleRestTimerPause()" class="btn btn-primary !p-2 !rounded-xl"></button>
+                <button onclick="stopRestTimer()" class="btn btn-ghost !p-2 !rounded-xl" title="Chiudi">
                     <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                 </button>
             </div>
         </div>
     </div>
 
-    <!-- ============ MODAL: CLOUD & BACKUP ============ -->
-    <div id="cloud-modal" class="fixed inset-0 modal-overlay z-50 hidden flex-col justify-end sm:justify-center p-3 sm:p-4">
-        <div class="modal-card w-full max-w-sm mx-auto p-6">
-            <div class="flex justify-between items-center mb-4">
-                <h3 class="text-lg font-extrabold flex items-center gap-2">
-                    <svg class="w-5 h-5 brand-text" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/></svg>
-                    Cloud Sync & Backup
-                </h3>
-                <button onclick="closeModal('cloud-modal')" class="icon-btn !w-8 !h-8">
-                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                </button>
-            </div>
-            <p class="text-xs text-muted mb-3 leading-relaxed">Inserisci la tua chiave segreta per sincronizzare i dati su Supabase tra tutti i dispositivi.</p>
-            <input type="text" id="cloud-sync-key" class="field mb-3 text-center font-mono text-sm" placeholder="es. dario-secret-2026">
-            <button onclick="saveCloudKey()" class="btn btn-primary w-full">Connetti e Sincronizza</button>
-            <div id="cloud-warning" class="text-[11px] text-amber-500 mt-2.5 text-center hidden">Supabase non configurato. Modalità solo locale.</div>
-
-            <div class="divider-soft mt-5 pt-4">
-                <label class="block text-[11px] font-bold text-dim uppercase tracking-wider mb-2.5">Backup Locale JSON</label>
-                <div class="grid grid-cols-2 gap-2">
-                    <button onclick="downloadJsonBackup()" class="btn btn-ghost !py-2.5 !text-xs">
-                        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                        Esporta
-                    </button>
-                    <button onclick="document.getElementById('backup-file-input').click()" class="btn btn-ghost !py-2.5 !text-xs">
-                        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                        Ripristina
-                    </button>
-                </div>
-                <input type="file" id="backup-file-input" accept=".json,application/json" class="hidden" onchange="importJsonBackup(event)">
-            </div>
+    <!-- ============ BOTTOM NAVIGATION BAR ============ -->
+    <nav class="bottom-nav">
+        <div class="bottom-nav-inner">
+            <button data-nav-tab="workout" onclick="switchTab('workout')" class="nav-item active">
+                <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10v4"/><path d="M21 10v4"/><rect x="5" y="7" width="3" height="10" rx="1"/><rect x="16" y="7" width="3" height="10" rx="1"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+                <span>Scheda</span>
+            </button>
+            <button data-nav-tab="weight" onclick="switchTab('weight')" class="nav-item">
+                <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M8 10a4 4 0 0 1 8 0"/><path d="M12 10l1.5-2.5"/></svg>
+                <span id="nav-weight-label">Peso</span>
+            </button>
+            <button data-nav-tab="report" onclick="switchTab('report')" class="nav-item">
+                <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
+                <span>Report</span>
+            </button>
+            <button data-nav-tab="settings" onclick="switchTab('settings')" class="nav-item">
+                <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9c.26.604.852.997 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                <span>Altro</span>
+            </button>
         </div>
-    </div>
+    </nav>
 
-    <!-- ============ MODAL: TEMI ============ -->
-    <div id="theme-modal" class="fixed inset-0 modal-overlay z-50 hidden flex-col justify-end sm:justify-center p-3 sm:p-4">
-        <div class="modal-card w-full max-w-sm mx-auto p-6">
-            <div class="flex justify-between items-center mb-5">
-                <h3 class="text-lg font-extrabold flex items-center gap-2">
-                    <svg class="w-5 h-5 brand-text" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.93 0 1.5-.67 1.5-1.5 0-.39-.15-.74-.39-1.01-.23-.26-.38-.61-.38-.99 0-.83.67-1.5 1.5-1.5H16c3.31 0 6-2.69 6-6 0-4.96-4.49-9-10-9z"/></svg>
-                    Stile App
-                </h3>
-                <button onclick="closeModal('theme-modal')" class="icon-btn !w-8 !h-8">
-                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                </button>
-            </div>
+    <!-- ============ MODALI RAPIDE ============ -->
 
-            <label class="block text-[11px] font-bold text-dim uppercase tracking-wider mb-2">Modalità</label>
-            <div class="flex gap-2 mb-5">
-                <button data-mode-btn="dark" onclick="setMode('dark')" class="theme-mode-btn">
-                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
-                    Scuro
-                </button>
-                <button data-mode-btn="light" onclick="setMode('light')" class="theme-mode-btn">
-                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>
-                    Chiaro
-                </button>
-            </div>
-
-            <label class="block text-[11px] font-bold text-dim uppercase tracking-wider mb-2.5">Palette Colore</label>
-            <div id="theme-swatches-grid" class="grid grid-cols-2 gap-2"></div>
-        </div>
-    </div>
-
-    <!-- ============ MODAL: PESO CORPOREO + OBIETTIVO ============ -->
-    <div id="weight-modal" class="fixed inset-0 modal-overlay z-50 hidden flex-col justify-end sm:justify-center p-3 sm:p-4">
-        <div class="modal-card w-full max-w-md mx-auto p-6 max-h-[90vh] overflow-y-auto">
-            <div class="flex justify-between items-center mb-4">
-                <h3 class="text-lg font-extrabold flex items-center gap-2">
-                    <svg class="w-5 h-5 brand-text" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M8 10a4 4 0 0 1 8 0"/><path d="M12 10l1.5-2.5"/></svg>
-                    Peso Corporeo
-                </h3>
-                <button onclick="closeModal('weight-modal')" class="icon-btn !w-8 !h-8">
-                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                </button>
-            </div>
-
-            <div class="grid grid-cols-2 gap-3 mb-3">
-                <div>
-                    <label class="block text-[11px] font-bold text-dim uppercase tracking-wider mb-1.5">Settimana <span id="weight-week-label">1</span> (kg)</label>
-                    <input type="number" step="0.1" inputmode="decimal" id="weight-input" class="field text-center font-bold text-base tabular-nums" placeholder="es. 65.0">
-                </div>
-                <div>
-                    <label class="flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider mb-1.5" style="color: #f59e0b;">
-                        <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="#f59e0b" stroke="#f59e0b" stroke-width="1.5"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-                        Obiettivo (kg)
-                    </label>
-                    <input type="number" step="0.1" inputmode="decimal" id="weight-goal-input" class="field text-center font-bold text-base tabular-nums" placeholder="es. 75.0">
-                </div>
-            </div>
-
-            <button onclick="saveWeightAndGoal()" class="btn btn-primary w-full mb-4">Salva Peso e Obiettivo</button>
-
-            <div id="weight-goal-status" class="hidden mb-4 px-3.5 py-2.5 rounded-xl bg-surface-2 border border-app flex items-center justify-between text-xs font-bold"></div>
-
-            <div class="bg-surface-2 border border-app rounded-2xl p-4">
-                <div class="flex items-center justify-between mb-3">
-                    <span class="text-[11px] font-bold text-dim uppercase tracking-wider">Trend 6 Settimane</span>
-                    <span class="text-[11px] font-semibold text-muted flex items-center gap-1">
-                        <svg class="w-3 h-3" viewBox="0 0 24 24" fill="#f59e0b"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-                        Traguardo
-                    </span>
-                </div>
-                <div style="height: 205px;">
-                    <canvas id="weight-chart"></canvas>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- ============ MODAL: ADD USER ============ -->
+    <!-- ADD USER -->
     <div id="add-user-modal" class="fixed inset-0 modal-overlay z-50 hidden flex-col justify-end sm:justify-center p-3 sm:p-4">
-        <div class="modal-card w-full max-w-md mx-auto p-6">
+        <div class="modal-card w-full max-w-md mx-auto p-5">
             <div class="flex justify-between items-center mb-4">
-                <h3 class="text-lg font-extrabold">Nuovo Profilo</h3>
+                <h3 class="text-base font-extrabold">Nuovo Profilo</h3>
                 <button onclick="closeModal('add-user-modal')" class="icon-btn !w-8 !h-8">
                     <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                 </button>
@@ -265,134 +316,126 @@
         </div>
     </div>
 
-    <!-- ============ MODAL: EDIT USER ============ -->
+    <!-- EDIT USER -->
     <div id="edit-user-modal" class="fixed inset-0 modal-overlay z-50 hidden flex-col justify-end sm:justify-center p-3 sm:p-4">
-        <div class="modal-card w-full max-w-md mx-auto p-6">
+        <div class="modal-card w-full max-w-md mx-auto p-5">
             <div class="flex justify-between items-center mb-4">
-                <h3 class="text-lg font-extrabold">Gestisci Profilo</h3>
+                <h3 class="text-base font-extrabold">Gestisci Profilo</h3>
                 <button onclick="closeModal('edit-user-modal')" class="icon-btn !w-8 !h-8">
                     <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                 </button>
             </div>
-            <label class="block text-[11px] font-bold text-dim uppercase tracking-wider mb-2">Rinomina</label>
-            <input type="text" id="edit-user-name" class="field mb-5">
-            <div class="flex gap-3">
+            <label class="micro-label">Rinomina</label>
+            <input type="text" id="edit-user-name" class="field mb-4">
+            <div class="flex gap-2.5">
                 <button onclick="deleteUser()" class="btn btn-danger flex-1">Elimina</button>
                 <button onclick="updateUser()" class="btn btn-primary flex-1">Salva</button>
             </div>
         </div>
     </div>
 
-    <!-- ============ MODAL: ADD DAY ============ -->
+    <!-- ADD DAY -->
     <div id="add-day-modal" class="fixed inset-0 modal-overlay z-50 hidden flex-col justify-end sm:justify-center p-3 sm:p-4">
-        <div class="modal-card w-full max-w-md mx-auto p-6 max-h-[90vh] overflow-y-auto">
+        <div class="modal-card w-full max-w-md mx-auto p-5 max-h-[88vh] overflow-y-auto">
             <div class="flex justify-between items-center mb-4">
-                <h3 class="text-lg font-extrabold">Nuovo Giorno</h3>
+                <h3 class="text-base font-extrabold">Nuovo Giorno</h3>
                 <button onclick="closeModal('add-day-modal')" class="icon-btn !w-8 !h-8">
                     <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                 </button>
             </div>
-            <label class="block text-[11px] font-bold text-dim uppercase tracking-wider mb-1.5">Nome giorno</label>
+            <label class="micro-label">Nome giorno</label>
             <input type="text" id="new-day-name" oninput="autoSelectIconForNewDay(this.value)" class="field mb-4" placeholder="es. Giorno 1 - Petto e Bicipiti">
-            <label class="block text-[11px] font-bold text-dim uppercase tracking-wider mb-2">Icona gruppo muscolare</label>
+            <label class="micro-label">Icona muscolare</label>
             <div id="new-day-icon-grid" class="grid grid-cols-4 gap-2 mb-5"></div>
             <button onclick="saveDay()" class="btn btn-primary w-full">Aggiungi Giorno</button>
         </div>
     </div>
 
-    <!-- ============ MODAL: EDIT DAY ============ -->
+    <!-- EDIT DAY -->
     <div id="edit-day-modal" class="fixed inset-0 modal-overlay z-50 hidden flex-col justify-end sm:justify-center p-3 sm:p-4">
-        <div class="modal-card w-full max-w-md mx-auto p-6 max-h-[90vh] overflow-y-auto">
+        <div class="modal-card w-full max-w-md mx-auto p-5 max-h-[88vh] overflow-y-auto">
             <div class="flex justify-between items-center mb-4">
-                <h3 class="text-lg font-extrabold">Modifica Giorno</h3>
+                <h3 class="text-base font-extrabold">Modifica Giorno</h3>
                 <button onclick="closeModal('edit-day-modal')" class="icon-btn !w-8 !h-8">
                     <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                 </button>
             </div>
-            <label class="block text-[11px] font-bold text-dim uppercase tracking-wider mb-1.5">Nome giorno</label>
+            <label class="micro-label">Nome giorno</label>
             <input type="text" id="edit-day-name" class="field mb-4">
-            <label class="block text-[11px] font-bold text-dim uppercase tracking-wider mb-2">Icona gruppo muscolare</label>
+            <label class="micro-label">Icona muscolare</label>
             <div id="edit-day-icon-grid" class="grid grid-cols-4 gap-2 mb-5"></div>
-            <button onclick="saveEditDay()" class="btn btn-primary w-full">Salva Modifiche</button>
+            <div class="flex gap-2.5">
+                <button onclick="deleteCurrentEditDay()" class="btn btn-danger">Elimina</button>
+                <button onclick="saveEditDay()" class="btn btn-primary flex-1">Salva Modifiche</button>
+            </div>
         </div>
     </div>
 
-    <!-- ============ MODAL: SINGLE ADD EXERCISE ============ -->
+    <!-- SINGLE ADD EXERCISE -->
     <div id="single-add-modal" class="fixed inset-0 modal-overlay z-50 hidden flex-col justify-end sm:justify-center p-3 sm:p-4">
-        <div class="modal-card w-full max-w-md mx-auto p-6 max-h-[90vh] overflow-y-auto">
+        <div class="modal-card w-full max-w-md mx-auto p-5 max-h-[88vh] overflow-y-auto">
             <div class="flex justify-between items-center mb-4">
-                <h3 class="text-lg font-extrabold">Aggiungi Esercizio</h3>
+                <h3 class="text-base font-extrabold">Nuovo Esercizio</h3>
                 <button onclick="closeModal('single-add-modal')" class="icon-btn !w-8 !h-8">
                     <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                 </button>
             </div>
-            <label class="block text-[11px] font-bold text-dim uppercase tracking-wider mb-1.5">Nome</label>
+            <label class="micro-label">Nome</label>
             <input type="text" id="single-ex-name" class="field mb-3" placeholder="es. Panca Piana">
-            <label class="block text-[11px] font-bold text-dim uppercase tracking-wider mb-1.5">Target (blocchi separati da +)</label>
+            <label class="micro-label">Target (blocchi separati da +)</label>
             <input type="text" id="single-ex-target" oninput="renderRestInputs('single')" class="field mb-3" placeholder="es. 2x4 + 1x6  oppure  3x10+10">
             <div id="single-ex-rests-container" class="mb-4"></div>
             <button onclick="saveSingleExercise()" class="btn btn-primary w-full">Aggiungi</button>
         </div>
     </div>
 
-    <!-- ============ MODAL: BULK ADD (SINGOLO GIORNO) ============ -->
+    <!-- BULK ADD (SINGOLO GIORNO) -->
     <div id="bulk-add-modal" class="fixed inset-0 modal-overlay z-50 hidden flex-col justify-end sm:justify-center p-3 sm:p-4">
-        <div class="modal-card w-full max-w-md mx-auto p-6">
-            <div class="flex justify-between items-center mb-4">
-                <h3 class="text-lg font-extrabold flex items-center gap-2">
-                    <svg class="w-5 h-5 brand-text" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-                    Incolla Lista Esercizi
-                </h3>
+        <div class="modal-card w-full max-w-md mx-auto p-5">
+            <div class="flex justify-between items-center mb-3">
+                <h3 class="text-base font-extrabold">Incolla Lista Esercizi</h3>
                 <button onclick="closeModal('bulk-add-modal')" class="icon-btn !w-8 !h-8">
                     <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                 </button>
             </div>
-            <p class="text-xs text-muted mb-3 leading-relaxed">Una riga per esercizio. Puoi inserire i recuperi tra parentesi per ogni blocco:<br><code>Panca piana - 2x4 (3') + 1x6 (2')</code></p>
+            <p class="text-xs text-muted mb-3 leading-relaxed">Una riga per esercizio. I recuperi tra parentesi vengono estratti per singolo blocco:<br><code>Panca piana - 2x4 (3') + 1x6 (2')</code></p>
             <textarea id="bulk-text" rows="7" class="field !font-mono !text-xs mb-4" placeholder="Panca piana - 2x4 (3') + 1x6 (2')&#10;Croci ai cavi - 3x12 (1'30&quot;)&#10;Curl alternato - 3x10+10 (1')"></textarea>
             <button onclick="saveBulkExercises()" class="btn btn-primary w-full">Carica Lista</button>
         </div>
     </div>
 
-    <!-- ============ MODAL: IMPORTA SCHEDA COMPLETA ============ -->
+    <!-- IMPORT FULL PLAN -->
     <div id="import-plan-modal" class="fixed inset-0 modal-overlay z-50 hidden flex-col justify-end sm:justify-center p-3 sm:p-4">
-        <div class="modal-card w-full max-w-lg mx-auto p-6 flex flex-col max-h-[90vh]">
+        <div class="modal-card w-full max-w-lg mx-auto p-5 flex flex-col max-h-[88vh]">
             <div class="flex justify-between items-center mb-3 flex-shrink-0">
-                <h3 class="text-lg font-extrabold flex items-center gap-2">
-                    <svg class="w-5 h-5 brand-text" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><polyline points="9 15 12 12 15 15"/></svg>
-                    Incolla Scheda Intera
-                </h3>
+                <h3 class="text-base font-extrabold">Incolla Scheda Intera</h3>
                 <button onclick="closeModal('import-plan-modal')" class="icon-btn !w-8 !h-8">
                     <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                 </button>
             </div>
             <p class="text-xs text-muted mb-3 leading-relaxed flex-shrink-0">
-                Incolla tutta la scheda con i titoli dei giorni: riconosce automaticamente <strong>giorni</strong>, <strong>icone</strong>, <strong>blocchi</strong> e <strong>recuperi</strong> tra parentesi o con <code>rec</code>. I nuovi giorni vengono aggiunti senza cancellare quelli esistenti.
+                Riconosce automaticamente <strong>giorni</strong>, <strong>icone</strong>, <strong>blocchi</strong> e <strong>recuperi</strong>. I nuovi giorni si aggiungono senza cancellare quelli esistenti.
             </p>
-            <textarea id="import-plan-text" rows="8" oninput="updateImportPlanPreview()" class="field !font-mono !text-xs mb-3 flex-shrink-0" placeholder="Giorno 1 - Petto e Bicipiti&#10;Panca piana - 2x4 (3') + 1x6 (2')&#10;Spinte manubri - 3x8 (2')&#10;Curl manubri - 3x10+10 (1'30&quot;)&#10;&#10;Giorno 2 - Gambe&#10;Squat - 4x6 (3')&#10;Leg press - 3x10 (2')"></textarea>
-
+            <textarea id="import-plan-text" rows="7" oninput="updateImportPlanPreview()" class="field !font-mono !text-xs mb-3 flex-shrink-0" placeholder="Giorno 1 - Petto e Bicipiti&#10;Panca piana - 2x4 (3') + 1x6 (2')&#10;Spinte manubri - 3x8 (2')&#10;&#10;Giorno 2 - Gambe&#10;Squat - 4x6 (3')&#10;Leg press - 3x10 (2')"></textarea>
             <div id="import-plan-preview" class="scroll-area flex-1 bg-surface-2 border border-app rounded-xl p-3 text-xs mb-4">
-                <p class="text-dim italic text-center py-4">Incolla il testo sopra per vedere l'anteprima...</p>
+                <p class="text-dim italic text-center py-4">Incolla la scheda sopra per vedere l'anteprima...</p>
             </div>
-
             <button id="import-plan-btn" onclick="executeImportPlan()" class="btn btn-primary w-full flex-shrink-0" disabled>Importa Scheda</button>
         </div>
     </div>
 
-    <!-- ============ MODAL: EDIT EXERCISE ============ -->
+    <!-- EDIT EXERCISE -->
     <div id="edit-ex-modal" class="fixed inset-0 modal-overlay z-50 hidden flex-col justify-end sm:justify-center p-3 sm:p-4">
-        <div class="modal-card w-full max-w-md mx-auto p-6 max-h-[90vh] overflow-y-auto">
+        <div class="modal-card w-full max-w-md mx-auto p-5 max-h-[88vh] overflow-y-auto">
             <div class="flex justify-between items-center mb-4">
-                <h3 class="text-lg font-extrabold flex items-center gap-2">
-                    <svg class="w-5 h-5 brand-text" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
-                    Modifica Esercizio
-                </h3>
+                <h3 class="text-base font-extrabold">Modifica Esercizio</h3>
                 <button onclick="closeModal('edit-ex-modal')" class="icon-btn !w-8 !h-8">
                     <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                 </button>
             </div>
-            <label class="block text-[11px] font-bold text-dim uppercase tracking-wider mb-1.5">Nome</label>
+            <label class="micro-label">Nome</label>
             <input type="text" id="edit-ex-name" class="field mb-3">
-            <label class="block text-[11px] font-bold text-dim uppercase tracking-wider mb-1.5">Target (settimana <span id="edit-ex-week-label">1</span>)</label>
+            <label class="micro-label">Target (settimana <span id="edit-ex-week-label">1</span>)</label>
             <input type="text" id="edit-ex-target" oninput="renderRestInputs('edit')" class="field mb-3" placeholder="es. 2x4 + 1x6  oppure  3x10+10">
             <div id="edit-ex-rests-container" class="mb-3"></div>
             <label class="flex items-center gap-2 text-xs text-muted mb-4 cursor-pointer">
@@ -403,36 +446,6 @@
         </div>
     </div>
 
-    <!-- ============ MODAL: EXPORT REPORT ============ -->
-    <div id="export-modal" class="fixed inset-0 modal-overlay z-50 hidden flex-col justify-end sm:justify-center p-3 sm:p-4">
-        <div class="modal-card w-full max-w-md mx-auto p-6 flex flex-col max-h-[88vh]">
-            <div class="flex justify-between items-center mb-4 flex-shrink-0">
-                <h3 class="text-lg font-extrabold flex items-center gap-2">
-                    <svg class="w-5 h-5 brand-text" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
-                    Report Carichi
-                </h3>
-                <button onclick="closeModal('export-modal')" class="icon-btn !w-8 !h-8">
-                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                </button>
-            </div>
-            <div class="relative mb-3 flex-shrink-0">
-                <select id="export-day-selector" onchange="generateReport()" class="field appearance-none font-bold text-sm pr-10 cursor-pointer"></select>
-                <svg class="w-4 h-4 absolute right-3.5 top-1/2 -translate-y-1/2 text-dim pointer-events-none" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
-            </div>
-            <div id="export-preview" class="scroll-area flex-1 bg-surface-2 border border-app rounded-xl p-4 text-xs font-mono text-muted mb-4 whitespace-pre-wrap"></div>
-            <div class="grid grid-cols-2 gap-2.5 flex-shrink-0">
-                <button id="copy-export-btn" onclick="copyExport()" class="btn btn-ghost w-full">
-                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-                    Copia MD
-                </button>
-                <button onclick="downloadPDF()" class="btn btn-primary w-full">
-                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><polyline points="9 15 12 18 15 15"/></svg>
-                    Scarica PDF
-                </button>
-            </div>
-        </div>
-    </div>
-
     <!-- ============ SCRIPTS ============ -->
     <script src="app.js"></script>
     <script src="pdfexp.js"></script>
@@ -440,7 +453,7 @@
     <script>
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('sw.js')
-                .then(() => console.log('Service Worker registrato (offline ready).'))
+                .then(() => console.log('Service Worker registrato.'))
                 .catch(err => console.error('Errore Service Worker:', err));
         }
     </script>

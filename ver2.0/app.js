@@ -1,12 +1,12 @@
 /* ====================================================================
-   AVANGUARD WORKOUT - APP LOGIC v3
+   AVANGUARD WORKOUT - APP LOGIC v4 (Native UI + Secure /api/sync)
    100% retrocompatibile con gym_tracker_pro_v6 e Supabase gym_sync
    ==================================================================== */
 
 const CLOUD_ENABLED = true;
 
 // ============================================================
-//  TEMI MODERNI (tutti i vecchi ID mantenuti + nuovi)
+//  TEMI (tutti i vecchi ID mantenuti + nuovi)
 // ============================================================
 const THEMES = {
     red:    { label: 'Crimson',     400: '#fb7185', 500: '#f43f5e', 600: '#e11d48', 700: '#be123c', rgb: '244, 63, 94',  contrast: '#ffffff' },
@@ -27,10 +27,10 @@ const THEMES = {
 const UI_SVG = {
     check:   `<svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`,
     trendUp: `<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>`,
+    dots:    `<svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="12" cy="19" r="1.8"/></svg>`,
     edit:    `<svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>`,
     trash:   `<svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>`,
-    chevron: `<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>`,
-    plus:    `<svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>`,
+    plus:    `<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>`,
     bolt:    `<svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>`,
     flame:   `<svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2c.6 3.2-1.8 5.2-1.8 7.5 0 1.4 1.1 2.5 2.5 2.5 1.7 0 2.8-1.5 2.8-3.3 0-.8-.2-1.6-.6-2.3 2.5 1.6 4.1 4.4 4.1 7.4A7 7 0 0 1 5 13.8C5 9.2 8.2 5.3 12 2z"/></svg>`,
     clock:   `<svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 14"/></svg>`,
@@ -40,57 +40,23 @@ const UI_SVG = {
     cloud:   `<svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/></svg>`,
     cloudUp: `<svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14.9A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.24"/><path d="M12 12v9"/><path d="m16 16-4-4-4 4"/></svg>`,
     cloudOff:`<svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m2 2 20 20"/><path d="M5.78 5.78A7 7 0 0 0 9 19h8.5a4.5 4.5 0 0 0 1.31-.19"/><path d="M21.16 15.5A4.5 4.5 0 0 0 17.5 10h-1.79A7 7 0 0 0 9.4 5.14"/></svg>`,
-    star:    `<svg class="w-4 h-4" viewBox="0 0 24 24" fill="#f59e0b" stroke="#f59e0b" stroke-width="1.5"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`,
 };
 
 // ============================================================
-//  ICONE GRUPPI MUSCOLARI PER I GIORNI (SVG inline)
+//  ICONE GRUPPI MUSCOLARI PER I GIORNI
 // ============================================================
 const DAY_ICONS = {
-    chest: {
-        label: 'Petto',
-        svg: `<svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8c0-2 2-3 4-3h8c2 0 4 1 4 3v3c0 3-2.5 5-5 5h-1.5a1.5 1.5 0 0 1-1.5-1.5V9"/><path d="M12 9v5.5A1.5 1.5 0 0 1 10.5 16H9c-2.5 0-5-2-5-5V8"/><path d="M7 19h10"/></svg>`
-    },
-    legs: {
-        label: 'Gambe',
-        svg: `<svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4h12"/><path d="M8 4v6l-1.5 5.5L8 20h2.5l.5-5 1-5 1 5 .5 5H16l1.5-4.5L16 10V4"/></svg>`
-    },
-    back: {
-        label: 'Dorso',
-        svg: `<svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4-2 4 2 4-2 4 2-2.5 8-3.5 6h-4l-3.5-6L4 6z"/><line x1="12" y1="6" x2="12" y2="20"/><path d="M8.5 10.5 12 12l3.5-1.5"/></svg>`
-    },
-    shoulders: {
-        label: 'Spalle',
-        svg: `<svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5.5" r="2.2"/><path d="M4 12a4 4 0 0 1 4-4h8a4 4 0 0 1 4 4v2.5a2 2 0 0 1-2 2h-1V19H7v-2.5H6a2 2 0 0 1-2-2V12z"/><path d="M8 11v4"/><path d="M16 11v4"/></svg>`
-    },
-    arms: {
-        label: 'Braccia',
-        svg: `<svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M6 15c0-4 2-7 5-8l2 2-2 2.5c2-.5 4.5.5 5.5 2.5.8 1.6.2 4-2 4.8-2.2.8-6.5.5-8.5-1.3V15z"/><path d="M11 7l1.5-2.5 2.5 1"/></svg>`
-    },
-    push: {
-        label: 'Push',
-        svg: `<svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="19" x2="20" y2="19"/><path d="M12 15V5"/><polyline points="7 10 12 5 17 10"/></svg>`
-    },
-    pull: {
-        label: 'Pull',
-        svg: `<svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="5" x2="20" y2="5"/><path d="M12 9v10"/><polyline points="7 14 12 19 17 14"/></svg>`
-    },
-    core: {
-        label: 'Core',
-        svg: `<svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="4" width="12" height="16" rx="4"/><line x1="12" y1="4" x2="12" y2="20"/><line x1="6" y1="9.5" x2="18" y2="9.5"/><line x1="6" y1="14.5" x2="18" y2="14.5"/></svg>`
-    },
-    fullbody: {
-        label: 'Full Body',
-        svg: `<svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="4.5" r="2"/><path d="M5 9l7 1.5L19 9"/><path d="M12 10.5V15"/><path d="M9 21l3-6 3 6"/></svg>`
-    },
-    cardio: {
-        label: 'Cardio',
-        svg: `<svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>`
-    },
-    dumbbell: {
-        label: 'Generico',
-        svg: `<svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10v4"/><path d="M21 10v4"/><rect x="5" y="7" width="3" height="10" rx="1"/><rect x="16" y="7" width="3" height="10" rx="1"/><line x1="8" y1="12" x2="16" y2="12"/></svg>`
-    }
+    chest:     { label: 'Petto',     svg: `<svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8c0-2 2-3 4-3h8c2 0 4 1 4 3v3c0 3-2.5 5-5 5h-1.5a1.5 1.5 0 0 1-1.5-1.5V9"/><path d="M12 9v5.5A1.5 1.5 0 0 1 10.5 16H9c-2.5 0-5-2-5-5V8"/><path d="M7 19h10"/></svg>` },
+    legs:      { label: 'Gambe',     svg: `<svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4h12"/><path d="M8 4v6l-1.5 5.5L8 20h2.5l.5-5 1-5 1 5 .5 5H16l1.5-4.5L16 10V4"/></svg>` },
+    back:      { label: 'Dorso',     svg: `<svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4-2 4 2 4-2 4 2-2.5 8-3.5 6h-4l-3.5-6L4 6z"/><line x1="12" y1="6" x2="12" y2="20"/><path d="M8.5 10.5 12 12l3.5-1.5"/></svg>` },
+    shoulders: { label: 'Spalle',    svg: `<svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5.5" r="2.2"/><path d="M4 12a4 4 0 0 1 4-4h8a4 4 0 0 1 4 4v2.5a2 2 0 0 1-2 2h-1V19H7v-2.5H6a2 2 0 0 1-2-2V12z"/><path d="M8 11v4"/><path d="M16 11v4"/></svg>` },
+    arms:      { label: 'Braccia',   svg: `<svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M6 15c0-4 2-7 5-8l2 2-2 2.5c2-.5 4.5.5 5.5 2.5.8 1.6.2 4-2 4.8-2.2.8-6.5.5-8.5-1.3V15z"/><path d="M11 7l1.5-2.5 2.5 1"/></svg>` },
+    push:      { label: 'Push',      svg: `<svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="19" x2="20" y2="19"/><path d="M12 15V5"/><polyline points="7 10 12 5 17 10"/></svg>` },
+    pull:      { label: 'Pull',      svg: `<svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="5" x2="20" y2="5"/><path d="M12 9v10"/><polyline points="7 14 12 19 17 14"/></svg>` },
+    core:      { label: 'Core',      svg: `<svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="4" width="12" height="16" rx="4"/><line x1="12" y1="4" x2="12" y2="20"/><line x1="6" y1="9.5" x2="18" y2="9.5"/><line x1="6" y1="14.5" x2="18" y2="14.5"/></svg>` },
+    fullbody:  { label: 'Full Body', svg: `<svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="4.5" r="2"/><path d="M5 9l7 1.5L19 9"/><path d="M12 10.5V15"/><path d="M9 21l3-6 3 6"/></svg>` },
+    cardio:    { label: 'Cardio',    svg: `<svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>` },
+    dumbbell:  { label: 'Generico',  svg: `<svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10v4"/><path d="M21 10v4"/><rect x="5" y="7" width="3" height="10" rx="1"/><rect x="16" y="7" width="3" height="10" rx="1"/><line x1="8" y1="12" x2="16" y2="12"/></svg>` }
 };
 
 function detectDayIcon(name) {
@@ -114,22 +80,26 @@ function getDayIconSvg(day) {
 }
 
 // ============================================================
-//  STATO APPLICATIVO (100% compatibile con v2.0)
+//  STATO APPLICATIVO (identico al formato salvato su DB)
 // ============================================================
 let appState = {
     users: [],
     currentUserId: null,
     week: 1,
     logs: {},
-    bodyWeight: {},            // { [userId]: { w1: 65, w2: 65.5, ... } }
-    bodyWeightGoal: {},        // NUOVO opzionale: { [userId]: 75 }
+    bodyWeight: {},
+    bodyWeightGoal: {},
     theme: 'red',
     mode: 'dark',
     syncKey: '',
     carried: {},
 };
 
-let _supabaseClient = null;
+// Stato UI solo in memoria (non sporca il JSON salvato)
+let activeTab = 'workout';
+let activeDayId = null;
+let openPopoverId = null;
+
 let tempTargetDayId = null;
 let tempEditDayId = null;
 let tempEditExId = null;
@@ -145,18 +115,15 @@ let _restTimerTotal = 0;
 let _restTimerRemaining = 0;
 let _restTimerPaused = false;
 
-// Stella SVG precaricata per il canvas di Chart.js
+// Stella SVG precaricata per Chart.js
 const _starSvgImg = new Image();
 _starSvgImg.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(
-    `<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24">
+    `<svg xmlns="[http://www.w3.org/2000/svg](http://www.w3.org/2000/svg)" width="28" height="28" viewBox="0 0 24 24">
         <polygon points="12,1.8 15.1,8.1 22,9.1 17,14 18.2,20.9 12,17.6 5.8,20.9 7,14 2,9.1 8.9,8.1"
             fill="#f59e0b" stroke="#fef3c7" stroke-width="1.4" stroke-linejoin="round"/>
     </svg>`
 );
 
-// ============================================================
-//  INIT
-// ============================================================
 // ============================================================
 //  INIT
 // ============================================================
@@ -167,8 +134,7 @@ async function init() {
     const savedData = localStorage.getItem('gym_tracker_pro_v6');
     if (savedData) {
         try {
-            const parsed = JSON.parse(savedData);
-            mergeStateSafely(parsed);
+            mergeStateSafely(JSON.parse(savedData));
         } catch (e) {
             console.error('Errore lettura localStorage:', e);
         }
@@ -276,40 +242,40 @@ async function saveCloudKey() {
         localStorage.setItem('gym_tracker_pro_v6', JSON.stringify(appState));
         updateCloudStatusUi('ok');
     }
-    closeModal('cloud-modal');
     renderApp();
 }
 
 function updateCloudStatusUi(status = 'ok') {
     const dot = document.getElementById('cloud-status-dot');
     const icon = document.getElementById('cloud-icon');
+    const badge = document.getElementById('cloud-status-badge');
     if (!dot || !icon) return;
 
     if (!CLOUD_ENABLED) {
-        dot.className = "absolute top-1 right-1 w-2.5 h-2.5 bg-neutral-600 rounded-full border-2";
-        dot.style.boxShadow = 'none';
+        dot.className = "absolute top-1.5 right-1.5 w-2 h-2 bg-neutral-500 rounded-full";
         icon.innerHTML = UI_SVG.cloudOff;
         icon.style.color = 'var(--text-dim)';
+        if (badge) { badge.textContent = 'Solo locale'; badge.style.color = 'var(--text-dim)'; }
     } else if (!appState.syncKey) {
-        dot.className = "absolute top-1 right-1 w-2.5 h-2.5 bg-amber-400 rounded-full border-2";
-        dot.style.boxShadow = 'none';
+        dot.className = "absolute top-1.5 right-1.5 w-2 h-2 bg-amber-400 rounded-full";
         icon.innerHTML = UI_SVG.cloud;
         icon.style.color = '#f59e0b';
-    } else if (status === 'syncing' || status === true) {
-        dot.className = "absolute top-1 right-1 w-2.5 h-2.5 bg-blue-500 rounded-full border-2 sync-pulse";
-        dot.style.boxShadow = '0 0 8px #3b82f6';
+        if (badge) { badge.textContent = 'Non connesso'; badge.style.color = '#f59e0b'; }
+    } else if (status === 'syncing') {
+        dot.className = "absolute top-1.5 right-1.5 w-2 h-2 bg-blue-500 rounded-full sync-pulse";
         icon.innerHTML = UI_SVG.cloudUp;
         icon.style.color = '#60a5fa';
+        if (badge) { badge.textContent = 'Sincronizzo...'; badge.style.color = '#60a5fa'; }
     } else if (status === 'error') {
-        dot.className = "absolute top-1 right-1 w-2.5 h-2.5 bg-red-500 rounded-full border-2";
-        dot.style.boxShadow = '0 0 8px #ef4444';
+        dot.className = "absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full";
         icon.innerHTML = UI_SVG.cloudOff;
         icon.style.color = '#ef4444';
+        if (badge) { badge.textContent = 'Errore sync'; badge.style.color = '#ef4444'; }
     } else {
-        dot.className = "absolute top-1 right-1 w-2.5 h-2.5 bg-emerald-500 rounded-full border-2";
-        dot.style.boxShadow = '0 0 8px #10b981';
+        dot.className = "absolute top-1.5 right-1.5 w-2 h-2 bg-emerald-500 rounded-full";
         icon.innerHTML = UI_SVG.cloud;
         icon.style.color = '#10b981';
+        if (badge) { badge.textContent = 'Connesso'; badge.style.color = '#10b981'; }
     }
 }
 
@@ -331,10 +297,7 @@ function importJsonBackup(event) {
     reader.onload = async (e) => {
         try {
             const parsed = JSON.parse(e.target.result);
-            if (!parsed || !Array.isArray(parsed.users)) {
-                alert("File JSON non valido.");
-                return;
-            }
+            if (!parsed || !Array.isArray(parsed.users)) { alert("File JSON non valido."); return; }
             if (!confirm("Ripristinare i dati da questo backup? I dati correnti verranno sostituiti.")) return;
             const currentKey = appState.syncKey;
             mergeStateSafely(parsed);
@@ -342,15 +305,44 @@ function importJsonBackup(event) {
             applyMode();
             applyTheme();
             await saveData();
-            closeModal('cloud-modal');
             renderApp();
             alert("Backup ripristinato correttamente!");
-        } catch (err) {
+        } catch (_) {
             alert("Impossibile leggere il file JSON.");
         }
     };
     reader.readAsText(file);
     event.target.value = '';
+}
+
+// ============================================================
+//  NAVIGAZIONE BOTTOM BAR
+// ============================================================
+function switchTab(tab, scrollToId = null) {
+    activeTab = tab;
+    closeAllPopovers();
+
+    document.querySelectorAll('.app-view').forEach(sec => sec.classList.add('hidden'));
+    const target = document.getElementById(`view-${tab}`);
+    if (target) target.classList.remove('hidden');
+
+    document.querySelectorAll('[data-nav-tab]').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.navTab === tab);
+    });
+
+    if (tab === 'weight') {
+        renderWeightView();
+    } else if (tab === 'report') {
+        renderReportView();
+    }
+
+    if (scrollToId) {
+        setTimeout(() => {
+            document.getElementById(scrollToId)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 60);
+    } else {
+        window.scrollTo({ top: 0, behavior: 'instant' });
+    }
 }
 
 // ============================================================
@@ -391,11 +383,12 @@ function applyTheme() {
     root.style.setProperty('--brand-contrast', t.contrast || '#ffffff');
     root.style.setProperty('--brand-50',  `rgba(${t.rgb}, .09)`);
     root.style.setProperty('--brand-100', `rgba(${t.rgb}, .16)`);
-    root.style.setProperty('--brand-200', `rgba(${t.rgb}, .28)`);
+    root.style.setProperty('--brand-200', `rgba(${t.rgb}, .30)`);
 
     document.querySelectorAll('[data-color-swatch]').forEach(el => {
         el.classList.toggle('active', el.dataset.colorSwatch === appState.theme);
     });
+    if (activeTab === 'weight') setTimeout(renderWeightChart, 20);
 }
 
 function applyMode() {
@@ -414,12 +407,12 @@ function setTheme(colorKey) {
 function setMode(mode) {
     appState.mode = mode;
     applyMode();
-    applyTheme(); // necessario per temi adattivi come Titanium
+    applyTheme();
     saveData();
 }
 
 // ============================================================
-//  PARSING TARGET E RECUPERI PER BLOCCO
+//  PARSING TARGET E RECUPERI
 // ============================================================
 function parseTargetBlocks(targetText) {
     if (!targetText) return ['3x10'];
@@ -427,32 +420,22 @@ function parseTargetBlocks(targetText) {
     if (rawParts.length === 0) return [targetText];
 
     const hasNxR = (s) => /\d\s*[x×]\s*\d/i.test(s);
-
     const blocks = [];
     let current = '';
     for (const part of rawParts) {
         if (current === '') {
             current = part;
+        } else if (hasNxR(current) && hasNxR(part)) {
+            blocks.push(current);
+            current = part;
         } else {
-            if (hasNxR(current) && hasNxR(part)) {
-                blocks.push(current);
-                current = part;
-            } else {
-                current = current + ' + ' + part;
-            }
+            current = current + ' + ' + part;
         }
     }
     if (current !== '') blocks.push(current);
     return blocks.length > 0 ? blocks : [targetText];
 }
 
-/**
- * Estrae eventuali recuperi inline da una stringa target.
- * Esempi:
- *   "2x4 (3') + 1x6 (2')"      -> { cleanTarget: "2x4 + 1x6", rests: ["3'", "2'"] }
- *   "2x4 rec 3' + 1x6 rec 2'"  -> { cleanTarget: "2x4 + 1x6", rests: ["3'", "2'"] }
- *   "3x10+10 (1'30\")"         -> { cleanTarget: "3x10 + 10", rests: ["1'30\""] }
- */
 function parseTargetAndRests(rawTarget) {
     const rawBlocks = parseTargetBlocks(rawTarget || '3x10');
     const cleanBlocks = [];
@@ -464,7 +447,6 @@ function parseTargetAndRests(rawTarget) {
     rawBlocks.forEach(block => {
         let b = block.trim();
         let rest = '';
-
         const mParen = b.match(parenRegex);
         if (mParen) {
             rest = normalizeRestLabel(mParen[1]);
@@ -480,10 +462,9 @@ function parseTargetAndRests(rawTarget) {
         rests.push(rest);
     });
 
-    const hasAnyRest = rests.some(r => r !== '');
     return {
         cleanTarget: cleanBlocks.join(' + '),
-        rests: hasAnyRest ? rests : []
+        rests: rests.some(r => r !== '') ? rests : []
     };
 }
 
@@ -494,28 +475,16 @@ function normalizeRestLabel(str) {
 function parseRestToSeconds(restStr) {
     const s = String(restStr || '').trim().toLowerCase().replace(/’/g, "'").replace(',', '.');
     if (!s) return 0;
-
-    // Formato mm:ss (es. 2:30)
     const colon = s.match(/^(\d+)\s*:\s*(\d{1,2})$/);
     if (colon) return parseInt(colon[1], 10) * 60 + parseInt(colon[2], 10);
-
-    // Formato m'ss" o m'ss (es. 2'30" o 1'30)
     const minSec = s.match(/^(\d+)\s*(?:'|m|min)\s*(\d{1,2})\s*(?:"|s|sec)?$/);
     if (minSec) return parseInt(minSec[1], 10) * 60 + parseInt(minSec[2], 10);
-
-    // Solo minuti (es. 3' o 2.5m)
     const minOnly = s.match(/^(\d+(?:\.\d+)?)\s*(?:'|m|min)$/);
     if (minOnly) return Math.round(parseFloat(minOnly[1]) * 60);
-
-    // Solo secondi (es. 90s o 90")
     const secOnly = s.match(/^(\d+)\s*(?:"|s|sec)$/);
     if (secOnly) return parseInt(secOnly[1], 10);
-
-    // Solo numero: <= 10 inteso come minuti, > 10 come secondi
     const num = parseFloat(s);
-    if (!isNaN(num) && num > 0) {
-        return num <= 10 ? Math.round(num * 60) : Math.round(num);
-    }
+    if (!isNaN(num) && num > 0) return num <= 10 ? Math.round(num * 60) : Math.round(num);
     return 90;
 }
 
@@ -531,59 +500,43 @@ function startRestTimer(exName, blockLabel, restStr) {
     _restTimerRemaining = seconds;
     _restTimerPaused = false;
 
-    const bar = document.getElementById('rest-timer-bar');
     document.getElementById('rest-timer-label').textContent = `${exName} · ${blockLabel}`;
-    bar.classList.remove('hidden');
+    document.getElementById('rest-timer-bar').classList.remove('hidden');
     updateRestTimerDisplay();
 
-    _restTimerInterval = setInterval(() => {
-        if (_restTimerPaused) return;
-        _restTimerRemaining--;
-        if (_restTimerRemaining <= 0) {
-            _restTimerRemaining = 0;
-            updateRestTimerDisplay();
-            clearInterval(_restTimerInterval);
-            _restTimerInterval = null;
-            playTimerDoneFeedback();
-        } else {
-            updateRestTimerDisplay();
-        }
-    }, 1000);
+    _restTimerInterval = setInterval(tickRestTimer, 1000);
+}
+
+function tickRestTimer() {
+    if (_restTimerPaused) return;
+    _restTimerRemaining--;
+    if (_restTimerRemaining <= 0) {
+        _restTimerRemaining = 0;
+        updateRestTimerDisplay();
+        clearInterval(_restTimerInterval);
+        _restTimerInterval = null;
+        playTimerDoneFeedback();
+    } else {
+        updateRestTimerDisplay();
+    }
 }
 
 function updateRestTimerDisplay() {
     const mins = Math.floor(_restTimerRemaining / 60);
     const secs = _restTimerRemaining % 60;
-    const formatted = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
-    const timeEl = document.getElementById('rest-timer-time');
-    timeEl.textContent = _restTimerRemaining === 0 ? 'PRONTO!' : formatted;
-
+    document.getElementById('rest-timer-time').textContent = _restTimerRemaining === 0
+        ? 'PRONTO!'
+        : `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
     const pct = _restTimerTotal > 0 ? (_restTimerRemaining / _restTimerTotal) * 100 : 0;
     document.getElementById('rest-timer-progress').style.width = `${Math.max(0, Math.min(100, pct))}%`;
-
-    const toggleBtn = document.getElementById('rest-timer-toggle');
-    toggleBtn.innerHTML = _restTimerPaused ? UI_SVG.play : UI_SVG.pause;
+    document.getElementById('rest-timer-toggle').innerHTML = _restTimerPaused ? UI_SVG.play : UI_SVG.pause;
 }
 
 function toggleRestTimerPause() {
     if (_restTimerRemaining === 0) {
         _restTimerRemaining = _restTimerTotal;
         _restTimerPaused = false;
-        if (!_restTimerInterval) {
-            _restTimerInterval = setInterval(() => {
-                if (_restTimerPaused) return;
-                _restTimerRemaining--;
-                if (_restTimerRemaining <= 0) {
-                    _restTimerRemaining = 0;
-                    updateRestTimerDisplay();
-                    clearInterval(_restTimerInterval);
-                    _restTimerInterval = null;
-                    playTimerDoneFeedback();
-                } else {
-                    updateRestTimerDisplay();
-                }
-            }, 1000);
-        }
+        if (!_restTimerInterval) _restTimerInterval = setInterval(tickRestTimer, 1000);
     } else {
         _restTimerPaused = !_restTimerPaused;
     }
@@ -601,9 +554,7 @@ function stopRestTimer(hideBar = true) {
         clearInterval(_restTimerInterval);
         _restTimerInterval = null;
     }
-    if (hideBar) {
-        document.getElementById('rest-timer-bar')?.classList.add('hidden');
-    }
+    if (hideBar) document.getElementById('rest-timer-bar')?.classList.add('hidden');
 }
 
 function playTimerDoneFeedback() {
@@ -626,11 +577,12 @@ function playTimerDoneFeedback() {
 }
 
 // ============================================================
-//  RENDER APP
+//  RENDER PRINCIPALE
 // ============================================================
 function renderApp() {
     document.getElementById('week-display').innerText = appState.week;
 
+    // Aggiorna selettore utenti in Impostazioni + nome nell'header
     const userSelector = document.getElementById('user-selector');
     userSelector.innerHTML = '';
     if (appState.users.length === 0) {
@@ -646,86 +598,118 @@ function renderApp() {
         });
     }
 
-    updateWeightPill();
-
     const currentUser = appState.users.find(u => u.id === appState.currentUserId);
-    const daysContainer = document.getElementById('days-container');
-    daysContainer.innerHTML = '';
+    document.getElementById('header-user-name').textContent = currentUser ? currentUser.name : 'Tocca per configurare';
+
+    // Label Peso nella Bottom Nav
+    const curW = getUserWeights()['w' + appState.week];
+    document.getElementById('nav-weight-label').textContent = curW != null ? `${curW.toFixed(1)} kg` : 'Peso';
+
+    renderWorkoutView(currentUser);
+
+    if (activeTab === 'weight') renderWeightView();
+    if (activeTab === 'report') renderReportView();
+}
+
+function renderWorkoutView(currentUser) {
+    const strip = document.getElementById('day-tabs-strip');
+    const container = document.getElementById('active-day-container');
 
     if (!currentUser || !currentUser.days || currentUser.days.length === 0) {
-        daysContainer.innerHTML = renderEmptyState();
+        strip.innerHTML = '';
+        container.innerHTML = renderEmptyState();
         return;
     }
 
+    // Assicura un activeDayId valido
+    if (!activeDayId || !currentUser.days.some(d => d.id === activeDayId)) {
+        const firstOpen = currentUser.days.find(d => d.isOpen);
+        activeDayId = firstOpen ? firstOpen.id : currentUser.days[0].id;
+    }
+
+    // 1. Barra orizzontale tab giorni
+    strip.innerHTML = currentUser.days.map(day => {
+        const isActive = day.id === activeDayId;
+        return `
+            <button onclick="selectDay('${day.id}')" class="day-tab-pill ${isActive ? 'active' : ''}">
+                ${getDayIconSvg(day)}
+                <span>${escapeHtml(day.name)}</span>
+            </button>
+        `;
+    }).join('') + `
+        <button onclick="openAddDayModal()" class="day-tab-add" title="Aggiungi nuovo giorno">
+            ${UI_SVG.plus}
+        </button>
+    `;
+
+    // 2. Giorno attivo
+    const day = currentUser.days.find(d => d.id === activeDayId);
+    const totalEx = day.exercises.length;
+    let doneEx = 0;
+    day.exercises.forEach(ex => {
+        const lk = `w${appState.week}_${currentUser.id}_${day.id}_${ex.id}`;
+        if (appState.logs[lk]?.done) doneEx++;
+    });
+    const pct = totalEx > 0 ? Math.round((doneEx / totalEx) * 100) : 0;
+
     let carriedAny = false;
+    let cardsHtml = '';
 
-    currentUser.days.forEach(day => {
-        const dayDiv = document.createElement('div');
-        dayDiv.className = 'day-card mb-3.5';
-
-        // Conteggio esercizi completati nella settimana corrente
-        const totalEx = day.exercises.length;
-        let doneEx = 0;
-        day.exercises.forEach(ex => {
-            const lk = `w${appState.week}_${currentUser.id}_${day.id}_${ex.id}`;
-            if (appState.logs[lk]?.done) doneEx++;
-        });
-        const isDayComplete = totalEx > 0 && doneEx === totalEx;
-
-        const headerHtml = `
-            <div class="p-4 sm:p-5 flex justify-between items-center cursor-pointer select-none hover:bg-surface-2 transition-colors" onclick="toggleDay('${day.id}')">
-                <div class="flex items-center gap-3 min-w-0">
-                    <div class="day-icon-badge">${getDayIconSvg(day)}</div>
-                    <div class="min-w-0">
-                        <h2 class="text-base sm:text-lg font-extrabold truncate leading-tight">${escapeHtml(day.name)}</h2>
-                        <div class="flex items-center gap-2 mt-1">
-                            <span class="day-progress-pill tabular-nums ${isDayComplete ? 'complete' : ''}">${doneEx}/${totalEx} svolti</span>
-                        </div>
-                    </div>
-                </div>
-                <div class="flex items-center gap-1 flex-shrink-0">
-                    <button onclick="event.stopPropagation(); openEditDayModal('${day.id}')" class="icon-btn !w-8 !h-8" title="Modifica giorno e icona">
-                        ${UI_SVG.edit}
-                    </button>
-                    <button onclick="event.stopPropagation(); deleteDay('${day.id}')" class="icon-btn !w-8 !h-8 hover:!text-red-500" title="Elimina giorno">
-                        ${UI_SVG.trash}
-                    </button>
-                    <span id="icon-${day.id}" class="w-8 h-8 flex items-center justify-center text-muted transition-transform duration-300 ${day.isOpen ? 'rotate-180' : ''}">
-                        ${UI_SVG.chevron}
-                    </span>
-                </div>
+    if (totalEx === 0) {
+        cardsHtml = `
+            <div class="panel-card p-8 text-center mb-3">
+                <p class="text-sm font-bold text-app mb-1">Giorno ancora vuoto</p>
+                <p class="text-xs text-muted">Aggiungi un esercizio singolo o incolla la lista qui sotto.</p>
             </div>
         `;
-
-        let exHtml = `<div class="space-y-2.5 px-4 sm:px-5 pb-4 sm:pb-5">`;
-        if (day.exercises.length === 0) {
-            exHtml += `<p class="text-dim text-xs italic text-center py-5">Nessun esercizio in questo giorno. Aggiungine uno qui sotto.</p>`;
-        }
-
+    } else {
         day.exercises.forEach(ex => {
             const res = renderExerciseCard(currentUser, day, ex);
             if (res.carriedNow) carriedAny = true;
-            exHtml += res.html;
+            cardsHtml += res.html;
         });
+    }
 
-        exHtml += `
-            <div class="flex gap-2 mt-3.5 pt-3.5 divider-soft">
-                <button onclick="prepareSingleAdd('${day.id}')" class="btn btn-ghost flex-1 !py-2.5 !text-xs">
-                    ${UI_SVG.plus} SINGOLO
-                </button>
-                <button onclick="prepareBulkAdd('${day.id}')" class="btn btn-outline flex-1 !py-2.5 !text-xs">
-                    ${UI_SVG.bolt} INCOLLA LISTA
+    container.innerHTML = `
+        <div class="day-hero">
+            <div class="flex items-center justify-between gap-3">
+                <div class="flex items-center gap-3 min-w-0">
+                    <div class="day-hero-icon">${getDayIconSvg(day)}</div>
+                    <div class="min-w-0">
+                        <h2 class="text-base sm:text-lg font-black tracking-tight truncate">${escapeHtml(day.name)}</h2>
+                        <div class="text-xs font-semibold text-muted tabular-nums mt-0.5">
+                            ${doneEx} di ${totalEx} completati · ${pct}%
+                        </div>
+                    </div>
+                </div>
+                <button onclick="openEditDayModal('${day.id}')" class="icon-btn" title="Modifica giorno e icona">
+                    ${UI_SVG.edit}
                 </button>
             </div>
-        </div>`;
+            <div class="progress-track">
+                <div class="progress-fill" style="width: ${pct}%;"></div>
+            </div>
+        </div>
 
-        dayDiv.innerHTML = headerHtml + `<div id="content-${day.id}" class="accordion-content ${day.isOpen ? 'open' : ''}">${exHtml}</div>`;
-        daysContainer.appendChild(dayDiv);
-    });
+        <div>${cardsHtml}</div>
 
-    if (carriedAny) {
-        saveData();
-    }
+        <div class="grid grid-cols-2 gap-2.5 mt-3">
+            <button onclick="prepareSingleAdd('${day.id}')" class="btn btn-ghost">
+                ${UI_SVG.plus} Esercizio
+            </button>
+            <button onclick="prepareBulkAdd('${day.id}')" class="btn btn-outline">
+                ${UI_SVG.bolt} Incolla Lista
+            </button>
+        </div>
+    `;
+
+    if (carriedAny) saveData();
+}
+
+function selectDay(dayId) {
+    activeDayId = dayId;
+    closeAllPopovers();
+    renderWorkoutView(appState.users.find(u => u.id === appState.currentUserId));
 }
 
 function renderExerciseCard(currentUser, day, ex) {
@@ -739,22 +723,18 @@ function renderExerciseCard(currentUser, day, ex) {
     const blocks = parseTargetBlocks(parsedTarget.cleanTarget);
     const restsArray = (Array.isArray(ex.rests) && ex.rests.length > 0) ? ex.rests : parsedTarget.rests;
 
-    // Badge "Aumenta carico" dalla settimana precedente
     let upBadgeHtml = '';
     if (appState.week > 1) {
-        const prevLogKey = `w${appState.week - 1}_${currentUser.id}_${day.id}_${ex.id}`;
-        const prevLog = appState.logs[prevLogKey];
+        const prevLog = appState.logs[`w${appState.week - 1}_${currentUser.id}_${day.id}_${ex.id}`];
         if (prevLog && prevLog.up) {
-            upBadgeHtml = `<div class="up-badge">${UI_SVG.flame} Obiettivo: aumenta il carico</div>`;
+            upBadgeHtml = `<div class="up-badge">${UI_SVG.flame} Aumenta il carico</div>`;
         }
     }
 
-    // Riporto automatico carichi dalla settimana precedente
     let carriedNow = false;
     let prevWeights = null;
     if (appState.week > 1) {
-        const prevLogKey = `w${appState.week - 1}_${currentUser.id}_${day.id}_${ex.id}`;
-        const prevLog = appState.logs[prevLogKey];
+        const prevLog = appState.logs[`w${appState.week - 1}_${currentUser.id}_${day.id}_${ex.id}`];
         if (prevLog && prevLog.weights && prevLog.weights.some(v => v !== '' && v !== undefined && v !== null)) {
             prevWeights = prevLog.weights;
         }
@@ -784,81 +764,104 @@ function renderExerciseCard(currentUser, day, ex) {
 function renderExerciseCardInternal(dayId, ex, logKey, log, blocks, restsArray, upBadgeHtml, isCarried) {
     const weightsArray = log.weights || [];
     const safeExNameAttr = escapeAttr(ex.name);
+    const popId = `pop_${ex.id}`;
 
-    let inputsHtml = '';
-    blocks.forEach((block, i) => {
+    const blocksHtml = blocks.map((block, i) => {
         const val = weightsArray[i] ?? '';
         const restVal = (restsArray && restsArray[i]) ? restsArray[i] : '';
         const restPillHtml = restVal
-            ? `<button type="button" onclick="startRestTimer('${safeExNameAttr}', '${escapeAttr(block)}', '${escapeAttr(restVal)}')" class="rest-pill" title="Avvia timer recupero ${escapeAttr(restVal)}">
+            ? `<button type="button" onclick="startRestTimer('${safeExNameAttr}', '${escapeAttr(block)}', '${escapeAttr(restVal)}')" class="rest-pill" title="Avvia recupero ${escapeAttr(restVal)}">
                    ${UI_SVG.clock} <span>${escapeHtml(restVal)}</span>
                </button>`
             : '';
 
-        inputsHtml += `
-            <div class="block-row">
+        return `
+            <div class="ex-block-item">
                 <div class="flex flex-wrap items-center gap-2 min-w-0 flex-1">
                     <span class="text-xs font-extrabold brand-text uppercase tracking-wide tabular-nums">${escapeHtml(block)}</span>
                     ${restPillHtml}
                 </div>
-                <div class="weight-input-wrap">
+                <div class="weight-pill">
                     <input type="number" step="0.25" inputmode="decimal"
-                        placeholder="0.0" value="${escapeAttr(val)}"
+                        placeholder="—" value="${escapeAttr(val)}"
                         onchange="updateWeight('${logKey}', this.value, ${i})">
                     <span class="unit">kg</span>
                 </div>
             </div>
         `;
-    });
+    }).join('');
 
     const carriedBadge = isCarried
         ? `<span class="carried-badge">${UI_SVG.arrowUp} S${appState.week - 1}</span>`
         : '';
 
     return `
-        <div class="exercise-card p-3.5 ${log.done ? 'done' : ''}">
+        <div class="ex-card ${log.done ? 'done' : ''}">
+            ${upBadgeHtml}
             <div class="flex items-start gap-3">
                 <label class="cursor-pointer mt-0.5 flex-shrink-0">
                     <input type="checkbox" class="sr-only" ${log.done ? 'checked' : ''} onchange="toggleDone('${logKey}', this.checked)">
                     <span class="ex-check">${UI_SVG.check}</span>
                 </label>
                 <div class="flex-1 min-w-0">
-                    ${upBadgeHtml}
-                    <div class="flex justify-between items-start gap-2">
-                        <h3 class="font-bold text-app text-[14.5px] break-words leading-snug flex-1">
-                            ${escapeHtml(ex.name)}${carriedBadge}
-                        </h3>
-                        <div class="flex gap-1 flex-shrink-0">
-                            <button onclick="toggleUpFlag('${logKey}')" class="up-toggle ${log.up ? 'active' : ''}" title="Segna: aumenta carico prossima settimana">
-                                ${UI_SVG.trendUp}
-                            </button>
-                            <button onclick="openEditEx('${dayId}','${ex.id}')" class="up-toggle" title="Modifica esercizio e recuperi">
-                                ${UI_SVG.edit}
-                            </button>
-                            <button onclick="deleteEx('${dayId}','${ex.id}')" class="up-toggle hover:!text-red-500" title="Elimina">
-                                ${UI_SVG.trash}
-                            </button>
-                        </div>
-                    </div>
-                    <div class="flex flex-col mt-1">${inputsHtml}</div>
+                    <h3 class="font-bold text-app text-[14.5px] break-words leading-snug">
+                        ${escapeHtml(ex.name)}${carriedBadge}
+                    </h3>
+                </div>
+                <div class="flex items-center gap-0.5 flex-shrink-0">
+                    <button onclick="toggleUpFlag('${logKey}')" class="mini-action-btn ${log.up ? 'active' : ''}" title="Aumenta carico settimana prossima">
+                        ${UI_SVG.trendUp}
+                    </button>
+                    <button onclick="toggleExMenu(event, '${popId}')" class="mini-action-btn" title="Altre opzioni">
+                        ${UI_SVG.dots}
+                    </button>
                 </div>
             </div>
+
+            <div id="${popId}" class="ex-popover hidden">
+                <button onclick="closeAllPopovers(); openEditEx('${dayId}','${ex.id}')" class="ex-popover-item">
+                    ${UI_SVG.edit} Modifica / Recuperi
+                </button>
+                <button onclick="closeAllPopovers(); deleteEx('${dayId}','${ex.id}')" class="ex-popover-item danger">
+                    ${UI_SVG.trash} Elimina esercizio
+                </button>
+            </div>
+
+            <div class="ex-blocks-list">${blocksHtml}</div>
         </div>
     `;
 }
 
+function toggleExMenu(event, popId) {
+    event.stopPropagation();
+    const el = document.getElementById(popId);
+    const wasHidden = el.classList.contains('hidden');
+    closeAllPopovers();
+    if (wasHidden) {
+        el.classList.remove('hidden');
+        openPopoverId = popId;
+    }
+}
+
+function closeAllPopovers() {
+    if (openPopoverId) {
+        document.getElementById(openPopoverId)?.classList.add('hidden');
+        openPopoverId = null;
+    }
+}
+
 function renderEmptyState() {
     return `
-        <div class="empty-hero mt-6">
-            <div class="w-16 h-16 mx-auto rounded-2xl brand-soft-bg brand-text flex items-center justify-center mb-4">
-                <svg class="w-8 h-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10v4"/><path d="M21 10v4"/><rect x="5" y="7" width="3" height="10" rx="1"/><rect x="16" y="7" width="3" height="10" rx="1"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+        <div class="empty-hero mt-4">
+            <div class="w-14 h-14 mx-auto rounded-2xl brand-soft-bg brand-text flex items-center justify-center mb-4">
+                <svg class="w-7 h-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10v4"/><path d="M21 10v4"/><rect x="5" y="7" width="3" height="10" rx="1"/><rect x="16" y="7" width="3" height="10" rx="1"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
             </div>
-            <h2 class="text-xl font-black mb-1.5">Pronto a iniziare?</h2>
-            <p class="text-muted mb-6 max-w-xs mx-auto text-xs leading-relaxed">Crea un giorno, incolla l'intera scheda in un colpo solo oppure connetti la tua chiave Cloud Sync.</p>
-            <div class="flex flex-col gap-2.5 max-w-xs mx-auto">
+            <h2 class="text-lg font-black mb-1">Nessuna scheda attiva</h2>
+            <p class="text-muted mb-5 max-w-xs mx-auto text-xs leading-relaxed">Incolla tutta la tua scheda in una volta sola, crea il primo giorno oppure sincronizza dal cloud.</p>
+            <div class="flex flex-col gap-2 max-w-xs mx-auto">
                 <button onclick="openImportPlanModal()" class="btn btn-primary">Incolla Scheda Intera</button>
-                <button onclick="openAddDayModal()" class="btn btn-outline">Aggiungi Giorno Singolo</button>
-                <button onclick="openModal('cloud-modal')" class="btn btn-ghost">Connetti Cloud Sync</button>
+                <button onclick="openAddDayModal()" class="btn btn-outline">Nuovo Giorno</button>
+                <button onclick="switchTab('settings', 'cloud-section')" class="btn btn-ghost">Connetti Cloud Sync</button>
             </div>
         </div>
     `;
@@ -869,13 +872,12 @@ function escapeHtml(s) {
         '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
     }[c]));
 }
-
 function escapeAttr(s) {
     return String(s ?? '').replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '&quot;');
 }
 
 // ============================================================
-//  GIORNI: toggle / add / edit / delete + ICON PICKER
+//  GIORNI: add / edit / delete + ICON PICKER
 // ============================================================
 function renderIconPickerGrid(containerId, selectedKey, onSelectFnName) {
     const container = document.getElementById(containerId);
@@ -894,12 +896,10 @@ function openAddDayModal() {
     renderIconPickerGrid('new-day-icon-grid', tempSelectedNewDayIcon, 'selectNewDayIcon');
     openModal('add-day-modal');
 }
-
 function selectNewDayIcon(key) {
     tempSelectedNewDayIcon = key;
     renderIconPickerGrid('new-day-icon-grid', tempSelectedNewDayIcon, 'selectNewDayIcon');
 }
-
 function autoSelectIconForNewDay(name) {
     const detected = detectDayIcon(name);
     if (detected !== tempSelectedNewDayIcon) {
@@ -918,7 +918,6 @@ function openEditDayModal(dayId) {
     renderIconPickerGrid('edit-day-icon-grid', tempSelectedEditDayIcon, 'selectEditDayIcon');
     openModal('edit-day-modal');
 }
-
 function selectEditDayIcon(key) {
     tempSelectedEditDayIcon = key;
     renderIconPickerGrid('edit-day-icon-grid', tempSelectedEditDayIcon, 'selectEditDayIcon');
@@ -937,16 +936,15 @@ function saveEditDay() {
     renderApp();
 }
 
-function toggleDay(dayId) {
+function deleteCurrentEditDay() {
+    if (!tempEditDayId) return;
+    if (!confirm('Eliminare questo giorno e tutti i suoi esercizi?')) return;
     const currentUser = appState.users.find(u => u.id === appState.currentUserId);
-    const day = currentUser?.days.find(d => d.id === dayId);
-    if (!day) return;
-    day.isOpen = !day.isOpen;
-    const content = document.getElementById(`content-${dayId}`);
-    const icon = document.getElementById(`icon-${dayId}`);
-    if (day.isOpen) { content.classList.add('open'); icon.classList.add('rotate-180'); }
-    else { content.classList.remove('open'); icon.classList.remove('rotate-180'); }
+    currentUser.days = currentUser.days.filter(d => d.id !== tempEditDayId);
+    if (activeDayId === tempEditDayId) activeDayId = currentUser.days[0]?.id || null;
     saveData();
+    closeModal('edit-day-modal');
+    renderApp();
 }
 
 function ensureCurrentUser() {
@@ -964,24 +962,19 @@ function saveDay() {
     const name = document.getElementById('new-day-name').value.trim();
     if (!name) return;
     const currentUser = ensureCurrentUser();
+    const newDayId = 'd_' + Date.now();
     currentUser.days.push({
-        id: 'd_' + Date.now(),
+        id: newDayId,
         name: name,
         icon: tempSelectedNewDayIcon,
         isOpen: true,
         exercises: []
     });
+    activeDayId = newDayId;
     document.getElementById('new-day-name').value = '';
     saveData();
     closeModal('add-day-modal');
-    renderApp();
-}
-
-function deleteDay(dayId) {
-    if (!confirm('Eliminare questo giorno e tutti i suoi esercizi?')) return;
-    const currentUser = appState.users.find(u => u.id === appState.currentUserId);
-    currentUser.days = currentUser.days.filter(d => d.id !== dayId);
-    saveData();
+    switchTab('workout');
     renderApp();
 }
 
@@ -990,6 +983,7 @@ function deleteDay(dayId) {
 // ============================================================
 function switchUser(userId) {
     appState.currentUserId = userId;
+    activeDayId = null;
     saveData();
     renderApp();
 }
@@ -1000,6 +994,7 @@ function saveUser() {
     const newId = 'u_' + Date.now();
     appState.users.push({ id: newId, name: name, days: [] });
     appState.currentUserId = newId;
+    activeDayId = null;
     document.getElementById('new-user-name').value = '';
     saveData();
     closeModal('add-user-modal');
@@ -1028,27 +1023,25 @@ function deleteUser() {
     if (!confirm("Vuoi eliminare questo profilo e tutti i suoi dati?")) return;
     appState.users = appState.users.filter(u => u.id !== appState.currentUserId);
     appState.currentUserId = appState.users[0].id;
+    activeDayId = null;
     saveData();
     closeModal('edit-user-modal');
     renderApp();
 }
 
 // ============================================================
-//  ESERCIZI: add (singolo + bulk), edit, delete + RECUPERI
+//  ESERCIZI: add, bulk, edit, delete + RECUPERI
 // ============================================================
 function renderRestInputs(prefix, existingRests = null) {
     const targetInput = document.getElementById(`${prefix}-ex-target`);
     const container = document.getElementById(`${prefix}-ex-rests-container`);
     if (!targetInput || !container) return;
 
-    // Preserva i valori già digitati nei campi recupero se non passati esplicitamente
-    const currentInputs = Array.from(container.querySelectorAll('input[data-rest-idx]'));
-    const typedValues = currentInputs.map(inp => inp.value);
-
+    const typedValues = Array.from(container.querySelectorAll('input[data-rest-idx]')).map(inp => inp.value);
     const parsed = parseTargetAndRests(targetInput.value.trim() || '3x10');
     const blocks = parseTargetBlocks(parsed.cleanTarget);
 
-    let html = `<label class="block text-[11px] font-bold text-dim uppercase tracking-wider mb-1.5">Recuperi per blocco (opzionale)</label><div class="space-y-2">`;
+    let html = `<label class="micro-label">Recuperi per blocco (opzionale)</label><div class="space-y-2">`;
     blocks.forEach((blk, idx) => {
         const val = existingRests !== null
             ? (existingRests[idx] || parsed.rests[idx] || '')
@@ -1115,7 +1108,6 @@ function parseExerciseLine(line) {
     let name = cleaned;
     let rawTarget = '3x10';
 
-    // 1. Separatore esplicito (-, –, —, :, |)
     const sepMatch = cleaned.match(/^(.+?)\s*(?:[-–—:|])\s*(.+)$/);
     if (sepMatch && /\d\s*[x×]\s*\d/i.test(sepMatch[2])) {
         name = sepMatch[1].trim();
@@ -1124,7 +1116,6 @@ function parseExerciseLine(line) {
         name = sepMatch[1].trim();
         rawTarget = sepMatch[2].trim() || '3x10';
     } else {
-        // 2. Nessun separatore: cerca il primo blocco NxR
         const nxrIdx = cleaned.search(/\b\d+\s*[x×]\s*\d+/i);
         if (nxrIdx > 1) {
             name = cleaned.slice(0, nxrIdx).replace(/[-–—:|]+$/, '').trim();
@@ -1248,14 +1239,9 @@ function parseFullWorkoutPlan(rawText) {
 
     lines.forEach(line => {
         const hasNxR = /\d\s*[x×]\s*\d/i.test(line);
-
         if (isExplicitDayHeader(line) || (!hasNxR && !line.includes('-') && line.length <= 42 && (currentDay === null || currentDay.exercises.length > 0))) {
             const cleanTitle = line.replace(/^#{1,4}\s*/, '').replace(/^\*\*|\*\*$/g, '').replace(/:$/, '').trim();
-            currentDay = {
-                name: cleanTitle,
-                icon: detectDayIcon(cleanTitle),
-                exercises: []
-            };
+            currentDay = { name: cleanTitle, icon: detectDayIcon(cleanTitle), exercises: [] };
             days.push(currentDay);
         } else {
             if (!currentDay) {
@@ -1263,9 +1249,7 @@ function parseFullWorkoutPlan(rawText) {
                 days.push(currentDay);
             }
             const parsedEx = parseExerciseLine(line);
-            if (parsedEx.name) {
-                currentDay.exercises.push(parsedEx);
-            }
+            if (parsedEx.name) currentDay.exercises.push(parsedEx);
         }
     });
 
@@ -1279,7 +1263,7 @@ function updateImportPlanPreview() {
 
     if (!text.trim()) {
         _parsedImportDays = [];
-        preview.innerHTML = `<p class="text-dim italic text-center py-4">Incolla la scheda sopra per vedere l'anteprima in tempo reale...</p>`;
+        preview.innerHTML = `<p class="text-dim italic text-center py-4">Incolla la scheda sopra per vedere l'anteprima...</p>`;
         btn.disabled = true;
         btn.textContent = 'Importa Scheda';
         return;
@@ -1322,10 +1306,13 @@ function executeImportPlan() {
     if (_parsedImportDays.length === 0) return;
     const currentUser = ensureCurrentUser();
     const baseTs = Date.now();
+    let firstNewId = null;
 
     _parsedImportDays.forEach((d, dIdx) => {
-        const newDay = {
-            id: `d_imp_${baseTs}_${dIdx}`,
+        const dayId = `d_imp_${baseTs}_${dIdx}`;
+        if (!firstNewId) firstNewId = dayId;
+        currentUser.days.push({
+            id: dayId,
             name: d.name,
             icon: d.icon,
             isOpen: dIdx === 0,
@@ -1338,12 +1325,13 @@ function executeImportPlan() {
                 if (ex.rests.length > 0) obj.rests = ex.rests;
                 return obj;
             })
-        };
-        currentUser.days.push(newDay);
+        });
     });
 
+    activeDayId = firstNewId;
     saveData();
     closeModal('import-plan-modal');
+    switchTab('workout');
     renderApp();
 }
 
@@ -1381,8 +1369,16 @@ function changeWeek(delta) {
     }
 }
 
+function jumpToWeek(weekNum) {
+    if (weekNum >= 1 && weekNum <= 6) {
+        appState.week = weekNum;
+        saveData();
+        renderApp();
+    }
+}
+
 // ============================================================
-//  PESO CORPOREO + OBIETTIVO CON STELLA SVG
+//  VISTA PESO CORPOREO + OBIETTIVO STELLA SVG
 // ============================================================
 function getUserWeights() {
     if (!appState.currentUserId) return {};
@@ -1415,71 +1411,69 @@ function setUserWeightGoal(value) {
     }
 }
 
-function updateWeightPill() {
-    const pill = document.getElementById('weight-pill-text');
-    if (!pill) return;
-    const w = getUserWeights()['w' + appState.week];
-    pill.textContent = w != null ? w.toFixed(1) + ' kg' : '— kg';
-}
-
-function updateWeightGoalBanner() {
-    const banner = document.getElementById('weight-goal-status');
-    if (!banner) return;
-    const goal = getUserWeightGoal();
+function renderWeightView() {
     const weights = getUserWeights();
+    const goal = getUserWeightGoal();
+    const curW = weights['w' + appState.week];
 
-    // Prende il peso della settimana corrente o l'ultimo registrato
-    let latest = weights['w' + appState.week];
+    document.getElementById('weight-week-label').textContent = appState.week;
+    document.getElementById('weight-week-label-2').textContent = appState.week;
+    document.getElementById('weight-input').value = curW != null ? curW : '';
+    document.getElementById('weight-goal-input').value = goal != null ? goal : '';
+
+    // Ultimo peso registrato per i KPI
+    let latest = curW;
     if (latest == null) {
         for (let w = 6; w >= 1; w--) {
             if (weights['w' + w] != null) { latest = weights['w' + w]; break; }
         }
     }
 
-    if (goal == null) {
-        banner.classList.add('hidden');
-        return;
-    }
+    document.getElementById('kpi-weight-current').textContent = latest != null ? `${latest.toFixed(1)} kg` : '—';
+    document.getElementById('kpi-weight-goal').textContent = goal != null ? `${goal.toFixed(1)} kg` : '—';
 
-    banner.classList.remove('hidden');
-    if (latest == null) {
-        banner.innerHTML = `<span class="flex items-center gap-1.5" style="color:#f59e0b;">${UI_SVG.star} Obiettivo: ${goal.toFixed(1)} kg</span><span class="text-muted">Inserisci il peso</span>`;
-        return;
-    }
-
-    const diff = Number((goal - latest).toFixed(1));
-    if (Math.abs(diff) < 0.05) {
-        banner.innerHTML = `<span class="flex items-center gap-1.5 text-emerald-400">${UI_SVG.star} Obiettivo raggiunto!</span><span class="tabular-nums">${goal.toFixed(1)} kg</span>`;
+    const deltaEl = document.getElementById('kpi-weight-delta');
+    if (goal != null && latest != null) {
+        const diff = Number((goal - latest).toFixed(1));
+        if (Math.abs(diff) < 0.05) {
+            deltaEl.textContent = 'Target!';
+            deltaEl.style.color = '#10b981';
+        } else {
+            deltaEl.textContent = `${diff > 0 ? '+' : ''}${diff.toFixed(1)} kg`;
+            deltaEl.style.color = 'var(--text)';
+        }
     } else {
-        const sign = diff > 0 ? '+' : '';
-        banner.innerHTML = `<span class="flex items-center gap-1.5" style="color:#f59e0b;">${UI_SVG.star} Traguardo: ${goal.toFixed(1)} kg</span><span class="text-muted tabular-nums">Mancano ${sign}${diff.toFixed(1)} kg</span>`;
+        deltaEl.textContent = '—';
+        deltaEl.style.color = 'var(--text-dim)';
     }
-}
 
-function openWeightModal() {
-    if (!appState.currentUserId) {
-        alert('Crea prima un profilo utente!');
-        return;
+    // Griglia 6 settimane cliccabile
+    const grid = document.getElementById('weight-weeks-grid');
+    let gridHtml = '';
+    for (let w = 1; w <= 6; w++) {
+        const v = weights['w' + w];
+        gridHtml += `
+            <button onclick="jumpToWeek(${w})" class="weight-week-chip ${w === appState.week ? 'active' : ''}">
+                <span class="text-[10px] font-bold ${w === appState.week ? 'brand-text' : 'text-dim'}">SETT ${w}</span>
+                <span class="text-sm font-extrabold tabular-nums mt-0.5 ${v != null ? 'text-app' : 'text-dim'}">${v != null ? v.toFixed(1) : '—'}</span>
+            </button>
+        `;
     }
-    const w = getUserWeights()['w' + appState.week];
-    const goal = getUserWeightGoal();
-    document.getElementById('weight-input').value = w != null ? w : '';
-    document.getElementById('weight-goal-input').value = goal != null ? goal : '';
-    document.getElementById('weight-week-label').textContent = appState.week;
-    updateWeightGoalBanner();
-    openModal('weight-modal');
-    setTimeout(renderWeightChart, 60);
+    grid.innerHTML = gridHtml;
+
+    setTimeout(renderWeightChart, 40);
 }
 
 function saveWeightAndGoal() {
+    if (!appState.currentUserId) {
+        ensureCurrentUser();
+    }
     const wVal = document.getElementById('weight-input').value.trim();
     const gVal = document.getElementById('weight-goal-input').value.trim();
     setUserWeight('w' + appState.week, wVal);
     setUserWeightGoal(gVal);
     saveData();
-    updateWeightPill();
-    updateWeightGoalBanner();
-    renderWeightChart();
+    renderApp();
 }
 
 function renderWeightChart() {
@@ -1508,7 +1502,6 @@ function renderWeightChart() {
     const textColor = styles.getPropertyValue('--text-dim').trim();
     const gridColor = styles.getPropertyValue('--border').trim();
 
-    // Plugin personalizzato: disegna linea obiettivo + stella SVG sul traguardo
     const goalStarPlugin = {
         id: 'goalStarPlugin',
         afterDatasetsDraw(chart) {
@@ -1518,7 +1511,6 @@ function renderWeightChart() {
             if (yPos < chartArea.top - 10 || yPos > chartArea.bottom + 10) return;
 
             c.save();
-            // Linea dorata tratteggiata
             c.beginPath();
             c.setLineDash([6, 4]);
             c.strokeStyle = 'rgba(245, 158, 11, 0.85)';
@@ -1528,7 +1520,6 @@ function renderWeightChart() {
             c.stroke();
             c.setLineDash([]);
 
-            // Badge testuale dell'obiettivo
             const tagText = `Obiettivo ${goal.toFixed(1)} kg`;
             c.font = '700 10px Inter, sans-serif';
             const textW = c.measureText(tagText).width;
@@ -1545,7 +1536,6 @@ function renderWeightChart() {
             c.textBaseline = 'middle';
             c.fillText(tagText, badgeX + 6, badgeY + 8.5);
 
-            // Stella SVG posizionata esattamente sul traguardo a destra
             const starSize = 22;
             const starX = chartArea.right - starSize / 2 - 4;
             const starY = yPos - starSize / 2;
@@ -1605,15 +1595,21 @@ function renderWeightChart() {
 }
 
 // ============================================================
-//  REPORT CARICHI (Markdown)
+//  VISTA REPORT CARICHI (compatibile con pdfexp.js)
 // ============================================================
-function openExportModal() {
+function renderReportView() {
     const currentUser = appState.users.find(u => u.id === appState.currentUserId);
-    if (!currentUser || currentUser.days.length === 0) {
-        alert("Nessun giorno presente.");
+    const selector = document.getElementById('export-day-selector');
+    const preview = document.getElementById('export-preview');
+
+    if (!currentUser || !currentUser.days || currentUser.days.length === 0) {
+        selector.innerHTML = '<option value="">— Nessun giorno —</option>';
+        preview.textContent = 'Aggiungi almeno un giorno alla tua scheda per generare il report.';
+        currentExportText = '';
         return;
     }
-    const selector = document.getElementById('export-day-selector');
+
+    const prevVal = selector.value;
     selector.innerHTML = '';
 
     const allOpt = document.createElement('option');
@@ -1628,15 +1624,21 @@ function openExportModal() {
         selector.appendChild(opt);
     });
 
-    selector.value = currentUser.days[0].id;
+    if (prevVal && Array.from(selector.options).some(o => o.value === prevVal)) {
+        selector.value = prevVal;
+    } else if (activeDayId && currentUser.days.some(d => d.id === activeDayId)) {
+        selector.value = activeDayId;
+    } else {
+        selector.value = '__ALL__';
+    }
+
     generateReport();
-    openModal('export-modal');
 }
 
 function generateReport() {
     const selected = document.getElementById('export-day-selector').value;
     const currentUser = appState.users.find(u => u.id === appState.currentUserId);
-    if (!currentUser) return;
+    if (!currentUser || !selected) return;
 
     const daysToExport = selected === '__ALL__'
         ? currentUser.days
@@ -1660,8 +1662,7 @@ function generateReport() {
             const weightsStr = [];
             let firstW = null, lastW = null;
             for (let w = 1; w <= 6; w++) {
-                const logKey = `w${w}_${currentUser.id}_${day.id}_${ex.id}`;
-                const log = appState.logs[logKey];
+                const log = appState.logs[`w${w}_${currentUser.id}_${day.id}_${ex.id}`];
                 let wArray = log ? (log.weights || []) : [];
                 if (log && log.weight && wArray.length === 0) wArray = [log.weight];
 
@@ -1695,6 +1696,7 @@ function generateReport() {
 }
 
 function copyExport() {
+    if (!currentExportText) return;
     navigator.clipboard.writeText(currentExportText).then(() => {
         const btn = document.getElementById('copy-export-btn');
         const original = btn.innerHTML;
@@ -1704,7 +1706,7 @@ function copyExport() {
 }
 
 // ============================================================
-//  MODALI
+//  MODALI & CHIUSURA POPOVER
 // ============================================================
 function openModal(id) {
     const el = document.getElementById(id);
@@ -1719,11 +1721,13 @@ function closeModal(id) {
     el.classList.remove('flex');
 }
 
-// Chiude modale cliccando sullo sfondo scuro
 document.addEventListener('click', (e) => {
     if (e.target.classList?.contains('modal-overlay')) {
         e.target.classList.add('hidden');
         e.target.classList.remove('flex');
+    }
+    if (openPopoverId && !e.target.closest('.ex-popover')) {
+        closeAllPopovers();
     }
 });
 
