@@ -3,13 +3,13 @@
   "short_name": "Avanguard",
   "start_url": "./index.html",
   "display": "standalone",
-  "background_color": "#07070a",
-  "theme_color": "#ef4444",
+  "background_color": "#08090d",
+  "theme_color": "#f43f5e",
   "icons": [
     {
-      "src": "logo.jpg",
+      "src": "logo.png",
       "sizes": "512x512",
-      "type": "image/jpeg"
+      "type": "image/png"
     }
   ]
 }

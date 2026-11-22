@@ -1,122 +1,278 @@
 /* ====================================================================
-   AVANGUARD WORKOUT - PDF EXPORT
+   AVANGUARD WORKOUT - PDF EXPORT VETTORIALE (jsPDF)
+   Nitido, leggibile, multi-pagina senza tagli, supporta 1 giorno o tutta la scheda
    ==================================================================== */
 
+function hexToRgb(hex) {
+    const clean = String(hex || '#f43f5e').replace('#', '');
+    const num = parseInt(clean.length === 3 ? clean.split('').map(c => c + c).join('') : clean, 16);
+    return [(num >> 16) & 255, (num >> 8) & 255, num & 255];
+}
+
+// Pulisce caratteri non supportati dal font PDF standard Helvetica (WinAnsi)
+function pdfSafeText(str) {
+    return String(str ?? '')
+        .replace(/[’‘]/g, "'")
+        .replace(/[“”]/g, '"')
+        .replace(/[–—]/g, '-')
+        .replace(/•/g, '-')
+        .replace(/×/g, 'x')
+        .replace(/[^\x20-\x7E\xA0-\xFF]/g, '');
+}
+
 function downloadPDF() {
-    const dayId = document.getElementById('export-day-selector').value;
+    if (!window.jspdf || !window.jspdf.jsPDF) {
+        alert("Libreria PDF non caricata. Ricarica la pagina con connessione attiva.");
+        return;
+    }
+
+    const selected = document.getElementById('export-day-selector').value;
     const currentUser = appState.users.find(u => u.id === appState.currentUserId);
-    const day = currentUser.days.find(d => d.id === dayId);
-    if (!day) return;
+    if (!currentUser) return;
 
-    const themeColor = THEMES[appState.theme] ? THEMES[appState.theme][500] : '#ef4444';
+    const daysToExport = selected === '__ALL__'
+        ? currentUser.days
+        : currentUser.days.filter(d => d.id === selected);
 
-    // 1. Creiamo un contenitore fisico e gli diamo una larghezza fissa fissa da PC
-    const container = document.createElement('div');
-    container.style.width = '800px';
-    container.style.padding = '30px';
-    container.style.backgroundColor = '#ffffff';
-    container.style.fontFamily = "'Inter', sans-serif";
-    container.style.color = '#18181b';
-    container.style.boxSizing = 'border-box';
+    if (!daysToExport.length) return;
 
-    let html = `
-        <div style="text-align: center; margin-bottom: 30px;">
-            <h1 style="color: ${themeColor}; margin: 0; font-size: 32px; font-weight: 900; text-transform: uppercase;">AVANGUARD WORKOUT</h1>
-            <h2 style="margin: 8px 0; font-size: 22px; color: #52525b; font-weight: 800;">Report Carichi: ${escapeHtml(day.name)}</h2>
-            <div style="display: inline-block; background: #f3f4f6; padding: 8px 18px; border-radius: 99px; margin-top: 10px;">
-                <span style="color: #71717a; font-size: 14px;">Atleta: <strong style="color: #18181b;">${escapeHtml(currentUser.name)}</strong> &nbsp;•&nbsp; Settimana: <strong style="color: #18181b;">S${appState.week}</strong></span>
-            </div>
-        </div>
-    `;
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
 
-    day.exercises.forEach(ex => {
-        // NOTA: "page-break-inside: avoid" è la magia che impedisce di tagliare l'esercizio a metà tra due pagine
-        html += `
-            <div style="page-break-inside: avoid; margin-bottom: 24px; border: 1px solid #e4e4e7; border-radius: 8px; padding: 10px; background: #fafafa;">
-                <h3 style="margin-top: 0; margin-bottom: 16px; color: ${themeColor}; font-size: 18px; border-bottom: 2px solid ${themeColor}30; padding-bottom: 10px;">${escapeHtml(ex.name)}</h3>
-                
-                <table style="width: 100%; border-collapse: collapse; table-layout: fixed;">
-                    <tr>
-        `;
+    const pageW = doc.internal.pageSize.getWidth();   // 210mm
+    const pageH = doc.internal.pageSize.getHeight();  // 297mm
+    const margin = 14;
+    const contentW = pageW - margin * 2;              // 182mm
 
-        let firstW = null, lastW = null;
+    // Colore accent (su sfondo bianco evitiamo il bianco del tema Titanium)
+    const resolvedTheme = getResolvedTheme(appState.theme, 'light');
+    const accentRgb = hexToRgb(resolvedTheme[500]);
 
-        for (let w = 1; w <= 6; w++) {
-            const logKey = `w${w}_${currentUser.id}_${day.id}_${ex.id}`;
-            const log = appState.logs[logKey];
+    const todayStr = new Date().toLocaleDateString('it-IT');
+    let y = 0;
 
-            let wArray = log ? (log.weights || []) : [];
-            if (log && log.weight && wArray.length === 0) wArray.push(log.weight);
+    // ---- HEADER PRINCIPALE ----
+    doc.setFillColor(...accentRgb);
+    doc.rect(0, 0, pageW, 3.5, 'F');
 
-            let valText = "-";
-            if (wArray.length > 0 && wArray.some(val => val !== '')) {
-                valText = wArray.map(val => val || '-').join(' + ');
-                const firstNum = parseFloat(wArray[0]);
-                if (!isNaN(firstNum)) {
-                    if (firstW === null) firstW = firstNum;
-                    lastW = firstNum;
+    y = 14;
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(18);
+    doc.setTextColor(...accentRgb);
+    doc.text('AVANGUARD WORKOUT', margin, y);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9.5);
+    doc.setTextColor(110, 115, 128);
+    doc.text(`Generato il ${todayStr}`, pageW - margin, y, { align: 'right' });
+
+    y += 6.5;
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(13);
+    doc.setTextColor(24, 24, 27);
+    const titleLabel = selected === '__ALL__'
+        ? 'Report Carichi - Scheda Completa'
+        : `Report Carichi - ${pdfSafeText(daysToExport[0].name)}`;
+    doc.text(titleLabel, margin, y);
+
+    // Barra metadati atleta + peso corporeo
+    y += 5.5;
+    doc.setFillColor(244, 246, 249);
+    doc.setDrawColor(226, 230, 238);
+    doc.roundedRect(margin, y, contentW, 11, 2.5, 2.5, 'FD');
+
+    const userWeights = getUserWeights();
+    const curW = userWeights['w' + appState.week];
+    const goalW = getUserWeightGoal();
+
+    let metaText = `Atleta: ${pdfSafeText(currentUser.name)}   |   Settimana attiva: S${appState.week}`;
+    if (curW != null) metaText += `   |   Peso S${appState.week}: ${curW.toFixed(1)} kg`;
+    if (goalW != null) metaText += `   |   Obiettivo: ${goalW.toFixed(1)} kg`;
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9);
+    doc.setTextColor(63, 68, 81);
+    doc.text(metaText, margin + 4, y + 6.8);
+
+    y += 16;
+
+    // Helper salto pagina
+    function ensureSpace(neededHeight) {
+        if (y + neededHeight > pageH - 16) {
+            doc.addPage();
+            doc.setFillColor(...accentRgb);
+            doc.rect(0, 0, pageW, 2.5, 'F');
+            y = 14;
+        }
+    }
+
+    // ---- LOOP GIORNI ----
+    daysToExport.forEach((day, dIdx) => {
+        if (daysToExport.length > 1) {
+            ensureSpace(14);
+            if (dIdx > 0) y += 3;
+            doc.setFillColor(...accentRgb);
+            doc.roundedRect(margin, y, 2.2, 7.5, 1, 1, 'F');
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(12);
+            doc.setTextColor(24, 24, 27);
+            doc.text(pdfSafeText(day.name), margin + 5, y + 5.5);
+            y += 11;
+        }
+
+        if (!day.exercises || day.exercises.length === 0) {
+            ensureSpace(10);
+            doc.setFont('helvetica', 'italic');
+            doc.setFontSize(9.5);
+            doc.setTextColor(130, 135, 145);
+            doc.text('Nessun esercizio inserito in questo giorno.', margin, y + 4);
+            y += 10;
+            return;
+        }
+
+        // ---- LOOP ESERCIZI ----
+        day.exercises.forEach(ex => {
+            const cardH = 34;
+            ensureSpace(cardH + 4);
+
+            // Riquadro esterno esercizio
+            doc.setFillColor(255, 255, 255);
+            doc.setDrawColor(224, 228, 236);
+            doc.setLineWidth(0.35);
+            doc.roundedRect(margin, y, contentW, cardH, 3, 3, 'FD');
+
+            // Barra laterale colorata
+            doc.setFillColor(...accentRgb);
+            doc.roundedRect(margin, y, 1.8, cardH, 1, 1, 'F');
+
+            // Nome esercizio
+            const rawTarget = ex.progression?.[appState.week - 1] || ex.progression?.[0] || '3x10';
+            const parsed = parseTargetAndRests(rawTarget);
+            const rests = (Array.isArray(ex.rests) && ex.rests.length) ? ex.rests : parsed.rests;
+            const restStr = rests.filter(Boolean).length ? `  |  Rec: ${rests.filter(Boolean).join(' / ')}` : '';
+
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(10.5);
+            doc.setTextColor(18, 20, 26);
+            doc.text(pdfSafeText(ex.name), margin + 5.5, y + 6.5, { maxWidth: 125 });
+
+            // Sottotitolo Target + Recuperi
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(8);
+            doc.setTextColor(110, 116, 128);
+            doc.text(pdfSafeText(`Target: ${parsed.cleanTarget}${restStr}`), margin + 5.5, y + 11.2, { maxWidth: 125 });
+
+            // Calcolo settimane S1..S6 e trend
+            let firstW = null, lastW = null;
+            const weekTexts = [];
+
+            for (let w = 1; w <= 6; w++) {
+                const logKey = `w${w}_${currentUser.id}_${day.id}_${ex.id}`;
+                const log = appState.logs[logKey];
+                let wArray = log ? (log.weights || []) : [];
+                if (log && log.weight && wArray.length === 0) wArray = [log.weight];
+
+                if (wArray.length > 0 && wArray.some(v => v !== '' && v != null)) {
+                    weekTexts.push(wArray.map(v => (v !== '' && v != null) ? v : '-').join(' + '));
+                    const n = parseFloat(wArray[0]);
+                    if (!isNaN(n)) {
+                        if (firstW === null) firstW = n;
+                        lastW = n;
+                    }
+                } else {
+                    weekTexts.push('-');
                 }
             }
 
-            html += `
-                        <td style="padding: 0 4px; vertical-align: top;">
-                            <div style="background: #ffffff; border: 1px solid #e4e4e7; border-radius: 10px; padding: 12px 2px; text-align: center;">
-                                <div style="font-size: 11px; color: #a1a1aa; font-weight: 800; text-transform: uppercase; margin-bottom: 6px;">Sett ${w}</div>
-                                <div style="font-size: 15px; font-weight: 900; color: #18181b;">${valText}<span style="font-size: 10px; color: #a1a1aa; margin-left: 2px;">kg</span></div>
-                            </div>
-                        </td>
-            `;
-        }
+            // Pillola Trend in alto a destra
+            let trendLabel = 'N/D';
+            let badgeBg = [243, 244, 246];
+            let badgeFg = [113, 118, 128];
 
-        let trendHtml = `<span style="color: #a1a1aa;">-</span>`;
-        if (firstW !== null && lastW !== null) {
-            const diff = lastW - firstW;
-            if (diff > 0) trendHtml = `<span style="color: #16a34a; font-weight: 900; background: #dcfce7; padding: 4px 10px; border-radius: 8px;">+${diff} kg 📈</span>`;
-            else if (diff < 0) trendHtml = `<span style="color: #dc2626; font-weight: 900; background: #fee2e2; padding: 4px 10px; border-radius: 8px;">${diff} kg 📉</span>`;
-            else trendHtml = `<span style="color: #ca8a04; font-weight: 900; background: #fef9c3; padding: 4px 10px; border-radius: 8px;">Stabile ➖</span>`;
-        }
+            if (firstW !== null && lastW !== null) {
+                const diff = Number((lastW - firstW).toFixed(2));
+                if (diff > 0) {
+                    trendLabel = `+${diff} kg`;
+                    badgeBg = [220, 252, 231];
+                    badgeFg = [21, 128, 61];
+                } else if (diff < 0) {
+                    trendLabel = `${diff} kg`;
+                    badgeBg = [254, 226, 226];
+                    badgeFg = [185, 28, 28];
+                } else {
+                    trendLabel = 'Stabile';
+                    badgeBg = [254, 249, 195];
+                    badgeFg = [161, 98, 7];
+                }
+            }
 
-        html += `
-                    </tr>
-                </table>
-                <div style="margin-top: 16px; font-size: 14px; text-align: right; font-weight: 700;">
-                    Trend di Progressione: ${trendHtml}
-                </div>
-            </div>
-        `;
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(8.5);
+            const pillW = Math.max(22, doc.getTextWidth(trendLabel) + 8);
+            const pillX = margin + contentW - pillW - 4;
+            doc.setFillColor(...badgeBg);
+            doc.roundedRect(pillX, y + 3.5, pillW, 6.5, 2, 2, 'F');
+            doc.setTextColor(...badgeFg);
+            doc.text(trendLabel, pillX + pillW / 2, y + 7.9, { align: 'center' });
+
+            // Griglia 6 settimane S1..S6
+            const gridX = margin + 5;
+            const gridY = y + 14.5;
+            const gap = 2;
+            const colW = (contentW - 9 - gap * 5) / 6;
+            const boxH = 16;
+
+            for (let w = 1; w <= 6; w++) {
+                const bx = gridX + (w - 1) * (colW + gap);
+                const isCurrent = (w === appState.week);
+
+                if (isCurrent) {
+                    doc.setFillColor(249, 250, 252);
+                    doc.setDrawColor(...accentRgb);
+                    doc.setLineWidth(0.45);
+                } else {
+                    doc.setFillColor(248, 249, 251);
+                    doc.setDrawColor(230, 233, 240);
+                    doc.setLineWidth(0.25);
+                }
+                doc.roundedRect(bx, gridY, colW, boxH, 2, 2, 'FD');
+
+                // Header Sett
+                doc.setFont('helvetica', 'bold');
+                doc.setFontSize(7.5);
+                doc.setTextColor(...(isCurrent ? accentRgb : [135, 140, 152]));
+                doc.text(`SETT ${w}`, bx + colW / 2, gridY + 5, { align: 'center' });
+
+                // Valore peso (scala leggermente il font se ci sono più blocchi)
+                const val = weekTexts[w - 1];
+                const fontSize = val.length > 10 ? 7.5 : (val.length > 6 ? 8.5 : 10);
+                doc.setFont('helvetica', 'bold');
+                doc.setFontSize(fontSize);
+                doc.setTextColor(...(val === '-' ? [170, 174, 182] : [20, 22, 28]));
+                doc.text(val === '-' ? '-' : `${val} kg`, bx + colW / 2, gridY + 12, { align: 'center', maxWidth: colW - 2 });
+            }
+
+            y += cardH + 4;
+        });
     });
 
-    html += `
-        <div style="text-align: center; margin-top: 20px; font-size: 12px; font-weight: 700; color: #a1a1aa; page-break-inside: avoid;">
-            Generato automaticamente 
-        </div>
-    `;
+    // ---- FOOTER SU TUTTE LE PAGINE ----
+    const totalPages = doc.internal.getNumberOfPages();
+    for (let p = 1; p <= totalPages; p++) {
+        doc.setPage(p);
+        doc.setDrawColor(230, 233, 240);
+        doc.setLineWidth(0.25);
+        doc.line(margin, pageH - 11, pageW - margin, pageH - 11);
 
-    container.innerHTML = html;
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(8);
+        doc.setTextColor(140, 145, 156);
+        doc.text('Avanguard WorkOut - Report Progressioni', margin, pageH - 6.5);
+        doc.text(`Pagina ${p} di ${totalPages}`, pageW - margin, pageH - 6.5, { align: 'right' });
+    }
 
-    // 2. Creiamo un wrapper che non altera il layout ma non fa vedere nulla a schermo
-    const wrapper = document.createElement('div');
-    wrapper.style.height = '0';
-    wrapper.style.overflow = 'hidden';
-    wrapper.appendChild(container);
-    document.body.appendChild(wrapper);
-
-    // 3. Opzioni di html2pdf
-    const opt = {
-        margin:       5,
-        filename:     `Avanguard_${day.name.replace(/\s+/g, '_')}.pdf`,
-        image:        { type: 'jpeg', quality: 0.98 },
-        html2canvas:  {
-            scale: 2,
-            useCORS: true,
-            scrollY: 0 // RISOLVE LA PAGINA BIANCA (ignora lo scroll utente)
-        },
-        jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' },
-        pagebreak:    { mode: ['avoid-all', 'css', 'legacy'] } // RISOLVE L'ESERCIZIO TAGLIATO A METÀ
-    };
-
-    // 4. Generazione
-    html2pdf().set(opt).from(container).save().then(() => {
-        document.body.removeChild(wrapper); // Pulizia a fine download
-    });
+    const fileSlug = selected === '__ALL__'
+        ? 'Scheda_Completa'
+        : pdfSafeText(daysToExport[0].name).replace(/[^a-zA-Z0-9]+/g, '_');
+    doc.save(`Avanguard_${fileSlug}.pdf`);
 }
