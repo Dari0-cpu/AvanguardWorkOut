@@ -1476,122 +1476,199 @@ function saveWeightAndGoal() {
     renderApp();
 }
 
+function makeSvgStarPoints(cx, cy, outerR = 10, innerR = 4.4) {
+    const pts = [];
+    for (let k = 0; k < 10; k++) {
+        const angle = -Math.PI / 2 + k * (Math.PI / 5);
+        const r = k % 2 === 0 ? outerR : innerR;
+        pts.push(`${(cx + r * Math.cos(angle)).toFixed(1)},${(cy + r * Math.sin(angle)).toFixed(1)}`);
+    }
+    return pts.join(' ');
+}
+
 function renderWeightChart() {
-    const canvas = document.getElementById('weight-chart');
-    if (!canvas || typeof Chart === 'undefined') return;
-    const ctx = canvas.getContext('2d');
+    const wrap = document.getElementById('weight-chart-wrap');
+    if (!wrap) return;
+
     const data = getUserWeights();
     const goal = getUserWeightGoal();
 
-    const labels = [];
-    const values = [];
+    const styles = getComputedStyle(document.documentElement);
+    const brandColor = styles.getPropertyValue('--brand-500').trim() || '#f43f5e';
+    const textDim = styles.getPropertyValue('--text-dim').trim() || '#6b7280';
+    const textMain = styles.getPropertyValue('--text').trim() || '#fafafa';
+    const surfaceColor = styles.getPropertyValue('--surface').trim() || '#121216';
+    const gridColor = styles.getPropertyValue('--border').trim() || 'rgba(255,255,255,0.08)';
+
+    const W = 420;
+    const H = 220;
+    const padL = 46;
+    const padR = 24;
+    const padB = 26;
+    const plotW = W - padL - padR;
+
+    const points = [];
     for (let w = 1; w <= 6; w++) {
-        labels.push('S' + w);
         const v = data['w' + w];
-        values.push(v != null ? v : null);
+        const x = padL + 16 + ((w - 1) / 5) * (plotW - 32);
+        points.push({ w, x, val: (typeof v === 'number' && !isNaN(v)) ? v : null });
     }
 
-    const numericVals = values.filter(v => v != null);
-    if (goal != null) numericVals.push(goal);
-    const minVal = numericVals.length ? Math.floor(Math.min(...numericVals) - 1.5) : undefined;
-    const maxVal = numericVals.length ? Math.ceil(Math.max(...numericVals) + 1.5) : undefined;
+    const recorded = points.filter(p => p.val !== null);
+    const validVals = recorded.map(p => p.val);
 
-    const styles = getComputedStyle(document.documentElement);
-    const brandColor = styles.getPropertyValue('--brand-500').trim();
-    const brandRgb = styles.getPropertyValue('--brand-rgb').trim();
-    const textColor = styles.getPropertyValue('--text-dim').trim();
-    const gridColor = styles.getPropertyValue('--border').trim();
+    // Nessun peso ancora inserito
+    if (validVals.length === 0) {
+        const goalHtml = goal != null ? `
+            <line x1="${padL}" y1="42" x2="${W - padR - 14}" y2="42" stroke="#f59e0b" stroke-width="1.8" stroke-dasharray="6 4" opacity="0.9"/>
+            <rect x="${padL + 4}" y="20" width="118" height="17" rx="5" fill="rgba(245,158,11,0.16)"/>
+            <text x="${padL + 10}" y="31.5" fill="#f59e0b" font-size="10" font-weight="700" font-family="Inter, sans-serif">Obiettivo ${goal.toFixed(1)} kg</text>
+            <polygon points="${makeSvgStarPoints(W - padR - 4, 42, 10, 4.4)}" fill="#f59e0b" stroke="#fef3c7" stroke-width="1.2" stroke-linejoin="round"/>
+        ` : '';
+        wrap.innerHTML = `
+            <svg viewBox="0 0 ${W} ${H}" class="w-full h-auto max-h-[245px] block select-none">
+                ${goalHtml}
+                <text x="${W / 2}" y="${H / 2 + 12}" text-anchor="middle" fill="${textDim}" font-size="12" font-weight="600" font-family="Inter, sans-serif">
+                    Inserisci il peso per visualizzare l'andamento
+                </text>
+            </svg>
+        `;
+        return;
+    }
 
-    const goalStarPlugin = {
-        id: 'goalStarPlugin',
-        afterDatasetsDraw(chart) {
-            if (goal == null) return;
-            const { ctx: c, chartArea, scales } = chart;
-            const yPos = scales.y.getPixelForValue(goal);
-            if (yPos < chartArea.top - 10 || yPos > chartArea.bottom + 10) return;
+    const dMin = Math.min(...validVals);
+    const dMax = Math.max(...validVals);
+    const dSpan = dMax - dMin;
 
-            c.save();
-            c.beginPath();
-            c.setLineDash([6, 4]);
-            c.strokeStyle = 'rgba(245, 158, 11, 0.85)';
-            c.lineWidth = 2;
-            c.moveTo(chartArea.left, yPos);
-            c.lineTo(chartArea.right - 14, yPos);
-            c.stroke();
-            c.setLineDash([]);
+    // Scala intelligente: se l'obiettivo è lontano, zoomiamo sulla curva reale e mettiamo la fascia traguardo con break
+    const farThreshold = Math.max(2.5, dSpan * 1.6);
+    const isGoalFarAbove = goal != null && (goal - dMax) > farThreshold;
+    const isGoalFarBelow = goal != null && (dMin - goal) > farThreshold;
 
-            const tagText = `Obiettivo ${goal.toFixed(1)} kg`;
-            c.font = '700 10px Inter, sans-serif';
-            const textW = c.measureText(tagText).width;
-            const badgeX = chartArea.left + 4;
-            const badgeY = yPos - 20 < chartArea.top ? yPos + 6 : yPos - 20;
+    let topY, botY, yMin, yMax, goalY = null, breakY = null;
 
-            c.fillStyle = 'rgba(245, 158, 11, 0.18)';
-            c.beginPath();
-            if (c.roundRect) c.roundRect(badgeX, badgeY, textW + 12, 16, 5);
-            else c.rect(badgeX, badgeY, textW + 12, 16);
-            c.fill();
+    if (isGoalFarAbove) {
+        goalY = 26;
+        breakY = 48;
+        topY = 66;
+        botY = H - padB;
+        const padVal = Math.max(0.4, dSpan * 0.45);
+        yMin = dMin - padVal;
+        yMax = dMax + padVal;
+    } else if (isGoalFarBelow) {
+        topY = 24;
+        botY = 142;
+        breakY = 158;
+        goalY = 176;
+        const padVal = Math.max(0.4, dSpan * 0.45);
+        yMin = dMin - padVal;
+        yMax = dMax + padVal;
+    } else {
+        topY = 28;
+        botY = H - padB;
+        const allVals = goal != null ? [...validVals, goal] : validVals;
+        const aMin = Math.min(...allVals);
+        const aMax = Math.max(...allVals);
+        const padVal = Math.max(0.5, (aMax - aMin) * 0.28);
+        yMin = aMin - padVal;
+        yMax = aMax + padVal;
+    }
 
-            c.fillStyle = '#f59e0b';
-            c.textBaseline = 'middle';
-            c.fillText(tagText, badgeX + 6, badgeY + 8.5);
+    const valToY = (v) => topY + ((yMax - v) / (yMax - yMin)) * (botY - topY);
+    if (goal != null && goalY === null) {
+        goalY = valToY(goal);
+    }
 
-            const starSize = 22;
-            const starX = chartArea.right - starSize / 2 - 4;
-            const starY = yPos - starSize / 2;
-            if (_starSvgImg.complete) {
-                c.shadowColor = 'rgba(245, 158, 11, 0.55)';
-                c.shadowBlur = 10;
-                c.drawImage(_starSvgImg, starX, starY, starSize, starSize);
-            }
-            c.restore();
-        }
-    };
+    // Griglia orizzontale (3 tacche pulite)
+    const ticks = [yMin, (yMin + yMax) / 2, yMax];
+    const gridSvg = ticks.map(tv => {
+        const y = valToY(tv);
+        return `
+            <line x1="${padL}" y1="${y.toFixed(1)}" x2="${W - padR}" y2="${y.toFixed(1)}" stroke="${gridColor}" stroke-width="1"/>
+            <text x="${padL - 8}" y="${(y + 3.5).toFixed(1)}" text-anchor="end" fill="${textDim}" font-size="10" font-weight="600" font-family="Inter, sans-serif">${tv.toFixed(1)}</text>
+        `;
+    }).join('');
 
-    if (_weightChart) _weightChart.destroy();
+    // Indicatore salto di scala (≈) quando l'obiettivo è fuori scala zoom
+    const breakSvg = breakY != null ? `
+        <line x1="${padL}" y1="${breakY}" x2="${W - padR}" y2="${breakY}" stroke="${gridColor}" stroke-width="1" stroke-dasharray="2 4"/>
+        <text x="${padL - 10}" y="${breakY + 4}" text-anchor="end" fill="${textDim}" font-size="13" font-weight="700" font-family="Inter, sans-serif">≈</text>
+    ` : '';
 
-    _weightChart = new Chart(ctx, {
-        type: 'line',
-        data: {
-            labels,
-            datasets: [{
-                label: 'Peso (kg)',
-                data: values,
-                borderColor: brandColor,
-                backgroundColor: `rgba(${brandRgb}, 0.14)`,
-                fill: true,
-                tension: 0.32,
-                pointBackgroundColor: brandColor,
-                pointBorderColor: brandColor,
-                pointRadius: 5,
-                pointHoverRadius: 7,
-                spanGaps: true,
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            layout: { padding: { right: 10, top: 8 } },
-            plugins: {
-                legend: { display: false },
-                tooltip: {
-                    callbacks: {
-                        label: (c) => c.parsed.y != null ? c.parsed.y.toFixed(1) + ' kg' : '—'
-                    }
-                }
-            },
-            scales: {
-                x: { ticks: { color: textColor, font: { weight: '700' } }, grid: { color: gridColor } },
-                y: {
-                    suggestedMin: minVal,
-                    suggestedMax: maxVal,
-                    ticks: { color: textColor, callback: (v) => v + ' kg' },
-                    grid: { color: gridColor }
-                }
-            }
-        },
-        plugins: [goalStarPlugin]
-    });
+    // Linea obiettivo + Stella SVG
+    let goalSvg = '';
+    if (goal != null && goalY != null) {
+        const starX = W - padR - 4;
+        const labelText = `Obiettivo ${goal.toFixed(1)} kg`;
+        const pillW = labelText.length * 6.1 + 14;
+        const pillY = goalY - 21 < 2 ? goalY + 5 : goalY - 21;
+
+        goalSvg = `
+            <line x1="${padL}" y1="${goalY.toFixed(1)}" x2="${(starX - 13).toFixed(1)}" y2="${goalY.toFixed(1)}"
+                  stroke="#f59e0b" stroke-width="1.8" stroke-dasharray="6 4" opacity="0.9"/>
+            <rect x="${padL + 4}" y="${pillY.toFixed(1)}" width="${pillW.toFixed(0)}" height="17" rx="5" fill="rgba(245, 158, 11, 0.16)"/>
+            <text x="${padL + 11}" y="${(pillY + 11.5).toFixed(1)}" fill="#f59e0b" font-size="9.5" font-weight="800" font-family="Inter, sans-serif">${labelText}</text>
+            <g filter="url(#starGlow)">
+                <polygon points="${makeSvgStarPoints(starX, goalY, 10, 4.4)}" fill="#f59e0b" stroke="#fef3c7" stroke-width="1.2" stroke-linejoin="round"/>
+            </g>
+        `;
+    }
+
+    // Linea progressione + area sfumata
+    const coords = recorded.map(p => ({ ...p, y: valToY(p.val) }));
+    let lineSvg = '';
+    if (coords.length >= 2) {
+        const linePath = coords.map((c, idx) => `${idx === 0 ? 'M' : 'L'} ${c.x.toFixed(1)} ${c.y.toFixed(1)}`).join(' ');
+        const areaPath = `${linePath} L ${coords[coords.length - 1].x.toFixed(1)} ${botY.toFixed(1)} L ${coords[0].x.toFixed(1)} ${botY.toFixed(1)} Z`;
+        lineSvg = `
+            <path d="${areaPath}" fill="url(#weightAreaGrad)"/>
+            <path d="${linePath}" fill="none" stroke="${brandColor}" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+        `;
+    }
+
+    // Punti + valori numerici sopra ogni settimana
+    const dotsSvg = coords.map(c => {
+        const isActive = c.w === appState.week;
+        const labelY = c.y - 11 < topY - 4 ? c.y + 18 : c.y - 10;
+        return `
+            <g style="cursor:pointer;" onclick="jumpToWeek(${c.w})">
+                ${isActive ? `<circle cx="${c.x.toFixed(1)}" cy="${c.y.toFixed(1)}" r="9" fill="${brandColor}" opacity="0.22"/>` : ''}
+                <circle cx="${c.x.toFixed(1)}" cy="${c.y.toFixed(1)}" r="${isActive ? 5.2 : 4.2}" fill="${brandColor}" stroke="${surfaceColor}" stroke-width="2"/>
+                <text x="${c.x.toFixed(1)}" y="${labelY.toFixed(1)}" text-anchor="middle" fill="${isActive ? brandColor : textMain}" font-size="10.5" font-weight="800" font-family="Inter, sans-serif">${c.val.toFixed(1)}</text>
+            </g>
+        `;
+    }).join('');
+
+    // Etichette asse X (S1..S6 cliccabili)
+    const xLabelsSvg = points.map(p => {
+        const isActive = p.w === appState.week;
+        return `
+            <text x="${p.x.toFixed(1)}" y="${H - 7}" text-anchor="middle" style="cursor:pointer;" onclick="jumpToWeek(${p.w})"
+                  fill="${isActive ? brandColor : textDim}" font-size="10.5" font-weight="${isActive ? '800' : '700'}" font-family="Inter, sans-serif">
+                S${p.w}
+            </text>
+        `;
+    }).join('');
+
+    wrap.innerHTML = `
+        <svg viewBox="0 0 ${W} ${H}" class="w-full h-auto max-h-[245px] block select-none" role="img" aria-label="Trend peso corporeo 6 settimane">
+            <defs>
+                <linearGradient id="weightAreaGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stop-color="${brandColor}" stop-opacity="0.28"/>
+                    <stop offset="100%" stop-color="${brandColor}" stop-opacity="0.01"/>
+                </linearGradient>
+                <filter id="starGlow" x="-40%" y="-40%" width="180%" height="180%">
+                    <feDropShadow dx="0" dy="0" stdDeviation="2.5" flood-color="#f59e0b" flood-opacity="0.65"/>
+                </filter>
+            </defs>
+            ${gridSvg}
+            ${breakSvg}
+            ${lineSvg}
+            ${goalSvg}
+            ${dotsSvg}
+            ${xLabelsSvg}
+        </svg>
+    `;
 }
 
 // ============================================================
