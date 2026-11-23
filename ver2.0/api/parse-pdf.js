@@ -1,14 +1,17 @@
 /* ====================================================================
    AVANGUARD WORKOUT - AI PDF WORKOUT IMPORTER (Vercel Serverless)
-   Zero dipendenze npm, native Node fetch, Gemini 2.5 Flash JSON Schema
+   Zero dipendenze npm, native Node fetch, Gemini 3.x JSON Schema
    ==================================================================== */
 
 const GEMINI_MODELS = process.env.GEMINI_MODEL
     ? [process.env.GEMINI_MODEL.trim()]
-    : ['gemini-3.8-flash', 'gemini-3.5-flash-lite'];
+    : ['gemini-3.8-flash', 'gemini-3.6-flash', 'gemini-3.5-flash-lite'];
+
 const MAX_PDF_BYTES = 3 * 1024 * 1024; // 3 MB raw (~4 MB in base64, sotto il limite 4.5 MB di Vercel)
 const MAX_REQUEST_BYTES = 4.4 * 1024 * 1024;
 const GEMINI_TIMEOUT_MS = 55000;
+const MIN_WEEKS = 6;
+const MAX_WEEKS = 9;
 
 const RATE_WINDOW_MS = 60 * 1000; // 1 minuto
 const RATE_MAX_REQ = 12;          // max 12 import PDF/min per IP
@@ -76,7 +79,7 @@ function parseTargetBlocks(targetText) {
     const rawParts = String(targetText).split('+').map(p => p.trim()).filter(Boolean);
     if (rawParts.length === 0) return [String(targetText)];
 
-    const hasNxR = (s) => /\d\s*[x×]\s*\d/i.test(s);
+    const hasNxR = (s) => /\d\s*[x×]\s*(?:\d|max|amrap)/i.test(s);
     const blocks = [];
     let current = '';
     for (const part of rawParts) {
@@ -98,7 +101,7 @@ function parseTargetAndRests(rawTarget) {
     const cleanBlocks = [];
     const rests = [];
 
-    const parenRegex = /[\(\[]\s*(?:rec\.?\s*\vert{}recupero\s*\vert{}r\s*)?(\d+(?:[\.,]\d+)?\s*(?:'\vert{}’\vert{}m(?:in)?\vert{}s(?:ec)?\vert{}")(?:\s*\d+\s*(?:"\vert{}s(?:ec)?)?\vert{}\d{2})?\vert{}\d+:\d{2})\s*[\)\]]/i;
+    const parenRegex = /[\(\[]\s*(?:rec\.?\s*\vert{}recupero\s*\vert{}rest\s*\vert{}r\s*)?(\d+(?:[\.,]\d+)?\s*(?:'\vert{}’\vert{}m(?:in)?\vert{}s(?:ec)?\vert{}")(?:\s*\d+\s*(?:"\vert{}s(?:ec)?)?\vert{}\d{2})?\vert{}\d+:\d{2})\s*[\)\]]/i;
     const inlineRegex = /\b(?:rec\.?|recupero|rest)\s*:?\s*(\d+(?:[\.,]\d+)?\s*(?:'|’|m(?:in)?|s(?:ec)?|")(?:\s*\d+\s*(?:"|s(?:ec)?)?|\d{2})?|\d+:\d{2})/i;
 
     rawBlocks.forEach(block => {
@@ -150,54 +153,70 @@ function detectDayIconFallback(name) {
     return 'dumbbell';
 }
 
-function hasWeeklyVariation(targets6, rests6) {
-    const baseT = String(targets6[0] || '').trim();
-    const baseR = JSON.stringify(rests6[0] || []);
-    for (let i = 1; i < 6; i++) {
-        if (String(targets6[i] || '').trim() !== baseT) return true;
-        if (JSON.stringify(rests6[i] || []) !== baseR) return true;
+function hasWeeklyVariation(targets, rests) {
+    if (!Array.isArray(targets) || targets.length < 2) return false;
+    const baseT = String(targets[0] || '').trim();
+    const baseR = JSON.stringify(rests?.[0] || []);
+    for (let i = 1; i < targets.length; i++) {
+        if (String(targets[i] || '').trim() !== baseT) return true;
+        if (JSON.stringify(rests?.[i] || []) !== baseR) return true;
     }
     return false;
 }
 
 // ---------- SYSTEM PROMPT & JSON SCHEMA GEMINI ----------
-const SYSTEM_PROMPT = `Sei un esperto preparatore atletico e data-parser per l'app italiana "Avanguard Workout".
-Il tuo compito è leggere il PDF di una scheda di allenamento in palestra ed estrarre TUTTI i giorni e TUTTI gli esercizi in JSON strutturato, con massima fedeltà ai numeri reali scritti nel documento.
+const SYSTEM_PROMPT = `Sei un preparatore atletico esperto e un parser ultra-preciso per l'app italiana "Avanguard Workout".
+Analizza il PDF della scheda di allenamento allegato ed estrai TUTTI i giorni e TUTTI gli esercizi nel formato JSON richiesto, rispettando con precisione chirurgica tabelle, progressioni, serie, ripetizioni, recuperi e note tecniche reali del documento.
 
-REGOLE RIGOROSE:
-1. GIORNI E ICONE:
-   - Rileva ogni seduta/giorno di allenamento (es. "Giorno 1 - Petto e Bicipiti", "Giorno A", "Push", "Lower", "Lunedì", ecc.) mantenendo un titolo chiaro in italiano.
-   - Assegna a ciascun giorno la chiave "icon" più coerente scegliendo ESCLUSIVAMENTE tra:
-     chest, legs, back, shoulders, arms, push, pull, core, fullbody, cardio, dumbbell.
-   - Ignora pagine puramente introduttive, disclaimer legali, alimentazione o testi che non contengono esercizi.
+REGOLE DI ESTRAZIONE:
 
-2. PROGRESSIONI SETTIMANALI (S1–S6 e opzionale S0):
-   - Presta ESTREMA attenzione alle tabelle o colonne dove serie, ripetizioni, blocchi o recuperi cambiano tra settimane (Settimana 1..6, S1..S6, W1..W6, Week 1..6).
-   - Popola sempre l'array "weeks" con 6 elementi ordinati da week=1 a week=6.
-   - Se la scheda NON cambia tra settimane, ripeti lo stesso target e gli stessi recuperi su tutte e 6 le settimane.
-   - Se la scheda ha solo 4 o 5 settimane (es. S1–S4), compila fedelmente quelle presenti e propaga l'ultima settimana valida fino a S6.
-   - Se nel PDF esiste esplicitamente una "Settimana 0" / "S0" / "Settimana di prova" / "Intro" / "Calibrazione", compilala in "week0"; altrimenti lascia "week0.target" vuoto ("").
+1. GIORNI, ORDINE E ICONE:
+- Identifica ogni seduta/giorno nell'ordine esatto del PDF (es. "Giorno 1 - Petto e Bicipiti", "Seduta A", "Upper A", "Lower", "Push", "Lunedì", ecc.). Se un giorno continua su più pagine, UNISCI gli esercizi sotto lo stesso giorno senza duplicarlo.
+- Se la scheda contiene una sola lista/tabella di esercizi senza intestazione del giorno, usa "Giorno 1".
+- Ignora copertine, dati anagrafici, disclaimer, alimentazione/macro, mobilità o riscaldamento generale non strutturato in esercizi veri e propri.
+- Scegli "icon" ESCLUSIVAMENTE tra:
+  chest, legs, back, shoulders, arms, push, pull, core, fullbody, cardio, dumbbell.
+  (Preferisci l'icona del gruppo muscolare principale o dello split del giorno; usa "dumbbell" solo se generico).
 
-3. DISTINZIONE CRITICA MULTI-BLOCCO vs UNILATERALE/ALTERNATO:
-   - MULTI-BLOCCO (più input carico separati): quando lo stesso esercizio ha blocchi con carichi o rep-range diversi (es. top set + back off, piramidale, ramp-up), separali con " + " assicurandoti che OGNI blocco abbia formato "NxR".
-     Esempi: "2x4 + 1x6", "1x5 + 3x8", "2x6 + 2x10".
-   - UNILATERALE / ALTERNATO / SINGOLO CARICO (1 solo input carico): quando le ripetizioni sono per lato (es. 10 per gamba, 10+10, 12/12, 8dx+8sx) o drop/cluster con un solo carico di riferimento, scrivilo SENZA una seconda "x":
-     Esempio: "3x10+10" (NON "3x10 + 3x10"), "3x12+12".
-   - NON mettere recuperi, note RPE o tempo dentro la stringa "target" (lascia "target" pulito, es. "4x6" oppure "2x4 + 2x6").
+2. NOMI ESERCIZI:
+- Mantieni l'ordine esatto degli esercizi in ogni giorno.
+- Rimuovi prefissi di numerazione superflui (es. "1.", "2)", "A1 -") ma CONSERVA tutte le varianti tecniche utili nel nome (es. "Panca inclinata manubri 30°", "Lat machine presa neutra", "Squat con fermo 2s").
+- Se due esercizi sono in superset/jumpset/circuito (es. A1 / A2), inseriscili come due esercizi consecutivi distinti e scrivi in "coachNote" es. "Superset con [nome altro esercizio]".
 
-4. RECUPERI PER BLOCCO ("rests"):
-   - Per ogni settimana, "rests" è un array di stringhe allineato 1-a-1 con i blocchi di "target".
-   - Se "target" ha 1 blocco ("4x6"), "rests" ha 1 elemento (es. ["2'30\\""]) oppure [] se non indicato nel PDF.
-   - Se "target" ha 2 blocchi ("2x4 + 2x6"), "rests" ha 2 elementi (es. ["3'", "2'"]). Se il PDF indica un solo recupero per tutto l'esercizio, replicalo per ciascun blocco (es. ["2'", "2'"]).
-   - Formatta i recuperi in modo pulito e compatto: es. "3'", "2'30\\"", "1'30\\"", "90s", "60s".
+3. PROGRESSIONI SETTIMANALI (S1–S9 e opzionale S0):
+- Leggi con estrema attenzione eventuali tabelle o colonne per settimana (S1..S9, Sett 1..9, W1..W9, Week 1..9, Microciclo 1..9).
+- Determina la durata reale del programma nel PDF (da 1 a 9 settimane):
+  - Se il PDF ha fino a 6 settimane (o nessuna variazione settimanale), restituisci 6 elementi in "weeks" (week: 1..6), propagando l'ultima settimana valida fino a 6 se il PDF ne indica solo 4 o 5.
+  - Se il PDF ha 7, 8 o 9 settimane esplicite, restituisci tutte le settimane presenti fino a un massimo di 9 (week: 1..N).
+  - Se una cella di settimana è vuota o usa "idem" / "=" / freccia, eredita il valore della settimana precedente.
+- Compila "week0" SOLO se nel PDF compare esplicitamente una settimana 0 / Intro / Calibrazione / Prova / Test; altrimenti imposta week0: { "target": "", "rests": [] }.
 
-5. NOTE TECNICHE DEL COACH ("coachNote"):
-   - Inserisci in "coachNote" eventuali indicazioni tecniche brevi e utili del coach presenti nella riga/tabella: tempo/TUT (es. "3-1-1-0"), fermi/pause (es. "fermo 2s al petto"), RPE/RIR (es. "RPE 8", "RIR 1-2"), tecniche (es. "rest-pause", "myo-reps", "presa neutra").
-   - Se non ci sono note tecniche per quell'esercizio, lascia "".
+4. FORMATO DI "target" (REGOLA CRITICA PER I CAMPI CARICO DELL'APP):
+- Usa sempre la "x" minuscola (es. "4x6", "3x8-10", "3x12", "3xMAX", "2x8 + 1xAMRAP").
+- MULTI-BLOCCO (crea più caselle kg separate nell'app): quando lo stesso esercizio prevede serie con carichi o rep-range diversi (es. Top Set + Back Off, piramidale, ramp-up), separa i blocchi con " + " assicurandoti che OGNI blocco contenga "NxR".
+  Esempi: "2x4 + 2x6", "1x5 + 3x8", "1x6 + 1x8 + 1x10".
+- SINGOLO BLOCCO / UNILATERALE / CLUSTER / REST-PAUSE CON UN SOLO CARICO (1 sola casella kg):
+  - Unilaterale / per lato (es. 10 per gamba, 10+10, 12dx+12sx, 10/10): scrivi "3x10+10" (MAI "3x10 + 3x10").
+  - Rest-pause / myo-reps / cluster con stesso carico (es. 1 serie da 10 + 4 + 4 con 15" di pausa, o 3 serie in rest-pause): scrivi "1x10+4+4" oppure "3x8" e descrivi la tecnica e la micropausa in "coachNote" (es. "Rest-pause 15s" o "Myo-reps 12+4+4+4").
+  - Drop-set / stripping con carichi diversi: se sono esplicitamente serie con carichi separati scrivi es. "3x8 + 3x10"; se è una scarica finale sullo stesso esercizio scrivi "3x8" e metti "Drop-set -20% ultima serie" in "coachNote".
+- NON mettere MAI recuperi, RPE/RIR, TUT o testo descrittivo dentro "target".
 
-6. FEDELTÀ:
-   - Non inventare esercizi o giorni non presenti nel PDF.
-   - Se il documento non contiene alcuna scheda di allenamento riconoscibile, restituisci "days": [].`;
+5. RECUPERI PER BLOCCO ("rests"):
+- "rests" deve essere allineato 1-a-1 con il numero di blocchi di "target".
+  - 1 blocco ("4x6") -> es. ["2'30\\""] oppure [] se non indicato.
+  - 2 blocchi ("2x4 + 2x6") -> es. ["3'", "2'"]. Se il PDF indica un solo recupero per l'intero esercizio, replicalo per ogni blocco (es. ["2'", "2'"]).
+- Normalizza sempre in formato compatto leggibile dal timer:
+  - "2 minuti e 30" / "2:30" / "150 sec" -> "2'30\\""
+  - "2-3 min" / "90-120s" -> scegli un valore unico pulito del range (es. "2'30\\"" o "2'"), senza scrivere intervalli tipo "2'-3'".
+  - "60 sec" / "60\\"" -> "60s"; "90 sec" -> "90s"; "120 sec" -> "2'"; "180 sec" -> "3'".
+
+6. NOTE TECNICHE DEL COACH ("coachNote"):
+- Estrai in una singola riga concisa (max 160 caratteri) tutte le indicazioni esecutive utili: TUT/tempo ("TUT 3-1-1-0"), fermi/pause ("fermo 2s al petto"), intensità ("RIR 1-2", "RPE 8", "a cedimento"), tecniche ("Rest-pause 15s", "Drop-set", "Superset con ..."), setup ("presa neutra", "panca 30°").
+- NON ripetere serie, ripetizioni o recuperi già presenti in "target" e "rests". Se non ci sono indicazioni tecniche, lascia "".
+
+7. FEDELTÀ ASSOLUTA:
+- Non inventare mai giorni, esercizi o numeri assenti dal PDF.
+- Se il PDF non contiene una scheda di allenamento riconoscibile, restituisci { "days": [] }.`;
 
 const RESPONSE_SCHEMA = {
     type: 'OBJECT',
@@ -262,8 +281,26 @@ const RESPONSE_SCHEMA = {
 
 // ---------- NORMALIZZAZIONE OUTPUT AI -> FORMATO APP ----------
 function normalizeAiDays(rawDays) {
-    if (!Array.isArray(rawDays)) return [];
+    if (!Array.isArray(rawDays)) return { days: [], detectedWeeks: MIN_WEEKS };
 
+    // Rileva la durata reale (6..9) se il PDF contiene progressioni oltre S6
+    let maxDetectedWeek = MIN_WEEKS;
+    for (const rawDay of rawDays) {
+        if (!isPlainObject(rawDay) || !Array.isArray(rawDay.exercises)) continue;
+        for (const rawEx of rawDay.exercises) {
+            if (!isPlainObject(rawEx) || !Array.isArray(rawEx.weeks)) continue;
+            rawEx.weeks.forEach((wkObj, idx) => {
+                if (!isPlainObject(wkObj)) return;
+                const wNum = Number.isInteger(wkObj.week) ? wkObj.week : (idx + 1);
+                const rawTarget = String(wkObj.target || '').trim();
+                if (rawTarget && wNum >= 1 && wNum <= MAX_WEEKS && wNum > maxDetectedWeek) {
+                    maxDetectedWeek = wNum;
+                }
+            });
+        }
+    }
+
+    const weekCount = Math.max(MIN_WEEKS, Math.min(MAX_WEEKS, maxDetectedWeek));
     const normalizedDays = [];
 
     for (let dIdx = 0; dIdx < rawDays.length; dIdx++) {
@@ -282,21 +319,21 @@ function normalizeAiDays(rawDays) {
             const exName = String(rawEx.name || '').trim();
             if (!exName) continue;
 
-            const targets6 = Array(6).fill(null);
-            const rests6 = Array(6).fill(null);
+            const targets = Array(weekCount).fill(null);
+            const restsPerWeek = Array(weekCount).fill(null);
 
             const rawWeeks = Array.isArray(rawEx.weeks) ? rawEx.weeks : [];
             rawWeeks.forEach((wkObj, idx) => {
                 if (!isPlainObject(wkObj)) return;
                 const wNum = Number.isInteger(wkObj.week) ? wkObj.week : (idx + 1);
-                if (wNum < 1 || wNum > 6) return;
+                if (wNum < 1 || wNum > weekCount) return;
 
                 const rawTarget = String(wkObj.target || '').trim();
                 if (!rawTarget) return;
 
                 const parsed = parseTargetAndRests(rawTarget);
-                targets6[wNum - 1] = parsed.cleanTarget;
-                rests6[wNum - 1] = normalizeRestsForTarget(parsed.cleanTarget, wkObj.rests);
+                targets[wNum - 1] = parsed.cleanTarget;
+                restsPerWeek[wNum - 1] = normalizeRestsForTarget(parsed.cleanTarget, wkObj.rests);
             });
 
             // Week 0 opzionale
@@ -312,35 +349,35 @@ function normalizeAiDays(rawDays) {
                 }
             }
 
-            // Riempi eventuali buchi S1..S6 propagando l'ultima settimana valida
-            const firstDefinedIdx = targets6.findIndex(t => t !== null);
-            const fallbackTarget = firstDefinedIdx !== -1 ? targets6[firstDefinedIdx] : (week0Target || '3x10');
-            const fallbackRests = firstDefinedIdx !== -1 ? rests6[firstDefinedIdx] : (week0Rests || []);
+            // Riempi eventuali buchi S1..S(weekCount) propagando l'ultima settimana valida
+            const firstDefinedIdx = targets.findIndex(t => t !== null);
+            const fallbackTarget = firstDefinedIdx !== -1 ? targets[firstDefinedIdx] : (week0Target || '3x10');
+            const fallbackRests = firstDefinedIdx !== -1 ? (restsPerWeek[firstDefinedIdx] || []) : (week0Rests || []);
 
             let lastTarget = fallbackTarget;
             let lastRests = [...fallbackRests];
-            for (let i = 0; i < 6; i++) {
-                if (targets6[i] === null) {
-                    targets6[i] = lastTarget;
-                    rests6[i] = [...lastRests];
+            for (let i = 0; i < weekCount; i++) {
+                if (targets[i] === null) {
+                    targets[i] = lastTarget;
+                    restsPerWeek[i] = [...lastRests];
                 } else {
-                    lastTarget = targets6[i];
-                    lastRests = [...rests6[i]];
+                    lastTarget = targets[i];
+                    lastRests = [...(restsPerWeek[i] || [])];
                 }
             }
 
-            const firstRestSig = JSON.stringify(rests6[0]);
-            const restsUniform = rests6.every(r => JSON.stringify(r) === firstRestSig) && !week0Rests;
+            const firstRestSig = JSON.stringify(restsPerWeek[0]);
+            const restsUniform = restsPerWeek.every(r => JSON.stringify(r) === firstRestSig) && !week0Rests;
 
             let rests = [];
             let restsByWeek = null;
             if (restsUniform) {
-                rests = rests6[0];
+                rests = restsPerWeek[0];
             } else {
                 const map = {};
                 if (week0Rests && week0Rests.length > 0) map['0'] = week0Rests;
-                for (let i = 0; i < 6; i++) {
-                    if (rests6[i].length > 0) map[String(i + 1)] = rests6[i];
+                for (let i = 0; i < weekCount; i++) {
+                    if (restsPerWeek[i].length > 0) map[String(i + 1)] = restsPerWeek[i];
                 }
                 if (Object.keys(map).length > 0) restsByWeek = map;
             }
@@ -349,12 +386,12 @@ function normalizeAiDays(rawDays) {
 
             exercises.push({
                 name: exName.slice(0, 120),
-                target: targets6[0],
+                target: targets[0],
                 rests,
-                progression: targets6,
+                progression: targets,
                 restsByWeek,
                 week0Target,
-                hasWeeklyProg: hasWeeklyVariation(targets6, rests6) || week0Target !== null,
+                hasWeeklyProg: hasWeeklyVariation(targets, restsPerWeek) || week0Target !== null,
                 coachNote: coachNote || null,
             });
         }
@@ -368,7 +405,18 @@ function normalizeAiDays(rawDays) {
         }
     }
 
-    return normalizedDays;
+    return { days: normalizedDays, detectedWeeks: weekCount };
+}
+
+function extractGeminiErrorMessage(rawText) {
+    if (!rawText) return '';
+    try {
+        const parsed = JSON.parse(rawText);
+        const msg = parsed?.error?.message;
+        return typeof msg === 'string' ? msg.trim().slice(0, 160) : '';
+    } catch (_) {
+        return '';
+    }
 }
 
 // ---------- HANDLER SERVERLESS ----------
@@ -470,16 +518,17 @@ async function handler(req, res) {
                         },
                     },
                     {
-                        text: `Analizza la scheda di allenamento nel PDF "${fileName}" ed estrai tutti i giorni, gli esercizi, le progressioni settimanali (S1–S6 ed eventuale S0), i recuperi per blocco e le note tecniche del coach.`,
+                        text: `Estrai la scheda di allenamento completa dal PDF "${fileName}". Rispetta tutte le regole di sistema: giorni in ordine, icone corrette, distinzione multi-blocco vs unilaterale/rest-pause, progressioni settimanali (S1–S9 ed eventuale S0), recuperi normalizzati per blocco e note tecniche concise.`,
                     },
                 ],
             },
         ],
         generationConfig: {
+            maxOutputTokens: 8192,
             responseMimeType: 'application/json',
             responseSchema: RESPONSE_SCHEMA,
             thinkingConfig: {
-                thinkingLevel: 'low',
+                thinkingLevel: 'LOW',
             },
         },
     };
@@ -496,7 +545,7 @@ async function handler(req, res) {
         for (let i = 0; i < GEMINI_MODELS.length; i++) {
             const model = GEMINI_MODELS[i];
             usedModel = model;
-            const geminiUrl = `[https://generativelanguage.googleapis.com/v1beta/models/$](https://generativelanguage.googleapis.com/v1beta/models/$){model}:generateContent`;
+            const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
 
             aiRes = await fetch(geminiUrl, {
                 method: 'POST',
@@ -515,7 +564,7 @@ async function handler(req, res) {
             console.error(`Errore Gemini API [${model}]:`, lastErrStatus, lastErrBody.slice(0, 500));
 
             const hasNext = i < GEMINI_MODELS.length - 1;
-            if (hasNext && (lastErrStatus === 404 || lastErrStatus === 503)) {
+            if (hasNext && (lastErrStatus === 404 || lastErrStatus === 429 || lastErrStatus === 503)) {
                 continue;
             }
             break;
@@ -524,6 +573,8 @@ async function handler(req, res) {
         clearTimeout(timeoutId);
 
         if (!aiRes || !aiRes.ok) {
+            const apiDetail = extractGeminiErrorMessage(lastErrBody);
+
             if (lastErrStatus === 401 || lastErrStatus === 403) {
                 return res.status(500).json({
                     error: 'Chiave GEMINI_API_KEY non valida o priva di permessi su Vercel.',
@@ -541,7 +592,9 @@ async function handler(req, res) {
             }
             if (lastErrStatus === 400) {
                 return res.status(400).json({
-                    error: 'PDF non leggibile o richiesta rifiutata da Gemini (HTTP 400). Prova a riesportarlo.',
+                    error: apiDetail
+                        ? `Richiesta rifiutata da Gemini (HTTP 400): ${apiDetail}`
+                        : 'PDF non leggibile o protetto da password. Prova a riesportarlo come PDF standard.',
                 });
             }
             return res.status(502).json({
@@ -587,7 +640,7 @@ async function handler(req, res) {
             });
         }
 
-        const days = normalizeAiDays(parsedJson?.days);
+        const { days, detectedWeeks } = normalizeAiDays(parsedJson?.days);
         if (days.length === 0) {
             return res.status(422).json({
                 error: 'Nessun giorno o esercizio di allenamento riconosciuto in questo PDF.',
@@ -600,6 +653,7 @@ async function handler(req, res) {
             meta: {
                 daysCount: days.length,
                 exercisesCount: totalExercises,
+                detectedWeeks,
                 model: usedModel,
             },
         });
@@ -611,8 +665,11 @@ async function handler(req, res) {
             });
         }
         console.error('Errore interno parse-pdf:', err);
+        const safeHint = String(err?.message || err?.name || 'errore sconosciuto')
+            .replace(/AIza[0-9A-Za-z\-_]+/g, '[redacted]')
+            .slice(0, 120);
         return res.status(500).json({
-            error: 'Errore interno durante l\'analisi del PDF.',
+            error: `Errore interno durante l'analisi del PDF (${safeHint}).`,
         });
     }
 }
