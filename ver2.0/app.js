@@ -45,6 +45,8 @@ const UI_SVG = {
     cloudUp: `<svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14.9A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.24"/><path d="M12 12v9"/><path d="m16 16-4-4-4 4"/></svg>`,
     cloudOff:`<svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m2 2 20 20"/><path d="M5.78 5.78A7 7 0 0 0 9 19h8.5a4.5 4.5 0 0 0 1.31-.19"/><path d="M21.16 15.5A4.5 4.5 0 0 0 17.5 10h-1.79A7 7 0 0 0 9.4 5.14"/></svg>`,
     compass: `<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/></svg>`,
+    note:    `<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V8Z"/><path d="M15 3v4a2 2 0 0 0 2 2h4"/><path d="M8 13h8"/><path d="M8 17h5"/></svg>`,
+    noteSm:  `<svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V8Z"/><path d="M15 3v4a2 2 0 0 0 2 2h4"/><path d="M8 13h8"/><path d="M8 17h5"/></svg>`,
 };
 
 // ============================================================
@@ -126,6 +128,11 @@ let _pdfParsingInFlight = false;
 let _pdfParseReqId = 0;
 let _pdfDropzoneBound = false;
 const MAX_PDF_IMPORT_BYTES = 3 * 1024 * 1024; // 3 MB
+
+// Stato Note inline (solo in memoria)
+const _openNoteKeys = new Set();
+let _noteInputDebounceTimer = null;
+let _hasPendingNoteInput = false;
 
 // Stato Sync (debounce + coda serializzata)
 let _cloudDebounceTimer = null;
@@ -996,10 +1003,25 @@ function renderExerciseCard(currentUser, day, ex) {
     const restsArray = getRestsForWeek(ex, appState.week);
 
     let upBadgeHtml = '';
+    let prevNoteHtml = '';
     if (appState.week >= 1) {
-        const prevLog = appState.logs[`w${appState.week - 1}_${currentUser.id}_${day.id}_${ex.id}`];
+        const prevWeek = appState.week - 1;
+        const prevLog = appState.logs[`w${prevWeek}_${currentUser.id}_${day.id}_${ex.id}`];
         if (prevLog && prevLog.up) {
             upBadgeHtml = `<div class="up-badge">${UI_SVG.flame} Aumenta il carico</div>`;
+        }
+        const prevNoteText = typeof prevLog?.note === 'string' ? prevLog.note.trim() : '';
+        if (prevNoteText) {
+            const prevLabel = prevWeek === 0 ? 'Nota da S0:' : `Nota da S${prevWeek}:`;
+            prevNoteHtml = `
+                <div class="prev-note-chip">
+                    <span class="prev-note-icon" aria-hidden="true">${UI_SVG.noteSm}</span>
+                    <div class="prev-note-body">
+                        <span class="prev-note-label">${prevLabel}</span>
+                        <span class="prev-note-text">"${escapeHtml(prevNoteText)}"</span>
+                    </div>
+                </div>
+            `;
         }
     }
 
@@ -1045,11 +1067,11 @@ function renderExerciseCard(currentUser, day, ex) {
 
     return {
         carriedNow,
-        html: renderExerciseCardInternal(day.id, ex, logKey, finalLog, blocks, restsArray, upBadgeHtml, !!finalLog.carried)
+        html: renderExerciseCardInternal(day.id, ex, logKey, finalLog, blocks, restsArray, upBadgeHtml, prevNoteHtml, !!finalLog.carried)
     };
 }
 
-function renderExerciseCardInternal(dayId, ex, logKey, log, blocks, restsArray, upBadgeHtml, isCarried) {
+function renderExerciseCardInternal(dayId, ex, logKey, log, blocks, restsArray, upBadgeHtml, prevNoteHtml, isCarried) {
     const weightsArray = log.weights || [];
     const popId = `pop_${ex.id}`;
 
@@ -1095,6 +1117,14 @@ function renderExerciseCardInternal(dayId, ex, logKey, log, blocks, restsArray, 
         : '';
     const isJustCompleted = !!(log.done && _justCompletedLogKey === logKey);
 
+    const currentNote = typeof log.note === 'string' ? log.note : '';
+    const hasNote = currentNote.trim().length > 0;
+    const isNoteOpen = _openNoteKeys.has(logKey);
+    const weekShort = appState.week === 0 ? 'S0' : `S${appState.week}`;
+    const noteTitle = appState.week < 6
+        ? `Nota ${weekShort} · promemoria in S${appState.week + 1}`
+        : `Nota ${weekShort}`;
+
     return `
         <div class="ex-card ${log.done ? 'done' : ''} ${isJustCompleted ? 'just-completed' : ''}" data-ex-card-key="${escapeHtml(logKey)}">
             <span class="ex-shine-layer" aria-hidden="true"></span>
@@ -1113,12 +1143,45 @@ function renderExerciseCardInternal(dayId, ex, logKey, log, blocks, restsArray, 
                     ${coachNoteHtml}
                 </div>
                 <div class="flex items-center gap-0.5 flex-shrink-0">
+                    <button type="button"
+                        data-action="toggle-note"
+                        data-log-key="${escapeHtml(logKey)}"
+                        data-note-btn-for="${escapeHtml(logKey)}"
+                        class="mini-action-btn note-btn ${hasNote ? 'has-note' : ''} ${isNoteOpen ? 'active' : ''}"
+                        title="${hasNote ? `Modifica nota ${weekShort}` : `Aggiungi nota ${weekShort}`}"
+                        aria-expanded="${isNoteOpen ? 'true' : 'false'}">
+                        ${UI_SVG.note}
+                    </button>
                     <button type="button" data-action="toggle-up" data-log-key="${escapeHtml(logKey)}" class="mini-action-btn ${log.up ? 'active' : ''}" title="Aumenta carico settimana prossima">
                         ${UI_SVG.trendUp}
                     </button>
                     <button type="button" data-action="toggle-ex-menu" data-popover-id="${escapeHtml(popId)}" class="mini-action-btn" title="Altre opzioni">
                         ${UI_SVG.dots}
                     </button>
+                </div>
+            </div>
+
+            ${prevNoteHtml}
+
+            <div class="ex-note-drawer ${isNoteOpen ? 'open' : ''}" data-note-drawer-for="${escapeHtml(logKey)}">
+                <div class="ex-note-drawer-inner">
+                    <div class="ex-note-box">
+                        <div class="ex-note-head">
+                            <span class="ex-note-title">${noteTitle}</span>
+                            <button type="button"
+                                data-action="clear-note"
+                                data-log-key="${escapeHtml(logKey)}"
+                                data-note-clear-for="${escapeHtml(logKey)}"
+                                class="ex-note-clear ${hasNote ? '' : 'hidden'}">
+                                Cancella
+                            </button>
+                        </div>
+                        <textarea rows="2" maxlength="280"
+                            class="ex-note-input"
+                            placeholder="Es. Fermo 2s al petto, chiuse bene..."
+                            data-note-input="1"
+                            data-log-key="${escapeHtml(logKey)}">${escapeHtml(currentNote)}</textarea>
+                    </div>
                 </div>
             </div>
 
@@ -2608,6 +2671,116 @@ function commitWeightInput(inputEl) {
     }
 }
 
+function toggleExerciseNote(logKey) {
+    if (!logKey) return;
+    const esc = CSS.escape(logKey);
+    const drawer = document.querySelector(`[data-note-drawer-for="${esc}"]`);
+    const btn = document.querySelector(`[data-note-btn-for="${esc}"]`);
+    const willOpen = !_openNoteKeys.has(logKey);
+
+    if (willOpen) _openNoteKeys.add(logKey);
+    else _openNoteKeys.delete(logKey);
+
+    if (drawer) drawer.classList.toggle('open', willOpen);
+    if (btn) {
+        btn.classList.toggle('active', willOpen);
+        btn.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+    }
+
+    if (willOpen && drawer) {
+        const ta = drawer.querySelector('textarea[data-note-input="1"]');
+        if (ta) {
+            setTimeout(() => {
+                ta.focus();
+                ta.setSelectionRange(ta.value.length, ta.value.length);
+            }, 60);
+        }
+    }
+}
+
+function applyNoteValueInMemory(logKey, rawValue) {
+    const nextRaw = String(rawValue ?? '').slice(0, 280);
+    const trimmed = nextRaw.trim();
+    const existingLog = appState.logs[logKey];
+    const prevVal = typeof existingLog?.note === 'string' ? existingLog.note : '';
+
+    if (trimmed === '') {
+        if (existingLog && Object.prototype.hasOwnProperty.call(existingLog, 'note')) {
+            delete existingLog.note;
+        }
+    } else {
+        if (!appState.logs[logKey]) appState.logs[logKey] = { done: false, weights: [], up: false };
+        appState.logs[logKey].note = nextRaw;
+    }
+
+    const esc = CSS.escape(logKey);
+    const hasNote = trimmed.length > 0;
+    const btn = document.querySelector(`[data-note-btn-for="${esc}"]`);
+    if (btn) btn.classList.toggle('has-note', hasNote);
+    const clearBtn = document.querySelector(`[data-note-clear-for="${esc}"]`);
+    if (clearBtn) clearBtn.classList.toggle('hidden', !hasNote);
+
+    return prevVal !== (trimmed === '' ? '' : nextRaw);
+}
+
+function handleNoteInputDebounced(textareaEl) {
+    const logKey = textareaEl.dataset.logKey;
+    if (!logKey) return;
+
+    applyNoteValueInMemory(logKey, textareaEl.value);
+    _hasPendingNoteInput = true;
+
+    if (_noteInputDebounceTimer) clearTimeout(_noteInputDebounceTimer);
+    _noteInputDebounceTimer = setTimeout(() => {
+        _noteInputDebounceTimer = null;
+        _hasPendingNoteInput = false;
+        saveData();
+    }, WEIGHT_INPUT_DEBOUNCE_MS);
+}
+
+function commitNoteInput(textareaEl) {
+    const logKey = textareaEl.dataset.logKey;
+    if (!logKey) return;
+
+    const trimmed = String(textareaEl.value ?? '').trim().slice(0, 280);
+    if (textareaEl.value !== trimmed) textareaEl.value = trimmed;
+
+    const changed = applyNoteValueInMemory(logKey, trimmed);
+    if (_noteInputDebounceTimer) {
+        clearTimeout(_noteInputDebounceTimer);
+        _noteInputDebounceTimer = null;
+    }
+    if (changed || _hasPendingNoteInput) {
+        _hasPendingNoteInput = false;
+        saveData();
+    }
+}
+
+function clearExerciseNote(logKey) {
+    if (!logKey) return;
+    if (_noteInputDebounceTimer) {
+        clearTimeout(_noteInputDebounceTimer);
+        _noteInputDebounceTimer = null;
+    }
+    _hasPendingNoteInput = false;
+
+    const changed = applyNoteValueInMemory(logKey, '');
+    const esc = CSS.escape(logKey);
+    const drawer = document.querySelector(`[data-note-drawer-for="${esc}"]`);
+    const ta = drawer?.querySelector('textarea[data-note-input="1"]');
+    if (ta) ta.value = '';
+
+    _openNoteKeys.delete(logKey);
+    if (drawer) drawer.classList.remove('open');
+    const btn = document.querySelector(`[data-note-btn-for="${esc}"]`);
+    if (btn) {
+        btn.classList.remove('active', 'has-note');
+        btn.setAttribute('aria-expanded', 'false');
+    }
+
+    if (changed) saveData();
+}
+
 function toggleUpFlag(logKey) {
     if (!appState.logs[logKey]) appState.logs[logKey] = { weights: [] };
     appState.logs[logKey].up = !appState.logs[logKey].up;
@@ -2618,6 +2791,7 @@ function toggleUpFlag(logKey) {
 function changeWeek(delta) {
     const newWeek = appState.week + delta;
     if (newWeek >= 0 && newWeek <= 6) {
+        _openNoteKeys.clear();
         appState.week = newWeek;
         saveData();
         renderApp();
@@ -2626,6 +2800,7 @@ function changeWeek(delta) {
 
 function jumpToWeek(weekNum) {
     if (weekNum >= 0 && weekNum <= 6) {
+        _openNoteKeys.clear();
         appState.week = weekNum;
         saveData();
         renderApp();
@@ -3242,6 +3417,12 @@ function setupDelegatedEvents() {
                         actionEl.dataset.restStr || ''
                     );
                     return;
+                case 'toggle-note':
+                    toggleExerciseNote(actionEl.dataset.logKey);
+                    return;
+                case 'clear-note':
+                    clearExerciseNote(actionEl.dataset.logKey);
+                    return;
                 case 'toggle-up':
                     toggleUpFlag(actionEl.dataset.logKey);
                     return;
@@ -3296,6 +3477,8 @@ function setupDelegatedEvents() {
         if (!target || !target.matches) return;
         if (target.matches('input[data-weight-input="1"]')) {
             handleWeightInputDebounced(target);
+        } else if (target.matches('textarea[data-note-input="1"]')) {
+            handleNoteInputDebounced(target);
         } else if (target.matches('input[data-rest-prefix][data-rest-idx]')) {
             syncTopInputsToProgDraft(target.dataset.restPrefix);
         } else if (target.matches('input[data-prog-target="1"]')) {
@@ -3312,24 +3495,38 @@ function setupDelegatedEvents() {
             toggleDone(target.dataset.logKey, target.checked);
         } else if (target.matches('input[data-weight-input="1"]')) {
             commitWeightInput(target);
+        } else if (target.matches('textarea[data-note-input="1"]')) {
+            commitNoteInput(target);
         }
     });
 
     document.addEventListener('focusout', (e) => {
         const target = e.target;
-        if (target && target.matches && target.matches('input[data-weight-input="1"]')) {
+        if (!target || !target.matches) return;
+        if (target.matches('input[data-weight-input="1"]')) {
             commitWeightInput(target);
+        } else if (target.matches('textarea[data-note-input="1"]')) {
+            commitNoteInput(target);
         }
     });
 
     document.addEventListener('visibilitychange', () => {
         if (document.visibilityState === 'hidden') {
+            let needsFlushSave = false;
             if (_weightInputDebounceTimer) {
                 clearTimeout(_weightInputDebounceTimer);
                 _weightInputDebounceTimer = null;
                 _hasPendingWeightInput = false;
-                saveData();
+                needsFlushSave = true;
             }
+            if (_noteInputDebounceTimer) {
+                clearTimeout(_noteInputDebounceTimer);
+                _noteInputDebounceTimer = null;
+                _hasPendingNoteInput = false;
+                needsFlushSave = true;
+            }
+            if (needsFlushSave) saveData();
+
             if (_cloudDebounceTimer && navigator.onLine && CLOUD_ENABLED && appState.syncKey) {
                 clearTimeout(_cloudDebounceTimer);
                 _cloudDebounceTimer = null;

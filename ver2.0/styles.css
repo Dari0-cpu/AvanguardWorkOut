@@ -1301,6 +1301,139 @@ input:checked + .ex-check svg { opacity: 1; transform: scale(1); }
 }
 .sync-pulse { animation: pulse-dot 1.2s ease-in-out infinite; }
 
+/* ---------- FEATURE D: NOTE ESERCIZIO & PROMEMORIA SETTIMANA PREC. ---------- */
+.mini-action-btn.note-btn {
+    position: relative;
+}
+.mini-action-btn.note-btn.has-note {
+    color: var(--brand-500);
+    background: var(--brand-50);
+}
+.mini-action-btn.note-btn.has-note::after {
+    content: "";
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: var(--brand-500);
+}
+.mini-action-btn.note-btn.active {
+    background: var(--brand-100);
+    color: var(--brand-500);
+}
+
+.prev-note-chip {
+    display: flex;
+    align-items: flex-start;
+    gap: 7px;
+    margin-top: 8px;
+    padding: 7px 10px;
+    border-radius: 11px;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-left: 2.5px solid var(--brand-500);
+    font-size: 11.5px;
+    line-height: 1.4;
+    color: var(--text-muted);
+    word-break: break-word;
+}
+.prev-note-icon {
+    color: var(--brand-500);
+    flex-shrink: 0;
+    margin-top: 1px;
+    display: inline-flex;
+}
+.prev-note-body {
+    min-width: 0;
+    flex: 1;
+}
+.prev-note-label {
+    font-weight: 800;
+    color: var(--brand-500);
+    margin-right: 4px;
+}
+.prev-note-text {
+    color: var(--text);
+    font-weight: 500;
+}
+
+.ex-note-drawer {
+    display: grid;
+    grid-template-rows: 0fr;
+    opacity: 0;
+    transition: grid-template-rows 0.22s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.18s ease, margin-top 0.22s ease;
+    margin-top: 0;
+}
+.ex-note-drawer.open {
+    grid-template-rows: 1fr;
+    opacity: 1;
+    margin-top: 9px;
+}
+.ex-note-drawer-inner {
+    overflow: hidden;
+}
+
+.ex-note-box {
+    background: var(--surface-2);
+    border: 1px solid var(--border-strong);
+    border-radius: 12px;
+    padding: 8px 10px;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.ex-note-box:focus-within {
+    background: var(--bg);
+    border-color: var(--brand-500);
+    box-shadow: 0 0 0 3px var(--brand-100);
+}
+.ex-note-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 5px;
+}
+.ex-note-title {
+    font-size: 10px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-muted);
+}
+.ex-note-clear {
+    font-size: 10.5px;
+    font-weight: 700;
+    color: #ef4444;
+    background: transparent;
+    border: 0;
+    padding: 1px 4px;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.12s ease;
+}
+.ex-note-clear:hover {
+    background: rgba(239, 68, 68, 0.12);
+}
+
+.ex-note-input {
+    width: 100%;
+    background: transparent;
+    border: 0;
+    color: var(--text);
+    font-family: inherit;
+    font-size: 12.5px;
+    font-weight: 500;
+    line-height: 1.4;
+    resize: none;
+    outline: none;
+    display: block;
+}
+.ex-note-input::placeholder {
+    color: var(--text-dim);
+    font-weight: 500;
+}
+
 /* ---------- ACCESSIBILITÀ: REDUCED MOTION ---------- */
 @media (prefers-reduced-motion: reduce) {
     .symbiote-goo-layer {
@@ -1314,7 +1447,8 @@ input:checked + .ex-check svg { opacity: 1; transform: scale(1); }
     .symbiote-blob,
     .symbiote-blob::before,
     .nav-item,
-    .nav-item svg {
+    .nav-item svg,
+    .ex-note-drawer {
         transition: none !important;
     }
     .ex-card.just-completed,

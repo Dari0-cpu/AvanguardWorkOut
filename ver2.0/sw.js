@@ -1,5 +1,5 @@
-// Service Worker v9 - Offline Ready + Esclusione /api/ (Feature E: Symbiote + Shine)
-const CACHE_NAME = 'avanguard-cache-v9';
+// Service Worker v10 - Offline Ready + Esclusione /api/ (Feature D: Note Esercizi)
+const CACHE_NAME = 'avanguard-cache-v10';
 
 const CORE_ASSETS = [
     './',
