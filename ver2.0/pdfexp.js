@@ -145,8 +145,38 @@ function downloadPDF() {
             doc.setFillColor(...accentRgb);
             doc.roundedRect(margin, y, 1.8, cardH, 1, 1, 'F');
 
+            // Dati troncati al numero di blocchi + trend multi-blocco condiviso con app.js
+            const reportData = getExerciseReportData(currentUser.id, day.id, ex);
+            const trendLabel = pdfSafeText(reportData.trend.pdfLabel);
+
+            let badgeBg = [243, 244, 246];
+            let badgeFg = [113, 118, 128];
+            if (reportData.trend.status === 'up') {
+                badgeBg = [220, 252, 231];
+                badgeFg = [21, 128, 61];
+            } else if (reportData.trend.status === 'down') {
+                badgeBg = [254, 226, 226];
+                badgeFg = [185, 28, 28];
+            } else if (reportData.trend.status === 'flat') {
+                badgeBg = [254, 249, 195];
+                badgeFg = [161, 98, 7];
+            }
+
+            // Pillola Trend in alto a destra (calcolata prima per dare maxWidth sicuro al titolo)
+            const trendFontSize = trendLabel.length > 14 ? 7.5 : 8.5;
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(trendFontSize);
+            const pillW = Math.max(22, Math.min(68, doc.getTextWidth(trendLabel) + 8));
+            const pillX = margin + contentW - pillW - 4;
+            doc.setFillColor(...badgeBg);
+            doc.roundedRect(pillX, y + 3.5, pillW, 6.5, 2, 2, 'F');
+            doc.setTextColor(...badgeFg);
+            doc.text(trendLabel, pillX + pillW / 2, y + 7.9, { align: 'center', maxWidth: pillW - 3 });
+
+            const titleMaxW = Math.max(85, contentW - pillW - 14);
+
             // Nome esercizio
-            const rawTarget = ex.progression?.[appState.week - 1] || ex.progression?.[0] || '3x10';
+            const rawTarget = getRawTargetForWeek(ex, appState.week);
             const parsed = parseTargetAndRests(rawTarget);
             const rests = (Array.isArray(ex.rests) && ex.rests.length) ? ex.rests : parsed.rests;
             const restStr = rests.filter(Boolean).length ? `  |  Rec: ${rests.filter(Boolean).join(' / ')}` : '';
@@ -154,66 +184,13 @@ function downloadPDF() {
             doc.setFont('helvetica', 'bold');
             doc.setFontSize(10.5);
             doc.setTextColor(18, 20, 26);
-            doc.text(pdfSafeText(ex.name), margin + 5.5, y + 6.5, { maxWidth: 125 });
+            doc.text(pdfSafeText(ex.name), margin + 5.5, y + 6.5, { maxWidth: titleMaxW });
 
             // Sottotitolo Target + Recuperi
             doc.setFont('helvetica', 'normal');
             doc.setFontSize(8);
             doc.setTextColor(110, 116, 128);
-            doc.text(pdfSafeText(`Target: ${parsed.cleanTarget}${restStr}`), margin + 5.5, y + 11.2, { maxWidth: 125 });
-
-            // Calcolo settimane S1..S6 e trend
-            let firstW = null, lastW = null;
-            const weekTexts = [];
-
-            for (let w = 1; w <= 6; w++) {
-                const logKey = `w${w}_${currentUser.id}_${day.id}_${ex.id}`;
-                const log = appState.logs[logKey];
-                let wArray = log ? (log.weights || []) : [];
-                if (log && log.weight && wArray.length === 0) wArray = [log.weight];
-
-                if (wArray.length > 0 && wArray.some(v => v !== '' && v != null)) {
-                    weekTexts.push(wArray.map(v => (v !== '' && v != null) ? v : '-').join(' + '));
-                    const n = parseFloat(wArray[0]);
-                    if (!isNaN(n)) {
-                        if (firstW === null) firstW = n;
-                        lastW = n;
-                    }
-                } else {
-                    weekTexts.push('-');
-                }
-            }
-
-            // Pillola Trend in alto a destra
-            let trendLabel = 'N/D';
-            let badgeBg = [243, 244, 246];
-            let badgeFg = [113, 118, 128];
-
-            if (firstW !== null && lastW !== null) {
-                const diff = Number((lastW - firstW).toFixed(2));
-                if (diff > 0) {
-                    trendLabel = `+${diff} kg`;
-                    badgeBg = [220, 252, 231];
-                    badgeFg = [21, 128, 61];
-                } else if (diff < 0) {
-                    trendLabel = `${diff} kg`;
-                    badgeBg = [254, 226, 226];
-                    badgeFg = [185, 28, 28];
-                } else {
-                    trendLabel = 'Stabile';
-                    badgeBg = [254, 249, 195];
-                    badgeFg = [161, 98, 7];
-                }
-            }
-
-            doc.setFont('helvetica', 'bold');
-            doc.setFontSize(8.5);
-            const pillW = Math.max(22, doc.getTextWidth(trendLabel) + 8);
-            const pillX = margin + contentW - pillW - 4;
-            doc.setFillColor(...badgeBg);
-            doc.roundedRect(pillX, y + 3.5, pillW, 6.5, 2, 2, 'F');
-            doc.setTextColor(...badgeFg);
-            doc.text(trendLabel, pillX + pillW / 2, y + 7.9, { align: 'center' });
+            doc.text(pdfSafeText(`Target: ${parsed.cleanTarget}${restStr}`), margin + 5.5, y + 11.2, { maxWidth: titleMaxW });
 
             // Griglia 6 settimane S1..S6
             const gridX = margin + 5;
@@ -243,8 +220,8 @@ function downloadPDF() {
                 doc.setTextColor(...(isCurrent ? accentRgb : [135, 140, 152]));
                 doc.text(`SETT ${w}`, bx + colW / 2, gridY + 5, { align: 'center' });
 
-                // Valore peso (scala leggermente il font se ci sono più blocchi)
-                const val = weekTexts[w - 1];
+                // Valore peso troncato al numero reale di blocchi
+                const val = pdfSafeText(reportData.weeks[w - 1]?.text || '-');
                 const fontSize = val.length > 10 ? 7.5 : (val.length > 6 ? 8.5 : 10);
                 doc.setFont('helvetica', 'bold');
                 doc.setFontSize(fontSize);

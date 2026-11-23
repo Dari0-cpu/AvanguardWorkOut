@@ -1,5 +1,5 @@
-// Service Worker v4 - Offline Ready + Esclusione /api/
-const CACHE_NAME = 'avanguard-cache-v4';
+// Service Worker v5 - Offline Ready + Esclusione /api/
+const CACHE_NAME = 'avanguard-cache-v5';
 
 const CORE_ASSETS = [
     './',
@@ -12,9 +12,9 @@ const CORE_ASSETS = [
 ];
 
 const CDN_ASSETS = [
-    '[https://cdn.tailwindcss.com](https://cdn.tailwindcss.com)',
-    '[https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js](https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js)',
-    '[https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js](https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js)'
+    'https://cdn.tailwindcss.com',
+    'https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js',
+    'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js'
 ];
 
 self.addEventListener('install', event => {
@@ -46,8 +46,10 @@ self.addEventListener('fetch', event => {
         event.respondWith(
             fetch(req)
                 .then(res => {
-                    const copy = res.clone();
-                    caches.open(CACHE_NAME).then(c => c.put(req, copy));
+                    if (res && res.ok) {
+                        const copy = res.clone();
+                        caches.open(CACHE_NAME).then(c => c.put(req, copy));
+                    }
                     return res;
                 })
                 .catch(() => caches.match(req))
@@ -55,8 +57,10 @@ self.addEventListener('fetch', event => {
     } else {
         event.respondWith(
             caches.match(req).then(cached => cached || fetch(req).then(res => {
-                const copy = res.clone();
-                caches.open(CACHE_NAME).then(c => c.put(req, copy));
+                if (res && (res.ok || res.type === 'opaque')) {
+                    const copy = res.clone();
+                    caches.open(CACHE_NAME).then(c => c.put(req, copy));
+                }
                 return res;
             }))
         );

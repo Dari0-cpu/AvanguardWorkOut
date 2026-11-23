@@ -1,9 +1,13 @@
 /* ====================================================================
-   AVANGUARD WORKOUT - APP LOGIC v4 (Native UI + Secure /api/sync)
+   AVANGUARD WORKOUT - APP LOGIC v4.1 (Offline-Safe Sync + Hardening)
    100% retrocompatibile con gym_tracker_pro_v6 e Supabase gym_sync
    ==================================================================== */
 
 const CLOUD_ENABLED = true;
+const STORAGE_KEY = 'gym_tracker_pro_v6';
+const DIRTY_KEY = 'avanguard_dirty';
+const CLOUD_DEBOUNCE_MS = 1200;
+const WEIGHT_INPUT_DEBOUNCE_MS = 500;
 
 // ============================================================
 //  TEMI (tutti i vecchi ID mantenuti + nuovi)
@@ -80,7 +84,7 @@ function getDayIconSvg(day) {
 }
 
 // ============================================================
-//  STATO APPLICATIVO (identico al formato salvato su DB)
+//  STATO APPLICATIVO (100% retrocompatibile + updatedAt opzionale)
 // ============================================================
 let appState = {
     users: [],
@@ -93,9 +97,10 @@ let appState = {
     mode: 'dark',
     syncKey: '',
     carried: {},
+    updatedAt: 0,
 };
 
-// Stato UI solo in memoria (non sporca il JSON salvato)
+// Stato UI solo in memoria
 let activeTab = 'workout';
 let activeDayId = null;
 let openPopoverId = null;
@@ -105,24 +110,23 @@ let tempEditDayId = null;
 let tempEditExId = null;
 let tempSelectedNewDayIcon = 'dumbbell';
 let tempSelectedEditDayIcon = 'dumbbell';
-let currentExportText = "";
-let _weightChart = null;
+let currentExportText = '';
 let _parsedImportDays = [];
 
-// Timer recupero
-let _restTimerInterval = null;
-let _restTimerTotal = 0;
-let _restTimerRemaining = 0;
-let _restTimerPaused = false;
+// Stato Sync (debounce + coda serializzata)
+let _cloudDebounceTimer = null;
+let _cloudSyncInFlight = false;
+let _cloudSyncQueued = false;
+let _weightInputDebounceTimer = null;
+let _hasPendingWeightInput = false;
 
-// Stella SVG precaricata per Chart.js
-const _starSvgImg = new Image();
-_starSvgImg.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(
-    `<svg xmlns="[http://www.w3.org/2000/svg](http://www.w3.org/2000/svg)" width="28" height="28" viewBox="0 0 24 24">
-        <polygon points="12,1.8 15.1,8.1 22,9.1 17,14 18.2,20.9 12,17.6 5.8,20.9 7,14 2,9.1 8.9,8.1"
-            fill="#f59e0b" stroke="#fef3c7" stroke-width="1.4" stroke-linejoin="round"/>
-    </svg>`
-);
+// Timer recupero (wall-clock timestamps, a prova di standby)
+let _restTimerInterval = null;
+let _restTimerTotalMs = 0;
+let _restTimerRemainingMs = 0;
+let _restTimerEndAt = null;
+let _restTimerPaused = false;
+let _restTimerActive = false;
 
 // ============================================================
 //  INIT
@@ -131,7 +135,7 @@ async function init() {
     const warningEl = document.getElementById('cloud-warning');
     if (warningEl && CLOUD_ENABLED) warningEl.classList.add('hidden');
 
-    const savedData = localStorage.getItem('gym_tracker_pro_v6');
+    const savedData = localStorage.getItem(STORAGE_KEY);
     if (savedData) {
         try {
             mergeStateSafely(JSON.parse(savedData));
@@ -144,60 +148,182 @@ async function init() {
     renderThemeSwatches();
     applyMode();
     applyTheme();
+    setupDelegatedEvents();
+
+    // Render immediato da cache locale (zero attesa offline)
+    renderApp();
 
     if (CLOUD_ENABLED && appState.syncKey) {
-        await pullFromCloud();
+        if (navigator.onLine) {
+            const syncRes = await syncWithCloud();
+            if (syncRes.action === 'pulled') {
+                renderApp();
+            }
+        } else {
+            updateCloudStatusUi('offline');
+        }
     } else {
         updateCloudStatusUi('ok');
     }
-
-    renderApp();
 }
 
 function mergeStateSafely(incoming) {
     if (!incoming || typeof incoming !== 'object') return;
+    const incomingTs = (typeof incoming.updatedAt === 'number' && Number.isFinite(incoming.updatedAt) && incoming.updatedAt >= 0)
+        ? incoming.updatedAt
+        : (typeof appState.updatedAt === 'number' ? appState.updatedAt : 0);
+
     appState = {
         ...appState,
         ...incoming,
         users: Array.isArray(incoming.users) ? incoming.users : (appState.users || []),
-        logs: (incoming.logs && typeof incoming.logs === 'object') ? incoming.logs : (appState.logs || {}),
-        bodyWeight: (incoming.bodyWeight && typeof incoming.bodyWeight === 'object') ? incoming.bodyWeight : (appState.bodyWeight || {}),
-        bodyWeightGoal: (incoming.bodyWeightGoal && typeof incoming.bodyWeightGoal === 'object') ? incoming.bodyWeightGoal : (appState.bodyWeightGoal || {}),
-        carried: (incoming.carried && typeof incoming.carried === 'object') ? incoming.carried : (appState.carried || {}),
+        logs: (incoming.logs && typeof incoming.logs === 'object' && !Array.isArray(incoming.logs)) ? incoming.logs : (appState.logs || {}),
+        bodyWeight: (incoming.bodyWeight && typeof incoming.bodyWeight === 'object' && !Array.isArray(incoming.bodyWeight)) ? incoming.bodyWeight : (appState.bodyWeight || {}),
+        bodyWeightGoal: (incoming.bodyWeightGoal && typeof incoming.bodyWeightGoal === 'object' && !Array.isArray(incoming.bodyWeightGoal)) ? incoming.bodyWeightGoal : (appState.bodyWeightGoal || {}),
+        carried: (incoming.carried && typeof incoming.carried === 'object' && !Array.isArray(incoming.carried)) ? incoming.carried : (appState.carried || {}),
+        updatedAt: incomingTs,
     };
 }
 
 // ============================================================
-//  PERSISTENZA + CLOUD (/api/sync) + BACKUP JSON
+//  PERSISTENZA OFFLINE-SAFE + CLOUD (/api/sync) + BACKUP JSON
 // ============================================================
-async function saveData() {
-    localStorage.setItem('gym_tracker_pro_v6', JSON.stringify(appState));
-    if (CLOUD_ENABLED && appState.syncKey) {
-        updateCloudStatusUi('syncing');
-        try {
-            const res = await fetch('/api/sync', {
+function isLocalDirty() {
+    try {
+        return localStorage.getItem(DIRTY_KEY) === '1';
+    } catch (_) {
+        return false;
+    }
+}
+
+function setLocalDirty(dirty) {
+    try {
+        if (dirty) localStorage.setItem(DIRTY_KEY, '1');
+        else localStorage.removeItem(DIRTY_KEY);
+    } catch (_) {}
+}
+
+function hasMeaningfulLocalData(state) {
+    if (!state || typeof state !== 'object') return false;
+    if (Array.isArray(state.users) && state.users.length > 0) return true;
+    if (state.logs && Object.keys(state.logs).length > 0) return true;
+    if (state.bodyWeight && Object.keys(state.bodyWeight).length > 0) return true;
+    return false;
+}
+
+function persistLocalOnly() {
+    try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(appState));
+    } catch (e) {
+        console.error('Errore salvataggio localStorage:', e);
+    }
+}
+
+function saveData({ immediate = false, touch = true } = {}) {
+    if (touch) {
+        appState.updatedAt = Date.now();
+        setLocalDirty(true);
+    }
+    persistLocalOnly();
+
+    if (!CLOUD_ENABLED || !appState.syncKey) {
+        updateCloudStatusUi('ok');
+        return Promise.resolve({ ok: true, localOnly: true });
+    }
+
+    if (!navigator.onLine) {
+        updateCloudStatusUi('offline');
+        return Promise.resolve({ ok: false, offline: true });
+    }
+
+    if (_cloudDebounceTimer) {
+        clearTimeout(_cloudDebounceTimer);
+        _cloudDebounceTimer = null;
+    }
+
+    if (immediate) {
+        return flushCloudSync();
+    }
+
+    updateCloudStatusUi('pending');
+    _cloudDebounceTimer = setTimeout(() => {
+        _cloudDebounceTimer = null;
+        flushCloudSync();
+    }, CLOUD_DEBOUNCE_MS);
+
+    return Promise.resolve({ ok: true, scheduled: true });
+}
+
+async function flushCloudSync({ keepalive = false } = {}) {
+    if (!CLOUD_ENABLED || !appState.syncKey) return { ok: true, skipped: true };
+    if (!navigator.onLine) {
+        updateCloudStatusUi('offline');
+        return { ok: false, offline: true };
+    }
+
+    // Serializzazione: se una richiesta è già in corso, accoda un solo giro successivo
+    if (_cloudSyncInFlight) {
+        _cloudSyncQueued = true;
+        return { ok: true, queued: true };
+    }
+
+    _cloudSyncInFlight = true;
+    let lastOk = true;
+
+    try {
+        do {
+            _cloudSyncQueued = false;
+            updateCloudStatusUi('syncing');
+
+            const sentUpdatedAt = Number(appState.updatedAt) || 0;
+            const payloadStr = JSON.stringify({ state: appState });
+            const fetchOpts = {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'x-sync-key': appState.syncKey,
                 },
-                body: JSON.stringify({ state: appState }),
-            });
-            if (!res.ok) {
-                console.error('Errore salvataggio cloud:', res.status, await res.text());
-                updateCloudStatusUi('error');
-                return;
+                body: payloadStr,
+            };
+            // keepalive ha limite ~64 KB nei browser
+            if (keepalive && payloadStr.length < 60000) {
+                fetchOpts.keepalive = true;
             }
-            updateCloudStatusUi('ok');
-        } catch (e) {
-            console.error('Errore salvataggio cloud:', e);
-            updateCloudStatusUi('error');
+
+            const res = await fetch('/api/sync', fetchOpts);
+            if (!res.ok) {
+                console.error('Errore salvataggio cloud:', res.status, await res.text().catch(() => ''));
+                lastOk = false;
+                updateCloudStatusUi('error');
+                break;
+            }
+
+            // Pulisce il flag dirty solo se non ci sono state modifiche locali più recenti durante la POST
+            if ((Number(appState.updatedAt) || 0) <= sentUpdatedAt && !_cloudSyncQueued) {
+                setLocalDirty(false);
+            }
+        } while (_cloudSyncQueued && navigator.onLine);
+
+        if (lastOk) {
+            if (!navigator.onLine) updateCloudStatusUi('offline');
+            else updateCloudStatusUi(isLocalDirty() ? 'pending' : 'ok');
         }
+        return { ok: lastOk };
+    } catch (e) {
+        console.error('Errore salvataggio cloud:', e);
+        updateCloudStatusUi(navigator.onLine ? 'error' : 'offline');
+        return { ok: false };
+    } finally {
+        _cloudSyncInFlight = false;
     }
 }
 
-async function pullFromCloud() {
-    if (!CLOUD_ENABLED || !appState.syncKey) return { ok: false, found: false };
+async function fetchCloudState() {
+    if (!CLOUD_ENABLED || !appState.syncKey) return { ok: false, state: null };
+    if (!navigator.onLine) {
+        updateCloudStatusUi('offline');
+        return { ok: false, offline: true, state: null };
+    }
     updateCloudStatusUi('syncing');
     try {
         const res = await fetch('/api/sync', {
@@ -205,41 +331,80 @@ async function pullFromCloud() {
             headers: { 'x-sync-key': appState.syncKey },
         });
         if (!res.ok) {
-            console.error('Errore scaricamento cloud:', res.status, await res.text());
+            console.error('Errore scaricamento cloud:', res.status, await res.text().catch(() => ''));
             updateCloudStatusUi('error');
-            return { ok: false, found: false };
+            return { ok: false, state: null };
         }
         const data = await res.json();
-        if (data && data.state) {
-            mergeStateSafely(data.state);
-            localStorage.setItem('gym_tracker_pro_v6', JSON.stringify(appState));
-            applyMode();
-            applyTheme();
-            updateCloudStatusUi('ok');
-            return { ok: true, found: true };
-        }
-        updateCloudStatusUi('ok');
-        return { ok: true, found: false };
+        return { ok: true, state: (data && data.state) ? data.state : null };
     } catch (e) {
         console.error('Errore scaricamento cloud:', e);
-        updateCloudStatusUi('error');
-        return { ok: false, found: false };
+        updateCloudStatusUi(navigator.onLine ? 'error' : 'offline');
+        return { ok: false, state: null };
     }
+}
+
+async function syncWithCloud({ isManualConnect = false } = {}) {
+    if (!CLOUD_ENABLED || !appState.syncKey) return { ok: false, action: 'none' };
+
+    const activeSyncKey = appState.syncKey;
+    const fetched = await fetchCloudState();
+    if (!fetched.ok) return { ok: false, action: 'error' };
+
+    const cloudState = fetched.state;
+    const dirty = isLocalDirty();
+    const localEmpty = !hasMeaningfulLocalData(appState);
+    const localTs = Number(appState.updatedAt) || 0;
+
+    // Nessuno stato sul cloud (nuova chiave): se abbiamo dati locali o dirty, carichiamoli
+    if (!cloudState) {
+        if (!localEmpty || dirty) {
+            if (!appState.updatedAt) appState.updatedAt = Date.now();
+            setLocalDirty(true);
+            persistLocalOnly();
+            const pushRes = await flushCloudSync();
+            return { ok: pushRes.ok, action: 'pushed' };
+        }
+        updateCloudStatusUi('ok');
+        return { ok: true, action: 'noop' };
+    }
+
+    const cloudTs = Number(cloudState.updatedAt) || 0;
+
+    // Locale modificato offline e più recente del cloud -> pusha locale senza sovrascriverlo!
+    if (dirty && localTs > cloudTs && !(isManualConnect && localEmpty)) {
+        const pushRes = await flushCloudSync();
+        return { ok: pushRes.ok, action: 'pushed' };
+    }
+
+    // Cloud più recente oppure locale vuoto/pulito -> applica cloud
+    if (cloudTs > localTs || localEmpty || !dirty) {
+        mergeStateSafely(cloudState);
+        if (!appState.syncKey && activeSyncKey) appState.syncKey = activeSyncKey;
+        persistLocalOnly();
+        setLocalDirty(false);
+        applyMode();
+        applyTheme();
+        updateCloudStatusUi('ok');
+        return { ok: true, action: 'pulled' };
+    }
+
+    updateCloudStatusUi('ok');
+    return { ok: true, action: 'noop' };
 }
 
 async function saveCloudKey() {
     const key = document.getElementById('cloud-sync-key').value.trim();
     if (key.length < 4) { alert("Inserisci una chiave di almeno 4 caratteri!"); return; }
     appState.syncKey = key;
+    persistLocalOnly();
+
     if (CLOUD_ENABLED) {
-        const res = await pullFromCloud();
-        if (res.ok) {
-            await saveData();
-        } else {
+        const res = await syncWithCloud({ isManualConnect: true });
+        if (!res.ok) {
             alert("Connessione a /api/sync non riuscita. I dati locali restano al sicuro.");
         }
     } else {
-        localStorage.setItem('gym_tracker_pro_v6', JSON.stringify(appState));
         updateCloudStatusUi('ok');
     }
     renderApp();
@@ -261,6 +426,19 @@ function updateCloudStatusUi(status = 'ok') {
         icon.innerHTML = UI_SVG.cloud;
         icon.style.color = '#f59e0b';
         if (badge) { badge.textContent = 'Non connesso'; badge.style.color = '#f59e0b'; }
+    } else if (status === 'offline') {
+        dot.className = "absolute top-1.5 right-1.5 w-2 h-2 bg-amber-400 rounded-full";
+        icon.innerHTML = UI_SVG.cloudOff;
+        icon.style.color = '#f59e0b';
+        if (badge) {
+            badge.textContent = isLocalDirty() ? 'Offline (da inviare)' : 'Offline';
+            badge.style.color = '#f59e0b';
+        }
+    } else if (status === 'pending') {
+        dot.className = "absolute top-1.5 right-1.5 w-2 h-2 bg-blue-400 rounded-full sync-pulse";
+        icon.innerHTML = UI_SVG.cloudUp;
+        icon.style.color = '#60a5fa';
+        if (badge) { badge.textContent = 'In coda...'; badge.style.color = '#60a5fa'; }
     } else if (status === 'syncing') {
         dot.className = "absolute top-1.5 right-1.5 w-2 h-2 bg-blue-500 rounded-full sync-pulse";
         icon.innerHTML = UI_SVG.cloudUp;
@@ -304,7 +482,7 @@ function importJsonBackup(event) {
             if (!appState.syncKey && currentKey) appState.syncKey = currentKey;
             applyMode();
             applyTheme();
-            await saveData();
+            await saveData({ immediate: true });
             renderApp();
             alert("Backup ripristinato correttamente!");
         } catch (_) {
@@ -364,9 +542,9 @@ function renderThemeSwatches() {
     grid.innerHTML = Object.entries(THEMES).map(([key, t]) => {
         const dotColor = t.adaptive ? 'linear-gradient(135deg, #f4f4f5 50%, #18181b 50%)' : t[500];
         return `
-            <button data-color-swatch="${key}" onclick="setTheme('${key}')" class="theme-card-btn">
+            <button type="button" data-color-swatch="${escapeHtml(key)}" data-action="set-theme" data-theme-key="${escapeHtml(key)}" class="theme-card-btn">
                 <span class="theme-dot" style="background: ${dotColor};"></span>
-                <span>${t.label}</span>
+                <span>${escapeHtml(t.label)}</span>
             </button>
         `;
     }).join('');
@@ -489,63 +667,106 @@ function parseRestToSeconds(restStr) {
 }
 
 // ============================================================
-//  TIMER RECUPERO FLOATING
+//  TIMER RECUPERO FLOATING (WALL-CLOCK STANDBY-PROOF)
 // ============================================================
 function startRestTimer(exName, blockLabel, restStr) {
     const seconds = parseRestToSeconds(restStr);
     if (!seconds) return;
 
     stopRestTimer(false);
-    _restTimerTotal = seconds;
-    _restTimerRemaining = seconds;
+    _restTimerTotalMs = seconds * 1000;
+    _restTimerRemainingMs = _restTimerTotalMs;
+    _restTimerEndAt = Date.now() + _restTimerRemainingMs;
     _restTimerPaused = false;
+    _restTimerActive = true;
 
     document.getElementById('rest-timer-label').textContent = `${exName} · ${blockLabel}`;
     document.getElementById('rest-timer-bar').classList.remove('hidden');
     updateRestTimerDisplay();
 
-    _restTimerInterval = setInterval(tickRestTimer, 1000);
+    _restTimerInterval = setInterval(syncRestTimerFromClock, 250);
 }
 
-function tickRestTimer() {
-    if (_restTimerPaused) return;
-    _restTimerRemaining--;
-    if (_restTimerRemaining <= 0) {
-        _restTimerRemaining = 0;
+function syncRestTimerFromClock() {
+    if (!_restTimerActive || _restTimerPaused || _restTimerEndAt === null) return;
+
+    const remMs = _restTimerEndAt - Date.now();
+    if (remMs <= 0) {
+        _restTimerRemainingMs = 0;
+        _restTimerEndAt = null;
+        if (_restTimerInterval) {
+            clearInterval(_restTimerInterval);
+            _restTimerInterval = null;
+        }
         updateRestTimerDisplay();
-        clearInterval(_restTimerInterval);
-        _restTimerInterval = null;
         playTimerDoneFeedback();
     } else {
+        _restTimerRemainingMs = remMs;
         updateRestTimerDisplay();
     }
 }
 
 function updateRestTimerDisplay() {
-    const mins = Math.floor(_restTimerRemaining / 60);
-    const secs = _restTimerRemaining % 60;
-    document.getElementById('rest-timer-time').textContent = _restTimerRemaining === 0
+    const remainingSec = Math.ceil(_restTimerRemainingMs / 1000);
+    const mins = Math.floor(remainingSec / 60);
+    const secs = remainingSec % 60;
+
+    document.getElementById('rest-timer-time').textContent = remainingSec <= 0
         ? 'PRONTO!'
         : `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
-    const pct = _restTimerTotal > 0 ? (_restTimerRemaining / _restTimerTotal) * 100 : 0;
+
+    const pct = _restTimerTotalMs > 0 ? (_restTimerRemainingMs / _restTimerTotalMs) * 100 : 0;
     document.getElementById('rest-timer-progress').style.width = `${Math.max(0, Math.min(100, pct))}%`;
-    document.getElementById('rest-timer-toggle').innerHTML = _restTimerPaused ? UI_SVG.play : UI_SVG.pause;
+    document.getElementById('rest-timer-toggle').innerHTML = (_restTimerPaused || remainingSec <= 0)
+        ? UI_SVG.play
+        : UI_SVG.pause;
 }
 
 function toggleRestTimerPause() {
-    if (_restTimerRemaining === 0) {
-        _restTimerRemaining = _restTimerTotal;
+    if (!_restTimerActive) return;
+
+    if (_restTimerRemainingMs <= 0) {
+        _restTimerRemainingMs = _restTimerTotalMs;
+        _restTimerEndAt = Date.now() + _restTimerRemainingMs;
         _restTimerPaused = false;
-        if (!_restTimerInterval) _restTimerInterval = setInterval(tickRestTimer, 1000);
+        if (!_restTimerInterval) _restTimerInterval = setInterval(syncRestTimerFromClock, 250);
+    } else if (_restTimerPaused) {
+        _restTimerPaused = false;
+        _restTimerEndAt = Date.now() + _restTimerRemainingMs;
+        if (!_restTimerInterval) _restTimerInterval = setInterval(syncRestTimerFromClock, 250);
     } else {
-        _restTimerPaused = !_restTimerPaused;
+        if (_restTimerEndAt !== null) {
+            _restTimerRemainingMs = Math.max(0, _restTimerEndAt - Date.now());
+        }
+        _restTimerEndAt = null;
+        _restTimerPaused = true;
+        if (_restTimerInterval) {
+            clearInterval(_restTimerInterval);
+            _restTimerInterval = null;
+        }
     }
     updateRestTimerDisplay();
 }
 
 function adjustRestTimer(deltaSec) {
-    _restTimerRemaining = Math.max(5, _restTimerRemaining + deltaSec);
-    if (_restTimerRemaining > _restTimerTotal) _restTimerTotal = _restTimerRemaining;
+    if (!_restTimerActive) return;
+
+    const currentMs = (!_restTimerPaused && _restTimerEndAt !== null)
+        ? Math.max(0, _restTimerEndAt - Date.now())
+        : _restTimerRemainingMs;
+
+    const nextMs = Math.max(5000, currentMs + deltaSec * 1000);
+    _restTimerRemainingMs = nextMs;
+    if (_restTimerRemainingMs > _restTimerTotalMs) {
+        _restTimerTotalMs = _restTimerRemainingMs;
+    }
+
+    if (!_restTimerPaused) {
+        _restTimerEndAt = Date.now() + _restTimerRemainingMs;
+        if (!_restTimerInterval) {
+            _restTimerInterval = setInterval(syncRestTimerFromClock, 250);
+        }
+    }
     updateRestTimerDisplay();
 }
 
@@ -554,6 +775,10 @@ function stopRestTimer(hideBar = true) {
         clearInterval(_restTimerInterval);
         _restTimerInterval = null;
     }
+    _restTimerActive = false;
+    _restTimerEndAt = null;
+    _restTimerPaused = false;
+    _restTimerRemainingMs = 0;
     if (hideBar) document.getElementById('rest-timer-bar')?.classList.add('hidden');
 }
 
@@ -582,7 +807,6 @@ function playTimerDoneFeedback() {
 function renderApp() {
     document.getElementById('week-display').innerText = appState.week;
 
-    // Aggiorna selettore utenti in Impostazioni + nome nell'header
     const userSelector = document.getElementById('user-selector');
     userSelector.innerHTML = '';
     if (appState.users.length === 0) {
@@ -601,7 +825,6 @@ function renderApp() {
     const currentUser = appState.users.find(u => u.id === appState.currentUserId);
     document.getElementById('header-user-name').textContent = currentUser ? currentUser.name : 'Tocca per configurare';
 
-    // Label Peso nella Bottom Nav
     const curW = getUserWeights()['w' + appState.week];
     document.getElementById('nav-weight-label').textContent = curW != null ? `${curW.toFixed(1)} kg` : 'Peso';
 
@@ -621,23 +844,22 @@ function renderWorkoutView(currentUser) {
         return;
     }
 
-    // Assicura un activeDayId valido
     if (!activeDayId || !currentUser.days.some(d => d.id === activeDayId)) {
         const firstOpen = currentUser.days.find(d => d.isOpen);
         activeDayId = firstOpen ? firstOpen.id : currentUser.days[0].id;
     }
 
-    // 1. Barra orizzontale tab giorni
+    // 1. Barra orizzontale tab giorni (delegata via data-action)
     strip.innerHTML = currentUser.days.map(day => {
         const isActive = day.id === activeDayId;
         return `
-            <button onclick="selectDay('${day.id}')" class="day-tab-pill ${isActive ? 'active' : ''}">
+            <button type="button" data-action="select-day" data-day-id="${escapeHtml(day.id)}" class="day-tab-pill ${isActive ? 'active' : ''}">
                 ${getDayIconSvg(day)}
                 <span>${escapeHtml(day.name)}</span>
             </button>
         `;
     }).join('') + `
-        <button onclick="openAddDayModal()" class="day-tab-add" title="Aggiungi nuovo giorno">
+        <button type="button" data-action="open-add-day" class="day-tab-add" title="Aggiungi nuovo giorno">
             ${UI_SVG.plus}
         </button>
     `;
@@ -682,7 +904,7 @@ function renderWorkoutView(currentUser) {
                         </div>
                     </div>
                 </div>
-                <button onclick="openEditDayModal('${day.id}')" class="icon-btn" title="Modifica giorno e icona">
+                <button type="button" data-action="open-edit-day" data-day-id="${escapeHtml(day.id)}" class="icon-btn" title="Modifica giorno e icona">
                     ${UI_SVG.edit}
                 </button>
             </div>
@@ -694,10 +916,10 @@ function renderWorkoutView(currentUser) {
         <div>${cardsHtml}</div>
 
         <div class="grid grid-cols-2 gap-2.5 mt-3">
-            <button onclick="prepareSingleAdd('${day.id}')" class="btn btn-ghost">
+            <button type="button" data-action="prepare-single-add" data-day-id="${escapeHtml(day.id)}" class="btn btn-ghost">
                 ${UI_SVG.plus} Esercizio
             </button>
-            <button onclick="prepareBulkAdd('${day.id}')" class="btn btn-outline">
+            <button type="button" data-action="prepare-bulk-add" data-day-id="${escapeHtml(day.id)}" class="btn btn-outline">
                 ${UI_SVG.bolt} Incolla Lista
             </button>
         </div>
@@ -718,7 +940,7 @@ function renderExerciseCard(currentUser, day, ex) {
     if (log.weight && (!log.weights || log.weights.length === 0)) log.weights = [log.weight];
     const weightsArray = log.weights || [];
 
-    const rawTarget = (ex.progression && (ex.progression[appState.week - 1] || ex.progression[ex.progression.length - 1])) || "3x10";
+    const rawTarget = getRawTargetForWeek(ex, appState.week);
     const parsedTarget = parseTargetAndRests(rawTarget);
     const blocks = parseTargetBlocks(parsedTarget.cleanTarget);
     const restsArray = (Array.isArray(ex.rests) && ex.rests.length > 0) ? ex.rests : parsedTarget.rests;
@@ -740,12 +962,14 @@ function renderExerciseCard(currentUser, day, ex) {
         }
     }
 
-    const isCurrentEmpty = !weightsArray.some(v => v !== '' && v !== undefined && v !== null);
+    const activeSlice = weightsArray.slice(0, blocks.length);
+    const isCurrentEmpty = !activeSlice.some(v => v !== '' && v !== undefined && v !== null);
     let finalLog = log;
     if (isCurrentEmpty && prevWeights && !appState.carried[logKey]) {
+        const carriedWeights = prevWeights.slice(0, blocks.length).map(v => v ?? '');
         appState.logs[logKey] = {
             ...(appState.logs[logKey] || {}),
-            weights: prevWeights.map(v => v || ''),
+            weights: carriedWeights,
             done: false,
             up: false,
             carried: true,
@@ -763,14 +987,19 @@ function renderExerciseCard(currentUser, day, ex) {
 
 function renderExerciseCardInternal(dayId, ex, logKey, log, blocks, restsArray, upBadgeHtml, isCarried) {
     const weightsArray = log.weights || [];
-    const safeExNameAttr = escapeAttr(ex.name);
     const popId = `pop_${ex.id}`;
 
     const blocksHtml = blocks.map((block, i) => {
         const val = weightsArray[i] ?? '';
         const restVal = (restsArray && restsArray[i]) ? restsArray[i] : '';
         const restPillHtml = restVal
-            ? `<button type="button" onclick="startRestTimer('${safeExNameAttr}', '${escapeAttr(block)}', '${escapeAttr(restVal)}')" class="rest-pill" title="Avvia recupero ${escapeAttr(restVal)}">
+            ? `<button type="button"
+                   data-action="start-rest"
+                   data-ex-name="${escapeHtml(ex.name)}"
+                   data-block-label="${escapeHtml(block)}"
+                   data-rest-str="${escapeHtml(restVal)}"
+                   class="rest-pill"
+                   title="Avvia recupero ${escapeHtml(restVal)}">
                    ${UI_SVG.clock} <span>${escapeHtml(restVal)}</span>
                </button>`
             : '';
@@ -783,8 +1012,10 @@ function renderExerciseCardInternal(dayId, ex, logKey, log, blocks, restsArray, 
                 </div>
                 <div class="weight-pill">
                     <input type="number" step="0.25" inputmode="decimal"
-                        placeholder="—" value="${escapeAttr(val)}"
-                        onchange="updateWeight('${logKey}', this.value, ${i})">
+                        placeholder="—" value="${escapeHtml(val)}"
+                        data-weight-input="1"
+                        data-log-key="${escapeHtml(logKey)}"
+                        data-block-index="${i}">
                     <span class="unit">kg</span>
                 </div>
             </div>
@@ -792,7 +1023,7 @@ function renderExerciseCardInternal(dayId, ex, logKey, log, blocks, restsArray, 
     }).join('');
 
     const carriedBadge = isCarried
-        ? `<span class="carried-badge">${UI_SVG.arrowUp} S${appState.week - 1}</span>`
+        ? `<span class="carried-badge" data-carried-for="${escapeHtml(logKey)}">${UI_SVG.arrowUp} S${appState.week - 1}</span>`
         : '';
 
     return `
@@ -800,7 +1031,9 @@ function renderExerciseCardInternal(dayId, ex, logKey, log, blocks, restsArray, 
             ${upBadgeHtml}
             <div class="flex items-start gap-3">
                 <label class="cursor-pointer mt-0.5 flex-shrink-0">
-                    <input type="checkbox" class="sr-only" ${log.done ? 'checked' : ''} onchange="toggleDone('${logKey}', this.checked)">
+                    <input type="checkbox" class="sr-only" ${log.done ? 'checked' : ''}
+                        data-action="toggle-done"
+                        data-log-key="${escapeHtml(logKey)}">
                     <span class="ex-check">${UI_SVG.check}</span>
                 </label>
                 <div class="flex-1 min-w-0">
@@ -809,20 +1042,20 @@ function renderExerciseCardInternal(dayId, ex, logKey, log, blocks, restsArray, 
                     </h3>
                 </div>
                 <div class="flex items-center gap-0.5 flex-shrink-0">
-                    <button onclick="toggleUpFlag('${logKey}')" class="mini-action-btn ${log.up ? 'active' : ''}" title="Aumenta carico settimana prossima">
+                    <button type="button" data-action="toggle-up" data-log-key="${escapeHtml(logKey)}" class="mini-action-btn ${log.up ? 'active' : ''}" title="Aumenta carico settimana prossima">
                         ${UI_SVG.trendUp}
                     </button>
-                    <button onclick="toggleExMenu(event, '${popId}')" class="mini-action-btn" title="Altre opzioni">
+                    <button type="button" data-action="toggle-ex-menu" data-popover-id="${escapeHtml(popId)}" class="mini-action-btn" title="Altre opzioni">
                         ${UI_SVG.dots}
                     </button>
                 </div>
             </div>
 
-            <div id="${popId}" class="ex-popover hidden">
-                <button onclick="closeAllPopovers(); openEditEx('${dayId}','${ex.id}')" class="ex-popover-item">
+            <div id="${escapeHtml(popId)}" class="ex-popover hidden">
+                <button type="button" data-action="edit-ex" data-day-id="${escapeHtml(dayId)}" data-ex-id="${escapeHtml(ex.id)}" class="ex-popover-item">
                     ${UI_SVG.edit} Modifica / Recuperi
                 </button>
-                <button onclick="closeAllPopovers(); deleteEx('${dayId}','${ex.id}')" class="ex-popover-item danger">
+                <button type="button" data-action="delete-ex" data-day-id="${escapeHtml(dayId)}" data-ex-id="${escapeHtml(ex.id)}" class="ex-popover-item danger">
                     ${UI_SVG.trash} Elimina esercizio
                 </button>
             </div>
@@ -835,6 +1068,7 @@ function renderExerciseCardInternal(dayId, ex, logKey, log, blocks, restsArray, 
 function toggleExMenu(event, popId) {
     event.stopPropagation();
     const el = document.getElementById(popId);
+    if (!el) return;
     const wasHidden = el.classList.contains('hidden');
     closeAllPopovers();
     if (wasHidden) {
@@ -859,9 +1093,9 @@ function renderEmptyState() {
             <h2 class="text-lg font-black mb-1">Nessuna scheda attiva</h2>
             <p class="text-muted mb-5 max-w-xs mx-auto text-xs leading-relaxed">Incolla tutta la tua scheda in una volta sola, crea il primo giorno oppure sincronizza dal cloud.</p>
             <div class="flex flex-col gap-2 max-w-xs mx-auto">
-                <button onclick="openImportPlanModal()" class="btn btn-primary">Incolla Scheda Intera</button>
-                <button onclick="openAddDayModal()" class="btn btn-outline">Nuovo Giorno</button>
-                <button onclick="switchTab('settings', 'cloud-section')" class="btn btn-ghost">Connetti Cloud Sync</button>
+                <button type="button" data-action="open-import-plan" class="btn btn-primary">Incolla Scheda Intera</button>
+                <button type="button" data-action="open-add-day" class="btn btn-outline">Nuovo Giorno</button>
+                <button type="button" data-action="open-cloud-settings" class="btn btn-ghost">Connetti Cloud Sync</button>
             </div>
         </div>
     `;
@@ -872,20 +1106,61 @@ function escapeHtml(s) {
         '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
     }[c]));
 }
-function escapeAttr(s) {
-    return String(s ?? '').replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+
+// ============================================================
+//  PULIZIA CHIAVI ORFANE (logs / carried / bodyWeight)
+// ============================================================
+function deleteMatchingLogKeys(predicate) {
+    if (appState.logs && typeof appState.logs === 'object') {
+        Object.keys(appState.logs).forEach(k => {
+            if (predicate(k)) delete appState.logs[k];
+        });
+    }
+    if (appState.carried && typeof appState.carried === 'object') {
+        Object.keys(appState.carried).forEach(k => {
+            if (predicate(k)) delete appState.carried[k];
+        });
+    }
+}
+
+function cleanupExerciseLogs(userId, dayId, exId) {
+    const suffix = `${userId}_${dayId}_${exId}`;
+    deleteMatchingLogKeys(k => /^w\d+_/.test(k) && k.replace(/^w\d+_/, '') === suffix);
+}
+
+function cleanupDayLogs(userId, dayId, dayObj = null) {
+    const prefix = `${userId}_${dayId}_`;
+    const exactSuffixes = new Set(
+        (dayObj?.exercises || []).map(ex => `${userId}_${dayId}_${ex.id}`)
+    );
+    deleteMatchingLogKeys(k => {
+        if (!/^w\d+_/.test(k)) return false;
+        const rest = k.replace(/^w\d+_/, '');
+        return exactSuffixes.has(rest) || rest.startsWith(prefix);
+    });
+}
+
+function cleanupUserLogs(userId) {
+    const prefix = `${userId}_`;
+    deleteMatchingLogKeys(k => /^w\d+_/.test(k) && k.replace(/^w\d+_/, '').startsWith(prefix));
+    if (appState.bodyWeight && typeof appState.bodyWeight === 'object') {
+        delete appState.bodyWeight[userId];
+    }
+    if (appState.bodyWeightGoal && typeof appState.bodyWeightGoal === 'object') {
+        delete appState.bodyWeightGoal[userId];
+    }
 }
 
 // ============================================================
 //  GIORNI: add / edit / delete + ICON PICKER
 // ============================================================
-function renderIconPickerGrid(containerId, selectedKey, onSelectFnName) {
+function renderIconPickerGrid(containerId, selectedKey, actionName) {
     const container = document.getElementById(containerId);
     if (!container) return;
     container.innerHTML = Object.entries(DAY_ICONS).map(([key, item]) => `
-        <button type="button" onclick="${onSelectFnName}('${key}')" class="icon-pick-btn ${key === selectedKey ? 'active' : ''}">
+        <button type="button" data-action="${escapeHtml(actionName)}" data-icon-key="${escapeHtml(key)}" class="icon-pick-btn ${key === selectedKey ? 'active' : ''}">
             ${item.svg}
-            <span>${item.label}</span>
+            <span>${escapeHtml(item.label)}</span>
         </button>
     `).join('');
 }
@@ -893,18 +1168,18 @@ function renderIconPickerGrid(containerId, selectedKey, onSelectFnName) {
 function openAddDayModal() {
     document.getElementById('new-day-name').value = '';
     tempSelectedNewDayIcon = 'dumbbell';
-    renderIconPickerGrid('new-day-icon-grid', tempSelectedNewDayIcon, 'selectNewDayIcon');
+    renderIconPickerGrid('new-day-icon-grid', tempSelectedNewDayIcon, 'select-new-day-icon');
     openModal('add-day-modal');
 }
 function selectNewDayIcon(key) {
     tempSelectedNewDayIcon = key;
-    renderIconPickerGrid('new-day-icon-grid', tempSelectedNewDayIcon, 'selectNewDayIcon');
+    renderIconPickerGrid('new-day-icon-grid', tempSelectedNewDayIcon, 'select-new-day-icon');
 }
 function autoSelectIconForNewDay(name) {
     const detected = detectDayIcon(name);
     if (detected !== tempSelectedNewDayIcon) {
         tempSelectedNewDayIcon = detected;
-        renderIconPickerGrid('new-day-icon-grid', tempSelectedNewDayIcon, 'selectNewDayIcon');
+        renderIconPickerGrid('new-day-icon-grid', tempSelectedNewDayIcon, 'select-new-day-icon');
     }
 }
 
@@ -915,12 +1190,12 @@ function openEditDayModal(dayId) {
     tempEditDayId = dayId;
     document.getElementById('edit-day-name').value = day.name;
     tempSelectedEditDayIcon = (day.icon && DAY_ICONS[day.icon]) ? day.icon : detectDayIcon(day.name);
-    renderIconPickerGrid('edit-day-icon-grid', tempSelectedEditDayIcon, 'selectEditDayIcon');
+    renderIconPickerGrid('edit-day-icon-grid', tempSelectedEditDayIcon, 'select-edit-day-icon');
     openModal('edit-day-modal');
 }
 function selectEditDayIcon(key) {
     tempSelectedEditDayIcon = key;
-    renderIconPickerGrid('edit-day-icon-grid', tempSelectedEditDayIcon, 'selectEditDayIcon');
+    renderIconPickerGrid('edit-day-icon-grid', tempSelectedEditDayIcon, 'select-edit-day-icon');
 }
 
 function saveEditDay() {
@@ -940,7 +1215,10 @@ function deleteCurrentEditDay() {
     if (!tempEditDayId) return;
     if (!confirm('Eliminare questo giorno e tutti i suoi esercizi?')) return;
     const currentUser = appState.users.find(u => u.id === appState.currentUserId);
+    if (!currentUser) return;
+    const dayToDelete = currentUser.days.find(d => d.id === tempEditDayId);
     currentUser.days = currentUser.days.filter(d => d.id !== tempEditDayId);
+    cleanupDayLogs(currentUser.id, tempEditDayId, dayToDelete);
     if (activeDayId === tempEditDayId) activeDayId = currentUser.days[0]?.id || null;
     saveData();
     closeModal('edit-day-modal');
@@ -1012,6 +1290,7 @@ function updateUser() {
     const newName = document.getElementById('edit-user-name').value.trim();
     if (!newName) return;
     const currentUser = appState.users.find(u => u.id === appState.currentUserId);
+    if (!currentUser) return;
     currentUser.name = newName;
     saveData();
     closeModal('edit-user-modal');
@@ -1021,7 +1300,9 @@ function updateUser() {
 function deleteUser() {
     if (appState.users.length <= 1) { alert("Non puoi eliminare l'unico profilo rimasto!"); return; }
     if (!confirm("Vuoi eliminare questo profilo e tutti i suoi dati?")) return;
-    appState.users = appState.users.filter(u => u.id !== appState.currentUserId);
+    const deletedUserId = appState.currentUserId;
+    appState.users = appState.users.filter(u => u.id !== deletedUserId);
+    cleanupUserLogs(deletedUserId);
     appState.currentUserId = appState.users[0].id;
     activeDayId = null;
     saveData();
@@ -1049,7 +1330,7 @@ function renderRestInputs(prefix, existingRests = null) {
         html += `
             <div class="flex items-center gap-2">
                 <span class="text-xs font-bold brand-text min-w-[78px] truncate">${escapeHtml(blk)}</span>
-                <input type="text" data-rest-idx="${idx}" value="${escapeAttr(val)}" class="field !py-2 !text-xs flex-1" placeholder="es. 3'  o  1'30&quot;  o  90s">
+                <input type="text" data-rest-idx="${idx}" value="${escapeHtml(val)}" class="field !py-2 !text-xs flex-1" placeholder="es. 3'  o  1'30&quot;  o  90s">
             </div>
         `;
     });
@@ -1087,7 +1368,9 @@ function saveSingleExercise() {
     const finalRests = manualRests.length > 0 ? manualRests : parsed.rests;
 
     const currentUser = appState.users.find(u => u.id === appState.currentUserId);
-    const day = currentUser.days.find(d => d.id === tempTargetDayId);
+    const day = currentUser?.days.find(d => d.id === tempTargetDayId);
+    if (!day) return;
+
     const newEx = {
         id: 'e_' + Date.now(),
         name: name,
@@ -1133,7 +1416,8 @@ function saveBulkExercises() {
     if (lines.length === 0) return;
 
     const currentUser = appState.users.find(u => u.id === appState.currentUserId);
-    const day = currentUser.days.find(d => d.id === tempTargetDayId);
+    const day = currentUser?.days.find(d => d.id === tempTargetDayId);
+    if (!day) return;
     const baseTs = Date.now();
 
     lines.forEach((line, index) => {
@@ -1156,21 +1440,23 @@ function saveBulkExercises() {
 function deleteEx(dayId, exId) {
     if (!confirm('Togliere questo esercizio?')) return;
     const currentUser = appState.users.find(u => u.id === appState.currentUserId);
-    const day = currentUser.days.find(d => d.id === dayId);
+    const day = currentUser?.days.find(d => d.id === dayId);
+    if (!day) return;
     day.exercises = day.exercises.filter(e => e.id !== exId);
+    cleanupExerciseLogs(currentUser.id, dayId, exId);
     saveData();
     renderApp();
 }
 
 function openEditEx(dayId, exId) {
     const currentUser = appState.users.find(u => u.id === appState.currentUserId);
-    const day = currentUser.days.find(d => d.id === dayId);
-    const ex = day.exercises.find(e => e.id === exId);
+    const day = currentUser?.days.find(d => d.id === dayId);
+    const ex = day?.exercises.find(e => e.id === exId);
     if (!ex) return;
 
     tempEditDayId = dayId;
     tempEditExId = exId;
-    const rawTarget = ex.progression[appState.week - 1] || ex.progression[0] || '3x10';
+    const rawTarget = getRawTargetForWeek(ex, appState.week);
     const parsed = parseTargetAndRests(rawTarget);
 
     document.getElementById('edit-ex-name').value = ex.name;
@@ -1194,8 +1480,9 @@ function saveEditEx() {
     const finalRests = manualRests.length > 0 ? manualRests : parsed.rests;
 
     const currentUser = appState.users.find(u => u.id === appState.currentUserId);
-    const day = currentUser.days.find(d => d.id === tempEditDayId);
-    const ex = day.exercises.find(e => e.id === tempEditExId);
+    const day = currentUser?.days.find(d => d.id === tempEditDayId);
+    const ex = day?.exercises.find(e => e.id === tempEditExId);
+    if (!ex) return;
     ex.name = newName;
 
     if (applyAll) {
@@ -1336,7 +1623,7 @@ function executeImportPlan() {
 }
 
 // ============================================================
-//  LOGS & SETTIMANE
+//  LOGS & SETTIMANE (input debounced 500ms + change/blur)
 // ============================================================
 function toggleDone(logKey, isChecked) {
     if (!appState.logs[logKey]) appState.logs[logKey] = { weights: [] };
@@ -1345,12 +1632,52 @@ function toggleDone(logKey, isChecked) {
     renderApp();
 }
 
-function updateWeight(logKey, value, index) {
+function applyWeightValueInMemory(logKey, value, index) {
     if (!appState.logs[logKey]) appState.logs[logKey] = { done: false, weights: [], up: false };
-    if (!appState.logs[logKey].weights) appState.logs[logKey].weights = [];
-    appState.logs[logKey].weights[index] = value;
-    if (appState.logs[logKey].carried) appState.logs[logKey].carried = false;
-    saveData();
+    if (!Array.isArray(appState.logs[logKey].weights)) appState.logs[logKey].weights = [];
+    const prevVal = appState.logs[logKey].weights[index] ?? '';
+    const nextVal = String(value ?? '');
+    const changed = String(prevVal) !== nextVal;
+
+    appState.logs[logKey].weights[index] = nextVal;
+    if (appState.logs[logKey].carried && changed) {
+        appState.logs[logKey].carried = false;
+        const badge = document.querySelector(`[data-carried-for="${CSS.escape(logKey)}"]`);
+        if (badge) badge.remove();
+    }
+    return changed;
+}
+
+function handleWeightInputDebounced(inputEl) {
+    const logKey = inputEl.dataset.logKey;
+    const index = parseInt(inputEl.dataset.blockIndex, 10);
+    if (!logKey || isNaN(index)) return;
+
+    applyWeightValueInMemory(logKey, inputEl.value, index);
+    _hasPendingWeightInput = true;
+
+    if (_weightInputDebounceTimer) clearTimeout(_weightInputDebounceTimer);
+    _weightInputDebounceTimer = setTimeout(() => {
+        _weightInputDebounceTimer = null;
+        _hasPendingWeightInput = false;
+        saveData();
+    }, WEIGHT_INPUT_DEBOUNCE_MS);
+}
+
+function commitWeightInput(inputEl) {
+    const logKey = inputEl.dataset.logKey;
+    const index = parseInt(inputEl.dataset.blockIndex, 10);
+    if (!logKey || isNaN(index)) return;
+
+    const changed = applyWeightValueInMemory(logKey, inputEl.value, index);
+    if (_weightInputDebounceTimer) {
+        clearTimeout(_weightInputDebounceTimer);
+        _weightInputDebounceTimer = null;
+    }
+    if (changed || _hasPendingWeightInput) {
+        _hasPendingWeightInput = false;
+        saveData();
+    }
 }
 
 function toggleUpFlag(logKey) {
@@ -1421,7 +1748,6 @@ function renderWeightView() {
     document.getElementById('weight-input').value = curW != null ? curW : '';
     document.getElementById('weight-goal-input').value = goal != null ? goal : '';
 
-    // Ultimo peso registrato per i KPI
     let latest = curW;
     if (latest == null) {
         for (let w = 6; w >= 1; w--) {
@@ -1447,13 +1773,12 @@ function renderWeightView() {
         deltaEl.style.color = 'var(--text-dim)';
     }
 
-    // Griglia 6 settimane cliccabile
     const grid = document.getElementById('weight-weeks-grid');
     let gridHtml = '';
     for (let w = 1; w <= 6; w++) {
         const v = weights['w' + w];
         gridHtml += `
-            <button onclick="jumpToWeek(${w})" class="weight-week-chip ${w === appState.week ? 'active' : ''}">
+            <button type="button" data-action="jump-week" data-week="${w}" class="weight-week-chip ${w === appState.week ? 'active' : ''}">
                 <span class="text-[10px] font-bold ${w === appState.week ? 'brand-text' : 'text-dim'}">SETT ${w}</span>
                 <span class="text-sm font-extrabold tabular-nums mt-0.5 ${v != null ? 'text-app' : 'text-dim'}">${v != null ? v.toFixed(1) : '—'}</span>
             </button>
@@ -1517,7 +1842,6 @@ function renderWeightChart() {
     const recorded = points.filter(p => p.val !== null);
     const validVals = recorded.map(p => p.val);
 
-    // Nessun peso ancora inserito
     if (validVals.length === 0) {
         const goalHtml = goal != null ? `
             <line x1="${padL}" y1="42" x2="${W - padR - 14}" y2="42" stroke="#f59e0b" stroke-width="1.8" stroke-dasharray="6 4" opacity="0.9"/>
@@ -1540,7 +1864,6 @@ function renderWeightChart() {
     const dMax = Math.max(...validVals);
     const dSpan = dMax - dMin;
 
-    // Scala intelligente: se l'obiettivo è lontano, zoomiamo sulla curva reale e mettiamo la fascia traguardo con break
     const farThreshold = Math.max(2.5, dSpan * 1.6);
     const isGoalFarAbove = goal != null && (goal - dMax) > farThreshold;
     const isGoalFarBelow = goal != null && (dMin - goal) > farThreshold;
@@ -1579,7 +1902,6 @@ function renderWeightChart() {
         goalY = valToY(goal);
     }
 
-    // Griglia orizzontale (3 tacche pulite)
     const ticks = [yMin, (yMin + yMax) / 2, yMax];
     const gridSvg = ticks.map(tv => {
         const y = valToY(tv);
@@ -1589,13 +1911,11 @@ function renderWeightChart() {
         `;
     }).join('');
 
-    // Indicatore salto di scala (≈) quando l'obiettivo è fuori scala zoom
     const breakSvg = breakY != null ? `
         <line x1="${padL}" y1="${breakY}" x2="${W - padR}" y2="${breakY}" stroke="${gridColor}" stroke-width="1" stroke-dasharray="2 4"/>
         <text x="${padL - 10}" y="${breakY + 4}" text-anchor="end" fill="${textDim}" font-size="13" font-weight="700" font-family="Inter, sans-serif">≈</text>
     ` : '';
 
-    // Linea obiettivo + Stella SVG
     let goalSvg = '';
     if (goal != null && goalY != null) {
         const starX = W - padR - 4;
@@ -1614,7 +1934,6 @@ function renderWeightChart() {
         `;
     }
 
-    // Linea progressione + area sfumata
     const coords = recorded.map(p => ({ ...p, y: valToY(p.val) }));
     let lineSvg = '';
     if (coords.length >= 2) {
@@ -1626,12 +1945,11 @@ function renderWeightChart() {
         `;
     }
 
-    // Punti + valori numerici sopra ogni settimana
     const dotsSvg = coords.map(c => {
         const isActive = c.w === appState.week;
         const labelY = c.y - 11 < topY - 4 ? c.y + 18 : c.y - 10;
         return `
-            <g style="cursor:pointer;" onclick="jumpToWeek(${c.w})">
+            <g style="cursor:pointer;" data-action="jump-week" data-week="${c.w}">
                 ${isActive ? `<circle cx="${c.x.toFixed(1)}" cy="${c.y.toFixed(1)}" r="9" fill="${brandColor}" opacity="0.22"/>` : ''}
                 <circle cx="${c.x.toFixed(1)}" cy="${c.y.toFixed(1)}" r="${isActive ? 5.2 : 4.2}" fill="${brandColor}" stroke="${surfaceColor}" stroke-width="2"/>
                 <text x="${c.x.toFixed(1)}" y="${labelY.toFixed(1)}" text-anchor="middle" fill="${isActive ? brandColor : textMain}" font-size="10.5" font-weight="800" font-family="Inter, sans-serif">${c.val.toFixed(1)}</text>
@@ -1639,11 +1957,10 @@ function renderWeightChart() {
         `;
     }).join('');
 
-    // Etichette asse X (S1..S6 cliccabili)
     const xLabelsSvg = points.map(p => {
         const isActive = p.w === appState.week;
         return `
-            <text x="${p.x.toFixed(1)}" y="${H - 7}" text-anchor="middle" style="cursor:pointer;" onclick="jumpToWeek(${p.w})"
+            <text x="${p.x.toFixed(1)}" y="${H - 7}" text-anchor="middle" style="cursor:pointer;" data-action="jump-week" data-week="${p.w}"
                   fill="${isActive ? brandColor : textDim}" font-size="10.5" font-weight="${isActive ? '800' : '700'}" font-family="Inter, sans-serif">
                 S${p.w}
             </text>
@@ -1669,6 +1986,121 @@ function renderWeightChart() {
             ${xLabelsSvg}
         </svg>
     `;
+}
+
+// ============================================================
+//  HELPER REPORT & PDF (troncamento blocchi + trend multi-blocco)
+// ============================================================
+function getRawTargetForWeek(ex, weekNum) {
+    if (!ex || !Array.isArray(ex.progression) || ex.progression.length === 0) return '3x10';
+    const idx = Math.max(0, weekNum - 1);
+    return ex.progression[idx] || ex.progression[ex.progression.length - 1] || '3x10';
+}
+
+function getExerciseReportData(userId, dayId, ex) {
+    const weeks = [];
+    const loggedWeeks = [];
+
+    for (let w = 1; w <= 6; w++) {
+        const rawTarget = getRawTargetForWeek(ex, w);
+        const parsed = parseTargetAndRests(rawTarget);
+        const blocks = parseTargetBlocks(parsed.cleanTarget);
+        const blockCount = Math.max(1, blocks.length);
+
+        const logKey = `w${w}_${userId}_${dayId}_${ex.id}`;
+        const log = appState.logs[logKey];
+        let rawWeights = log ? (Array.isArray(log.weights) ? log.weights : []) : [];
+        if (log && log.weight && rawWeights.length === 0) rawWeights = [log.weight];
+
+        // Tronca esattamente al numero reale di blocchi della settimana (zero pesi fantasma)
+        const truncated = Array.from({ length: blockCount }, (_, idx) => {
+            const v = rawWeights[idx];
+            return (v !== '' && v !== undefined && v !== null) ? String(v).trim() : '';
+        });
+
+        const hasAny = truncated.some(v => v !== '');
+        const nums = truncated.map(v => {
+            if (v === '') return null;
+            const n = parseFloat(v.replace(',', '.'));
+            return Number.isFinite(n) ? n : null;
+        });
+
+        const text = hasAny ? truncated.map(v => v !== '' ? v : '-').join(' + ') : '-';
+        const entry = { week: w, blockCount, values: truncated, nums, hasAny, text };
+        weeks.push(entry);
+
+        if (nums.some(n => n !== null)) {
+            loggedWeeks.push(entry);
+        }
+    }
+
+    // Calcolo trend accurato anche su esercizi multi-blocco
+    let trend = {
+        status: 'none', // 'up' | 'down' | 'flat' | 'none'
+        pdfLabel: 'N/D',
+        mdLabel: 'dati insufficienti',
+    };
+
+    if (loggedWeeks.length >= 2) {
+        const firstEntry = loggedWeeks[0];
+        const lastEntry = loggedWeeks[loggedWeeks.length - 1];
+        const sameBlockCount = firstEntry.blockCount === lastEntry.blockCount;
+        const compareCount = sameBlockCount ? lastEntry.blockCount : 1;
+
+        const blockDeltas = [];
+        for (let b = 0; b < compareCount; b++) {
+            let firstNum = null;
+            let lastNum = null;
+            let validCount = 0;
+
+            for (const lw of loggedWeeks) {
+                if (b < lw.nums.length && lw.nums[b] !== null) {
+                    if (firstNum === null) firstNum = lw.nums[b];
+                    lastNum = lw.nums[b];
+                    validCount++;
+                }
+            }
+
+            if (validCount >= 2 && firstNum !== null && lastNum !== null) {
+                blockDeltas.push(Number((lastNum - firstNum).toFixed(2)));
+            } else {
+                blockDeltas.push(null);
+            }
+        }
+
+        const validDeltas = blockDeltas.filter(d => d !== null);
+        if (validDeltas.length > 0) {
+            const netDelta = Number(validDeltas.reduce((acc, d) => acc + d, 0).toFixed(2));
+            const anyChange = validDeltas.some(d => d !== 0);
+
+            if (!anyChange) {
+                trend = { status: 'flat', pdfLabel: 'Stabile', mdLabel: 'stabile' };
+            } else if (compareCount === 1) {
+                const d = validDeltas[0];
+                const signed = d > 0 ? `+${d}` : `${d}`;
+                trend = {
+                    status: d > 0 ? 'up' : 'down',
+                    pdfLabel: `${signed} kg`,
+                    mdLabel: `${signed}kg`,
+                };
+            } else {
+                const formattedParts = blockDeltas.map(d => {
+                    if (d === null) return '-';
+                    if (d > 0) return `+${d}`;
+                    return `${d}`;
+                });
+                const joined = formattedParts.join(' / ');
+                const status = netDelta > 0 ? 'up' : (netDelta < 0 ? 'down' : 'flat');
+                trend = {
+                    status,
+                    pdfLabel: `${joined} kg`,
+                    mdLabel: `${joined} kg (per blocco)`,
+                };
+            }
+        }
+    }
+
+    return { weeks, trend };
 }
 
 // ============================================================
@@ -1728,7 +2160,7 @@ function generateReport() {
         if (daysToExport.length > 1) md += `## ${day.name}\n\n`;
 
         day.exercises.forEach(ex => {
-            const rawTarget = ex.progression?.[appState.week - 1] || ex.progression?.[0] || '3x10';
+            const rawTarget = getRawTargetForWeek(ex, appState.week);
             const parsed = parseTargetAndRests(rawTarget);
             const rests = (Array.isArray(ex.rests) && ex.rests.length) ? ex.rests : parsed.rests;
             const restNote = rests.filter(Boolean).length ? ` | Rec: ${rests.filter(Boolean).join(' / ')}` : '';
@@ -1736,35 +2168,13 @@ function generateReport() {
             md += `### ${ex.name}\n`;
             md += `Target: ${parsed.cleanTarget}${restNote}\n`;
 
-            const weightsStr = [];
-            let firstW = null, lastW = null;
-            for (let w = 1; w <= 6; w++) {
-                const log = appState.logs[`w${w}_${currentUser.id}_${day.id}_${ex.id}`];
-                let wArray = log ? (log.weights || []) : [];
-                if (log && log.weight && wArray.length === 0) wArray = [log.weight];
+            const reportData = getExerciseReportData(currentUser.id, day.id, ex);
+            const weightsStr = reportData.weeks.map(item =>
+                item.hasAny ? `S${item.week}: ${item.text}kg` : `S${item.week}: -`
+            );
 
-                if (wArray.length > 0 && wArray.some(val => val !== '' && val != null)) {
-                    const str = wArray.map(val => (val !== '' && val != null) ? val : '-').join(' + ');
-                    weightsStr.push(`S${w}: ${str}kg`);
-                    const firstNum = parseFloat(wArray[0]);
-                    if (!isNaN(firstNum)) {
-                        if (firstW === null) firstW = firstNum;
-                        lastW = firstNum;
-                    }
-                } else {
-                    weightsStr.push(`S${w}: -`);
-                }
-            }
             md += `Progressione: ${weightsStr.join(' -> ')}\n`;
-            if (firstW !== null && lastW !== null) {
-                const diff = Number((lastW - firstW).toFixed(2));
-                if (diff > 0) md += `Trend: +${diff}kg\n`;
-                else if (diff < 0) md += `Trend: ${diff}kg\n`;
-                else md += `Trend: stabile\n`;
-            } else {
-                md += `Trend: dati insufficienti\n`;
-            }
-            md += `\n`;
+            md += `Trend: ${reportData.trend.mdLabel}\n\n`;
         });
     });
 
@@ -1783,7 +2193,7 @@ function copyExport() {
 }
 
 // ============================================================
-//  MODALI & CHIUSURA POPOVER
+//  MODALI & EVENT DELEGATION SICURA
 // ============================================================
 function openModal(id) {
     const el = document.getElementById(id);
@@ -1798,14 +2208,149 @@ function closeModal(id) {
     el.classList.remove('flex');
 }
 
-document.addEventListener('click', (e) => {
-    if (e.target.classList?.contains('modal-overlay')) {
-        e.target.classList.add('hidden');
-        e.target.classList.remove('flex');
-    }
-    if (openPopoverId && !e.target.closest('.ex-popover')) {
-        closeAllPopovers();
-    }
-});
+let _delegatedEventsBound = false;
+function setupDelegatedEvents() {
+    if (_delegatedEventsBound) return;
+    _delegatedEventsBound = true;
+
+    document.addEventListener('click', (e) => {
+        if (e.target.classList?.contains('modal-overlay')) {
+            e.target.classList.add('hidden');
+            e.target.classList.remove('flex');
+            return;
+        }
+
+        const actionEl = e.target.closest('[data-action]');
+        if (actionEl) {
+            const action = actionEl.dataset.action;
+            switch (action) {
+                case 'select-day':
+                    selectDay(actionEl.dataset.dayId);
+                    return;
+                case 'open-add-day':
+                    openAddDayModal();
+                    return;
+                case 'open-edit-day':
+                    openEditDayModal(actionEl.dataset.dayId);
+                    return;
+                case 'prepare-single-add':
+                    prepareSingleAdd(actionEl.dataset.dayId);
+                    return;
+                case 'prepare-bulk-add':
+                    prepareBulkAdd(actionEl.dataset.dayId);
+                    return;
+                case 'start-rest':
+                    startRestTimer(
+                        actionEl.dataset.exName || 'Recupero',
+                        actionEl.dataset.blockLabel || '',
+                        actionEl.dataset.restStr || ''
+                    );
+                    return;
+                case 'toggle-up':
+                    toggleUpFlag(actionEl.dataset.logKey);
+                    return;
+                case 'toggle-ex-menu':
+                    toggleExMenu(e, actionEl.dataset.popoverId);
+                    return;
+                case 'edit-ex':
+                    closeAllPopovers();
+                    openEditEx(actionEl.dataset.dayId, actionEl.dataset.exId);
+                    return;
+                case 'delete-ex':
+                    closeAllPopovers();
+                    deleteEx(actionEl.dataset.dayId, actionEl.dataset.exId);
+                    return;
+                case 'select-new-day-icon':
+                    selectNewDayIcon(actionEl.dataset.iconKey);
+                    return;
+                case 'select-edit-day-icon':
+                    selectEditDayIcon(actionEl.dataset.iconKey);
+                    return;
+                case 'set-theme':
+                    setTheme(actionEl.dataset.themeKey);
+                    return;
+                case 'jump-week': {
+                    const w = parseInt(actionEl.dataset.week, 10);
+                    if (!isNaN(w)) jumpToWeek(w);
+                    return;
+                }
+                case 'open-import-plan':
+                    openImportPlanModal();
+                    return;
+                case 'open-cloud-settings':
+                    switchTab('settings', 'cloud-section');
+                    return;
+                default:
+                    break;
+            }
+        }
+
+        if (openPopoverId && !e.target.closest('.ex-popover')) {
+            closeAllPopovers();
+        }
+    });
+
+    document.addEventListener('input', (e) => {
+        const target = e.target;
+        if (target && target.matches && target.matches('input[data-weight-input="1"]')) {
+            handleWeightInputDebounced(target);
+        }
+    });
+
+    document.addEventListener('change', (e) => {
+        const target = e.target;
+        if (!target || !target.matches) return;
+        if (target.matches('input[data-action="toggle-done"]')) {
+            toggleDone(target.dataset.logKey, target.checked);
+        } else if (target.matches('input[data-weight-input="1"]')) {
+            commitWeightInput(target);
+        }
+    });
+
+    document.addEventListener('focusout', (e) => {
+        const target = e.target;
+        if (target && target.matches && target.matches('input[data-weight-input="1"]')) {
+            commitWeightInput(target);
+        }
+    });
+
+    // Ricalcolo timer su rientro dallo standby + salvataggio immediato su blocco schermo
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'hidden') {
+            if (_weightInputDebounceTimer) {
+                clearTimeout(_weightInputDebounceTimer);
+                _weightInputDebounceTimer = null;
+                _hasPendingWeightInput = false;
+                saveData();
+            }
+            if (_cloudDebounceTimer && navigator.onLine && CLOUD_ENABLED && appState.syncKey) {
+                clearTimeout(_cloudDebounceTimer);
+                _cloudDebounceTimer = null;
+                flushCloudSync({ keepalive: true });
+            }
+        } else if (document.visibilityState === 'visible') {
+            syncRestTimerFromClock();
+        }
+    });
+
+    window.addEventListener('focus', () => {
+        syncRestTimerFromClock();
+    });
+
+    window.addEventListener('online', async () => {
+        if (CLOUD_ENABLED && appState.syncKey) {
+            const syncRes = await syncWithCloud();
+            if (syncRes.action === 'pulled') {
+                renderApp();
+            }
+        }
+    });
+
+    window.addEventListener('offline', () => {
+        if (CLOUD_ENABLED && appState.syncKey) {
+            updateCloudStatusUi('offline');
+        }
+    });
+}
 
 document.addEventListener('DOMContentLoaded', init);

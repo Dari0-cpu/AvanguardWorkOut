@@ -128,7 +128,7 @@ flowchart LR
 
 <p align="center">
   <a href="https://avanguardworkout.vercel.app/">
-    <img src="https://capsule-render.vercel.app/api?type=cylinder&color=0:f43f5e,100:be123c&height=145&text=Apri%20Avanguard%20WorkOut%20%E2%86%92&fontSize=44&fontColor=ffffff&fontAlignY=53&animation=fadeIn" height="42" alt="Prova AvanguardWorkOut" />
+    <img src="https://capsule-render.vercel.app/api?type=rounded&color=0:111318,45:7f1d1d,100:f43f5e&height=145&text=%E2%9A%A1%20Prova%20AvanguardWorkOut%20%E2%86%92&fontSize=38&fontColor=ffffff&fontAlignY=53&animation=fadeIn" height="44" alt="Prova AvanguardWorkOut" />
   </a>
 </p>
 
