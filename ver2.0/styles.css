@@ -1,6 +1,6 @@
 /* ====================================================================
-   AVANGUARD WORKOUT - NATIVE FITNESS UI v4.3 (Feature C: AI PDF Import)
-   Clean flat hierarchy, hairline borders, bottom dock, zero clutter
+   AVANGUARD WORKOUT - NATIVE FITNESS UI v4.4 (Feature E: Symbiote + Shine)
+   Clean flat hierarchy, hairline borders, liquid bottom dock, zero clutter
    ==================================================================== */
 
 :root,
@@ -17,7 +17,7 @@
     --shadow: 0 18px 42px rgba(0, 0, 0, 0.55);
     --card-shadow: none;
     --glass: rgba(9, 9, 11, 0.84);
-    --dock-bg: rgba(18, 18, 22, 0.90);
+    --dock-bg: rgba(16, 16, 21, 0.92);
 
     --brand-50: rgba(244, 63, 94, 0.09);
     --brand-100: rgba(244, 63, 94, 0.16);
@@ -48,7 +48,7 @@
     --shadow: 0 14px 36px rgba(15, 23, 42, 0.12);
     --card-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
     --glass: rgba(244, 245, 247, 0.86);
-    --dock-bg: rgba(255, 255, 255, 0.92);
+    --dock-bg: rgba(255, 255, 255, 0.94);
 
     --week0-bg: rgba(245, 158, 11, 0.12);
     --week0-border: rgba(217, 119, 6, 0.30);
@@ -293,7 +293,7 @@ code {
     transition: width 0.35s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-/* ---------- CLEAN FLAT EXERCISE CARD ---------- */
+/* ---------- CLEAN FLAT EXERCISE CARD + COMPLETION SHINE ---------- */
 .panel-card {
     background: var(--surface);
     border: 1px solid var(--border);
@@ -314,6 +314,113 @@ code {
 .ex-card.done {
     background: var(--brand-50);
     border-color: var(--brand-200);
+}
+
+/* Layer dedicato per il fascio luminoso (non taglia mai il popover menu) */
+.ex-shine-layer {
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    overflow: hidden;
+    pointer-events: none;
+    z-index: 4;
+}
+.ex-shine-layer::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    background: radial-gradient(
+        circle at 18% 22%,
+        rgba(var(--brand-rgb), 0.34) 0%,
+        rgba(255, 255, 255, 0.16) 28%,
+        transparent 68%
+    );
+}
+.ex-shine-layer::after {
+    content: "";
+    position: absolute;
+    top: -35%;
+    bottom: -35%;
+    left: -70%;
+    width: 62%;
+    opacity: 0;
+    transform: translate3d(0, 0, 0) skewX(-24deg);
+    background: linear-gradient(
+        90deg,
+        transparent 0%,
+        rgba(var(--brand-rgb), 0.26) 22%,
+        rgba(255, 255, 255, 0.68) 48%,
+        rgba(var(--brand-rgb), 0.34) 72%,
+        transparent 100%
+    );
+    will-change: transform, opacity;
+}
+[data-theme="light"] .ex-shine-layer::after {
+    background: linear-gradient(
+        90deg,
+        transparent 0%,
+        rgba(var(--brand-rgb), 0.22) 22%,
+        rgba(255, 255, 255, 0.88) 48%,
+        rgba(var(--brand-rgb), 0.28) 72%,
+        transparent 100%
+    );
+}
+
+.ex-card.just-completed {
+    animation: ex-complete-glow 0.82s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.ex-card.just-completed .ex-shine-layer::before {
+    animation: ex-complete-flash 0.72s ease-out both;
+}
+.ex-card.just-completed .ex-shine-layer::after {
+    animation: ex-shine-sweep 0.78s cubic-bezier(0.2, 0.85, 0.3, 1) both;
+}
+
+@keyframes ex-complete-glow {
+    0% {
+        transform: scale(1);
+        border-color: var(--brand-400);
+        box-shadow: 0 0 0 0 rgba(var(--brand-rgb), 0.55), 0 0 0 rgba(var(--brand-rgb), 0);
+    }
+    24% {
+        transform: scale(1.014);
+        border-color: var(--brand-400);
+        box-shadow: 0 0 0 2px rgba(var(--brand-rgb), 0.42), 0 0 28px rgba(var(--brand-rgb), 0.48);
+    }
+    60% {
+        transform: scale(1);
+        border-color: var(--brand-400);
+        box-shadow: 0 0 0 4px rgba(var(--brand-rgb), 0.14), 0 0 18px rgba(var(--brand-rgb), 0.24);
+    }
+    100% {
+        transform: scale(1);
+        border-color: var(--brand-200);
+        box-shadow: var(--card-shadow);
+    }
+}
+
+@keyframes ex-complete-flash {
+    0%   { opacity: 0; }
+    22%  { opacity: 1; }
+    100% { opacity: 0; }
+}
+
+@keyframes ex-shine-sweep {
+    0% {
+        opacity: 0;
+        transform: translate3d(0%, 0, 0) skewX(-24deg);
+    }
+    18% {
+        opacity: 1;
+    }
+    78% {
+        opacity: 0.92;
+    }
+    100% {
+        opacity: 0;
+        transform: translate3d(385%, 0, 0) skewX(-24deg);
+    }
 }
 
 .ex-coach-note {
@@ -342,6 +449,7 @@ code {
 
 /* ---------- EXERCISE CHECKBOX ---------- */
 .ex-check {
+    position: relative;
     width: 24px;
     height: 24px;
     border-radius: 8px;
@@ -354,6 +462,16 @@ code {
     cursor: pointer;
     flex-shrink: 0;
 }
+.ex-check::after {
+    content: "";
+    position: absolute;
+    inset: -3px;
+    border-radius: 10px;
+    border: 2px solid var(--brand-400);
+    opacity: 0;
+    transform: scale(0.75);
+    pointer-events: none;
+}
 .ex-check svg {
     opacity: 0;
     transform: scale(0.4);
@@ -365,6 +483,23 @@ input:checked + .ex-check {
     border-color: var(--brand-500);
 }
 input:checked + .ex-check svg { opacity: 1; transform: scale(1); }
+
+.ex-card.just-completed .ex-check {
+    animation: ex-check-pop 0.45s cubic-bezier(0.22, 1.35, 0.36, 1) both;
+}
+.ex-card.just-completed .ex-check::after {
+    animation: ex-check-ring 0.62s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes ex-check-pop {
+    0%   { transform: scale(0.82); }
+    45%  { transform: scale(1.24); }
+    100% { transform: scale(1); }
+}
+@keyframes ex-check-ring {
+    0%   { opacity: 0.95; transform: scale(0.85); }
+    100% { opacity: 0; transform: scale(2.05); }
+}
 
 /* ---------- WEIGHT INPUT (SLEEK PILL) ---------- */
 .weight-pill {
@@ -907,7 +1042,15 @@ input:checked + .ex-check svg { opacity: 1; transform: scale(1); }
     line-height: 1.3;
 }
 
-/* ---------- BOTTOM NAVIGATION DOCK ---------- */
+/* ---------- FEATURE E: VENOM / SYMBIOTE LIQUID BOTTOM DOCK ---------- */
+.symbiote-svg-defs {
+    position: fixed;
+    width: 0;
+    height: 0;
+    pointer-events: none;
+    overflow: hidden;
+}
+
 .bottom-nav {
     position: fixed;
     left: 0;
@@ -917,7 +1060,10 @@ input:checked + .ex-check svg { opacity: 1; transform: scale(1); }
     padding: 8px 14px calc(10px + env(safe-area-inset-bottom));
     pointer-events: none;
 }
+
 .bottom-nav-inner {
+    position: relative;
+    isolation: isolate;
     pointer-events: auto;
     max-width: 440px;
     margin: 0 auto;
@@ -932,7 +1078,86 @@ input:checked + .ex-check svg { opacity: 1; transform: scale(1); }
     gap: 4px;
     box-shadow: var(--shadow);
 }
+
+/* Traccia liquida dietro i 4 pulsanti: filtro goo SOLO qui, mai su testo/icone */
+.symbiote-track {
+    position: absolute;
+    inset: 5px;
+    pointer-events: none;
+    z-index: 0;
+    border-radius: 17px;
+    filter: drop-shadow(0 5px 14px rgba(var(--brand-rgb), 0.34));
+}
+
+.symbiote-goo-layer {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    filter: url(#symbiote-goo);
+    -webkit-filter: url(#symbiote-goo);
+}
+
+.symbiote-blob {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: calc((100% - 12px) / 4);
+    transform: translate3d(calc(var(--nav-idx, 0) * (100% + 4px)), 0, 0);
+    will-change: transform;
+}
+
+.symbiote-blob::before {
+    content: "";
+    position: absolute;
+    border-radius: 16px;
+    background: linear-gradient(155deg, var(--brand-400) 0%, var(--brand-500) 48%, var(--brand-700) 100%);
+    transform: scale3d(1, 1, 1);
+    transition: transform 0.24s cubic-bezier(0.22, 1, 0.36, 1);
+    will-change: transform;
+}
+
+/* Testa principale: scatta avanti con elasticità organica */
+.symbiote-blob-head {
+    transition: transform 0.36s cubic-bezier(0.22, 1.18, 0.36, 1);
+}
+.symbiote-blob-head::before {
+    inset: 0;
+    border-radius: 16px;
+}
+
+/* Goccia intermedia: crea il ponte liquido viscoso tra vecchio e nuovo tab */
+.symbiote-blob-drop {
+    transition: transform 0.46s cubic-bezier(0.30, 0.94, 0.28, 1) 0.03s;
+}
+.symbiote-blob-drop::before {
+    inset: 7px 10%;
+    border-radius: 999px;
+}
+
+/* Tendine / coda symbiote: si allunga e poi si fonde dentro la testa */
+.symbiote-blob-tail {
+    transition: transform 0.56s cubic-bezier(0.36, 0.92, 0.24, 1) 0.06s;
+}
+.symbiote-blob-tail::before {
+    inset: 11px 16%;
+    border-radius: 999px;
+}
+
+/* Allungamento fluido durante il salto tra tab */
+.bottom-nav-inner.is-morphing .symbiote-blob-head::before {
+    transform: scale3d(1.06, 0.90, 1);
+}
+.bottom-nav-inner.is-morphing .symbiote-blob-drop::before {
+    transform: scale3d(1.24, 0.78, 1);
+}
+.bottom-nav-inner.is-morphing .symbiote-blob-tail::before {
+    transform: scale3d(1.36, 0.68, 1);
+}
+
 .nav-item {
+    position: relative;
+    z-index: 1;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -940,16 +1165,22 @@ input:checked + .ex-check svg { opacity: 1; transform: scale(1); }
     gap: 3px;
     padding: 7px 4px;
     border-radius: 16px;
+    background: transparent;
     color: var(--text-dim);
     font-size: 10.5px;
     font-weight: 700;
     cursor: pointer;
-    transition: all 0.18s ease;
+    transition: color 0.22s ease, transform 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.nav-item svg {
+    transition: transform 0.24s cubic-bezier(0.22, 1.3, 0.36, 1);
 }
 .nav-item:hover { color: var(--text); }
 .nav-item.active {
-    background: var(--brand-100);
-    color: var(--brand-500);
+    color: var(--brand-contrast);
+}
+.nav-item.active svg {
+    transform: translate3d(0, -1px, 0) scale(1.07);
 }
 
 /* ---------- REST TIMER BAR (SOPRA LA BOTTOM NAV) ---------- */
@@ -1069,3 +1300,28 @@ input:checked + .ex-check svg { opacity: 1; transform: scale(1); }
     50%      { opacity: 0.45; transform: scale(1.18); }
 }
 .sync-pulse { animation: pulse-dot 1.2s ease-in-out infinite; }
+
+/* ---------- ACCESSIBILITÀ: REDUCED MOTION ---------- */
+@media (prefers-reduced-motion: reduce) {
+    .symbiote-goo-layer {
+        filter: none;
+        -webkit-filter: none;
+    }
+    .symbiote-blob-drop,
+    .symbiote-blob-tail {
+        display: none;
+    }
+    .symbiote-blob,
+    .symbiote-blob::before,
+    .nav-item,
+    .nav-item svg {
+        transition: none !important;
+    }
+    .ex-card.just-completed,
+    .ex-card.just-completed .ex-shine-layer::before,
+    .ex-card.just-completed .ex-shine-layer::after,
+    .ex-card.just-completed .ex-check,
+    .ex-card.just-completed .ex-check::after {
+        animation: none !important;
+    }
+}

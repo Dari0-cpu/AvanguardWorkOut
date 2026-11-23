@@ -276,9 +276,33 @@
         </div>
     </div>
 
+    <!-- ============ FILTRO SVG SYMBIOTE (GOOEY) ============ -->
+    <svg class="symbiote-svg-defs" aria-hidden="true" focusable="false">
+        <defs>
+            <filter id="symbiote-goo" x="-20%" y="-45%" width="140%" height="190%" color-interpolation-filters="sRGB">
+                <feGaussianBlur in="SourceGraphic" stdDeviation="6.5" result="blur" />
+                <feColorMatrix in="blur" mode="matrix"
+                    values="1 0 0 0 0
+                            0 1 0 0 0
+                            0 0 1 0 0
+                            0 0 0 21 -8.5" result="goo" />
+                <feComposite in="SourceGraphic" in2="goo" operator="atop" />
+            </filter>
+        </defs>
+    </svg>
+
     <!-- ============ BOTTOM NAVIGATION BAR ============ -->
     <nav class="bottom-nav">
-        <div class="bottom-nav-inner">
+        <div id="bottom-nav-inner" class="bottom-nav-inner" style="--nav-idx: 0;">
+            <!-- Layer fluido Symbiote (dietro icone e testo, mai applicato alle label) -->
+            <div class="symbiote-track" aria-hidden="true">
+                <div class="symbiote-goo-layer">
+                    <span class="symbiote-blob symbiote-blob-tail"></span>
+                    <span class="symbiote-blob symbiote-blob-drop"></span>
+                    <span class="symbiote-blob symbiote-blob-head"></span>
+                </div>
+            </div>
+
             <button data-nav-tab="workout" onclick="switchTab('workout')" class="nav-item active">
                 <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10v4"/><path d="M21 10v4"/><rect x="5" y="7" width="3" height="10" rx="1"/><rect x="16" y="7" width="3" height="10" rx="1"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
                 <span>Scheda</span>

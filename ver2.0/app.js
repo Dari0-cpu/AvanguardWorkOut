@@ -102,9 +102,13 @@ let appState = {
 };
 
 // Stato UI solo in memoria
+const NAV_TABS_ORDER = ['workout', 'weight', 'report', 'settings'];
 let activeTab = 'workout';
 let activeDayId = null;
 let openPopoverId = null;
+let _symbioteMorphTimer = null;
+let _justCompletedLogKey = null;
+let _justCompletedClearTimer = null;
 
 let tempTargetDayId = null;
 let tempEditDayId = null;
@@ -502,9 +506,31 @@ function importJsonBackup(event) {
 }
 
 // ============================================================
-//  NAVIGAZIONE BOTTOM BAR
+//  NAVIGAZIONE BOTTOM BAR (VENOM / SYMBIOTE LIQUID DOCK)
 // ============================================================
+function updateSymbioteNav(tab, animate = true) {
+    const navInner = document.getElementById('bottom-nav-inner');
+    if (!navInner) return;
+
+    const idx = NAV_TABS_ORDER.indexOf(tab);
+    const safeIdx = idx >= 0 ? idx : 0;
+
+    if (animate) {
+        if (_symbioteMorphTimer) clearTimeout(_symbioteMorphTimer);
+        navInner.classList.add('is-morphing');
+        navInner.style.setProperty('--nav-idx', String(safeIdx));
+        _symbioteMorphTimer = setTimeout(() => {
+            navInner.classList.remove('is-morphing');
+            _symbioteMorphTimer = null;
+        }, 240);
+    } else {
+        navInner.classList.remove('is-morphing');
+        navInner.style.setProperty('--nav-idx', String(safeIdx));
+    }
+}
+
 function switchTab(tab, scrollToId = null) {
+    const prevTab = activeTab;
     activeTab = tab;
     closeAllPopovers();
 
@@ -515,6 +541,8 @@ function switchTab(tab, scrollToId = null) {
     document.querySelectorAll('[data-nav-tab]').forEach(btn => {
         btn.classList.toggle('active', btn.dataset.navTab === tab);
     });
+
+    updateSymbioteNav(tab, prevTab !== tab);
 
     if (tab === 'weight') {
         renderWeightView();
@@ -1065,9 +1093,11 @@ function renderExerciseCardInternal(dayId, ex, logKey, log, blocks, restsArray, 
     const coachNoteHtml = ex.coachNote
         ? `<p class="ex-coach-note">${escapeHtml(ex.coachNote)}</p>`
         : '';
+    const isJustCompleted = !!(log.done && _justCompletedLogKey === logKey);
 
     return `
-        <div class="ex-card ${log.done ? 'done' : ''}">
+        <div class="ex-card ${log.done ? 'done' : ''} ${isJustCompleted ? 'just-completed' : ''}" data-ex-card-key="${escapeHtml(logKey)}">
+            <span class="ex-shine-layer" aria-hidden="true"></span>
             ${upBadgeHtml}
             <div class="flex items-start gap-3">
                 <label class="cursor-pointer mt-0.5 flex-shrink-0">
@@ -2506,8 +2536,28 @@ function executeImportPlan() {
 function toggleDone(logKey, isChecked) {
     if (!appState.logs[logKey]) appState.logs[logKey] = { weights: [] };
     appState.logs[logKey].done = isChecked;
+
+    if (isChecked) {
+        _justCompletedLogKey = logKey;
+        if (navigator.vibrate) navigator.vibrate(18);
+    } else {
+        _justCompletedLogKey = null;
+    }
+
     saveData();
     renderApp();
+
+    // Resetta subito il flag così eventuali re-render successivi non ripetono il flash
+    _justCompletedLogKey = null;
+
+    if (isChecked) {
+        if (_justCompletedClearTimer) clearTimeout(_justCompletedClearTimer);
+        _justCompletedClearTimer = setTimeout(() => {
+            const card = document.querySelector(`[data-ex-card-key="${CSS.escape(logKey)}"]`);
+            if (card) card.classList.remove('just-completed');
+            _justCompletedClearTimer = null;
+        }, 900);
+    }
 }
 
 function applyWeightValueInMemory(logKey, value, index) {

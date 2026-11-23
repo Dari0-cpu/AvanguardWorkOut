@@ -1,5 +1,5 @@
-// Service Worker v8 - Offline Ready + Esclusione /api/ (Feature C: AI PDF Import)
-const CACHE_NAME = 'avanguard-cache-v8';
+// Service Worker v9 - Offline Ready + Esclusione /api/ (Feature E: Symbiote + Shine)
+const CACHE_NAME = 'avanguard-cache-v9';
 
 const CORE_ASSETS = [
     './',
