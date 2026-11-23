@@ -115,6 +115,13 @@ let tempSelectedNewDayIcon = 'dumbbell';
 let tempSelectedEditDayIcon = 'dumbbell';
 let currentExportText = '';
 let _parsedImportDays = [];
+let _importPlanTab = 'text'; // 'text' | 'pdf'
+let _pdfSelectedFile = null;
+let _pdfParsedDays = [];
+let _pdfParsingInFlight = false;
+let _pdfParseReqId = 0;
+let _pdfDropzoneBound = false;
+const MAX_PDF_IMPORT_BYTES = 3 * 1024 * 1024; // 3 MB
 
 // Stato Sync (debounce + coda serializzata)
 let _cloudDebounceTimer = null;
@@ -1055,6 +1062,9 @@ function renderExerciseCardInternal(dayId, ex, logKey, log, blocks, restsArray, 
     const carriedBadge = isCarried
         ? `<span class="carried-badge" data-carried-for="${escapeHtml(logKey)}">${UI_SVG.arrowUp} ${carriedLabel}</span>`
         : '';
+    const coachNoteHtml = ex.coachNote
+        ? `<p class="ex-coach-note">${escapeHtml(ex.coachNote)}</p>`
+        : '';
 
     return `
         <div class="ex-card ${log.done ? 'done' : ''}">
@@ -1070,6 +1080,7 @@ function renderExerciseCardInternal(dayId, ex, logKey, log, blocks, restsArray, 
                     <h3 class="font-bold text-app text-[14.5px] break-words leading-snug">
                         ${escapeHtml(ex.name)}${carriedBadge}
                     </h3>
+                    ${coachNoteHtml}
                 </div>
                 <div class="flex items-center gap-0.5 flex-shrink-0">
                     <button type="button" data-action="toggle-up" data-log-key="${escapeHtml(logKey)}" class="mini-action-btn ${log.up ? 'active' : ''}" title="Aumenta carico settimana prossima">
@@ -1927,6 +1938,9 @@ function buildExerciseObjectFromParsed(id, parsed) {
     } else if (Array.isArray(parsed.rests) && parsed.rests.length > 0) {
         ex.rests = parsed.rests;
     }
+    if (parsed.coachNote && String(parsed.coachNote).trim()) {
+        ex.coachNote = String(parsed.coachNote).trim();
+    }
     return ex;
 }
 
@@ -2070,51 +2084,282 @@ function saveEditEx() {
     renderApp();
 }
 
-function saveEditEx() {
-    const newName = document.getElementById('edit-ex-name').value.trim();
-    const rawTarget = document.getElementById('edit-ex-target').value.trim() || '3x10';
-    const applyAll = document.getElementById('edit-ex-apply-all').checked;
-    if (!newName) return;
-
-    const parsed = parseTargetAndRests(rawTarget);
-    const manualRests = collectRestInputs('edit');
-    const finalRests = manualRests.length > 0 ? manualRests : parsed.rests;
-
-    const currentUser = appState.users.find(u => u.id === appState.currentUserId);
-    const day = currentUser?.days.find(d => d.id === tempEditDayId);
-    const ex = day?.exercises.find(e => e.id === tempEditExId);
-    if (!ex) return;
-    ex.name = newName;
-
-    if (applyAll) {
-        ex.progression = Array(6).fill(parsed.cleanTarget);
-        delete ex.week0Target;
-    } else if (appState.week === 0) {
-        // Settimana 0: salva il target opzionale dedicato senza toccare S1..S6
-        ex.week0Target = parsed.cleanTarget;
-    } else {
-        if (!ex.progression || ex.progression.length < 6) {
-            ex.progression = Array(6).fill(ex.progression?.[0] || parsed.cleanTarget);
-        }
-        ex.progression[appState.week - 1] = parsed.cleanTarget;
-    }
-
-    if (finalRests.length > 0) ex.rests = finalRests;
-    else delete ex.rests;
-
-    saveData();
-    closeModal('edit-ex-modal');
-    renderApp();
-}
-
 // ============================================================
-//  IMPORTAZIONE SCHEDA COMPLETA (MULTI-GIORNO)
+//  IMPORTAZIONE SCHEDA COMPLETA (TESTO + AI PDF GEMINI)
 // ============================================================
 function openImportPlanModal() {
+    setupPdfDropzone();
     document.getElementById('import-plan-text').value = '';
     _parsedImportDays = [];
-    updateImportPlanPreview();
+    resetPdfImportState();
+    switchImportPlanTab('text');
     openModal('import-plan-modal');
+}
+
+function closeImportPlanModal() {
+    _pdfParseReqId += 1; // invalida eventuali chiamate AI ancora in volo
+    _pdfParsingInFlight = false;
+    setPdfLoadingUi(false);
+    closeModal('import-plan-modal');
+}
+
+function switchImportPlanTab(tab) {
+    _importPlanTab = tab === 'pdf' ? 'pdf' : 'text';
+
+    const btnText = document.getElementById('import-tab-btn-text');
+    const btnPdf = document.getElementById('import-tab-btn-pdf');
+    const panelText = document.getElementById('import-tab-text');
+    const panelPdf = document.getElementById('import-tab-pdf');
+
+    const isPdf = _importPlanTab === 'pdf';
+    if (btnText) {
+        btnText.classList.toggle('active', !isPdf);
+        btnText.setAttribute('aria-selected', isPdf ? 'false' : 'true');
+    }
+    if (btnPdf) {
+        btnPdf.classList.toggle('active', isPdf);
+        btnPdf.setAttribute('aria-selected', isPdf ? 'true' : 'false');
+    }
+    if (panelText) panelText.classList.toggle('hidden', isPdf);
+    if (panelPdf) panelPdf.classList.toggle('hidden', !isPdf);
+
+    if (isPdf) {
+        _parsedImportDays = _pdfParsedDays;
+        renderImportPlanPreviewList(_parsedImportDays, 'pdf');
+    } else {
+        updateImportPlanPreview();
+    }
+}
+
+function resetPdfImportState() {
+    _pdfSelectedFile = null;
+    _pdfParsedDays = [];
+    _pdfParsingInFlight = false;
+
+    const fileInput = document.getElementById('import-pdf-file');
+    if (fileInput) fileInput.value = '';
+    document.getElementById('pdf-dropzone')?.classList.remove('hidden', 'is-dragover');
+    document.getElementById('pdf-selected-card')?.classList.add('hidden');
+    setPdfLoadingUi(false);
+    setPdfError('');
+    setPdfSuccess('');
+}
+
+function setupPdfDropzone() {
+    if (_pdfDropzoneBound) return;
+    const dropzone = document.getElementById('pdf-dropzone');
+    if (!dropzone) return;
+    _pdfDropzoneBound = true;
+
+    ['dragenter', 'dragover'].forEach(evName => {
+        dropzone.addEventListener(evName, (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            dropzone.classList.add('is-dragover');
+        });
+    });
+
+    ['dragleave', 'drop'].forEach(evName => {
+        dropzone.addEventListener(evName, (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            dropzone.classList.remove('is-dragover');
+        });
+    });
+
+    dropzone.addEventListener('drop', (e) => {
+        const file = e.dataTransfer?.files?.[0];
+        if (file) setPdfSelectedFile(file);
+    });
+
+    dropzone.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            document.getElementById('import-pdf-file')?.click();
+        }
+    });
+}
+
+function formatFileSize(bytes) {
+    if (!Number.isFinite(bytes) || bytes < 1024) return `${bytes || 0} B`;
+    if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+}
+
+function setPdfError(message) {
+    const box = document.getElementById('pdf-error-box');
+    const txt = document.getElementById('pdf-error-text');
+    if (!box || !txt) return;
+    if (!message) {
+        box.classList.add('hidden');
+        txt.textContent = '';
+    } else {
+        txt.textContent = message;
+        box.classList.remove('hidden');
+    }
+}
+
+function setPdfSuccess(message) {
+    const box = document.getElementById('pdf-success-box');
+    const txt = document.getElementById('pdf-success-text');
+    if (!box || !txt) return;
+    if (!message) {
+        box.classList.add('hidden');
+        txt.textContent = '';
+    } else {
+        txt.textContent = message;
+        box.classList.remove('hidden');
+    }
+}
+
+function setPdfLoadingUi(isLoading) {
+    const box = document.getElementById('pdf-loading-state');
+    const analyzeBtn = document.getElementById('pdf-analyze-btn');
+    const changeBtn = document.getElementById('pdf-change-btn');
+    const importBtn = document.getElementById('import-plan-btn');
+
+    if (box) box.classList.toggle('hidden', !isLoading);
+    if (analyzeBtn) {
+        analyzeBtn.disabled = isLoading;
+        analyzeBtn.textContent = isLoading ? 'Analizzo...' : 'Analizza AI';
+    }
+    if (changeBtn) changeBtn.disabled = isLoading;
+    if (importBtn && isLoading) importBtn.disabled = true;
+}
+
+function handlePdfFileSelected(event) {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    setPdfSelectedFile(file);
+}
+
+function setPdfSelectedFile(file) {
+    setPdfError('');
+    setPdfSuccess('');
+    _pdfParsedDays = [];
+    if (_importPlanTab === 'pdf') _parsedImportDays = [];
+
+    const isPdfName = /\.pdf$/i.test(file.name || '');
+    const isPdfMime = file.type === 'application/pdf' || file.type === '';
+    if (!isPdfName && !isPdfMime) {
+        setPdfError('Seleziona un file in formato PDF (.pdf).');
+        renderImportPlanPreviewList([], 'pdf');
+        return;
+    }
+
+    if (file.size === 0) {
+        setPdfError('Il file PDF selezionato è vuoto.');
+        renderImportPlanPreviewList([], 'pdf');
+        return;
+    }
+
+    if (file.size > MAX_PDF_IMPORT_BYTES) {
+        setPdfError(`Il PDF pesa ${formatFileSize(file.size)} e supera il limite massimo di 3 MB. Prova a comprimerlo prima di caricarlo.`);
+        renderImportPlanPreviewList([], 'pdf');
+        return;
+    }
+
+    _pdfSelectedFile = file;
+    document.getElementById('pdf-selected-name').textContent = file.name || 'scheda.pdf';
+    document.getElementById('pdf-selected-size').textContent = formatFileSize(file.size);
+    document.getElementById('pdf-dropzone')?.classList.add('hidden');
+    document.getElementById('pdf-selected-card')?.classList.remove('hidden');
+
+    renderImportPlanPreviewList([], 'pdf');
+}
+
+function readFileAsBase64(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+            const res = String(reader.result || '');
+            const commaIdx = res.indexOf(',');
+            resolve(commaIdx >= 0 ? res.slice(commaIdx + 1) : res);
+        };
+        reader.onerror = () => reject(new Error('Impossibile leggere il file PDF dal dispositivo.'));
+        reader.readAsDataURL(file);
+    });
+}
+
+async function analyzePdfWithAi() {
+    if (!_pdfSelectedFile || _pdfParsingInFlight) return;
+
+    if (!navigator.onLine) {
+        setPdfError('Sei offline. Serve una connessione internet per analizzare il PDF con Gemini AI.');
+        return;
+    }
+
+    const reqId = ++_pdfParseReqId;
+    _pdfParsingInFlight = true;
+    _pdfParsedDays = [];
+    _parsedImportDays = [];
+    setPdfError('');
+    setPdfSuccess('');
+    setPdfLoadingUi(true);
+    renderImportPlanPreviewList([], 'pdf');
+
+    try {
+        const pdfBase64 = await readFileAsBase64(_pdfSelectedFile);
+        if (reqId !== _pdfParseReqId) return;
+
+        const res = await fetch('/api/parse-pdf', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                pdfBase64,
+                fileName: _pdfSelectedFile.name || 'scheda.pdf',
+            }),
+        });
+
+        if (reqId !== _pdfParseReqId) return;
+
+        let data = null;
+        try {
+            data = await res.json();
+        } catch (_) {
+            data = null;
+        }
+
+        if (!res.ok) {
+            if (res.status === 413) {
+                throw new Error('Il file PDF è troppo pesante per il server (max 3 MB).');
+            }
+            if (res.status === 504) {
+                throw new Error('Tempo scaduto durante l\'analisi del PDF. Prova con un file più leggero.');
+            }
+            throw new Error(data?.error || `Errore server AI (codice ${res.status}).`);
+        }
+
+        const days = Array.isArray(data?.days) ? data.days : [];
+        if (days.length === 0) {
+            throw new Error('Nessun giorno o esercizio trovato in questo PDF.');
+        }
+
+        _pdfParsedDays = days;
+        const totalEx = days.reduce((acc, d) => acc + (d.exercises?.length || 0), 0);
+        setPdfSuccess(`Estratti ${days.length} giorni e ${totalEx} esercizi. Controlla l'anteprima qui sotto e conferma l'importazione.`);
+
+        if (_importPlanTab === 'pdf') {
+            _parsedImportDays = _pdfParsedDays;
+            renderImportPlanPreviewList(_parsedImportDays, 'pdf');
+        }
+    } catch (err) {
+        if (reqId !== _pdfParseReqId) return;
+        const msg = (err && err.message) ? err.message : 'Errore imprevisto durante l\'analisi del PDF.';
+        setPdfError(msg);
+        if (_importPlanTab === 'pdf') {
+            renderImportPlanPreviewList([], 'pdf');
+        }
+    } finally {
+        if (reqId === _pdfParseReqId) {
+            _pdfParsingInFlight = false;
+            setPdfLoadingUi(false);
+            if (_importPlanTab === 'pdf') {
+                renderImportPlanPreviewList(_parsedImportDays, 'pdf');
+            }
+        }
+    }
 }
 
 function parseFullWorkoutPlan(rawText) {
@@ -2148,30 +2393,31 @@ function parseFullWorkoutPlan(rawText) {
     return days.filter(d => d.exercises.length > 0 || days.length === 1);
 }
 
-function updateImportPlanPreview() {
-    const text = document.getElementById('import-plan-text').value;
+function renderImportPlanPreviewList(days, mode = 'text') {
     const preview = document.getElementById('import-plan-preview');
     const btn = document.getElementById('import-plan-btn');
+    if (!preview || !btn) return;
 
-    if (!text.trim()) {
-        _parsedImportDays = [];
-        preview.innerHTML = `<p class="text-dim italic text-center py-4">Incolla la scheda sopra per vedere l'anteprima...</p>`;
+    if (!Array.isArray(days) || days.length === 0) {
+        if (mode === 'pdf') {
+            const placeholder = _pdfParsingInFlight
+                ? 'Lettura del PDF in corso...'
+                : (_pdfSelectedFile
+                    ? 'Premi "Analizza AI" per estrarre la scheda in anteprima.'
+                    : 'Carica un file PDF sopra per vedere qui l\'anteprima estratta dall\'AI.');
+            preview.innerHTML = `<p class="text-dim italic text-center py-4">${placeholder}</p>`;
+        } else {
+            const hasText = document.getElementById('import-plan-text')?.value.trim();
+            preview.innerHTML = `<p class="text-dim italic text-center py-4">${hasText ? 'Nessun giorno riconosciuto.' : 'Incolla la scheda sopra per vedere l\'anteprima...'}</p>`;
+        }
         btn.disabled = true;
         btn.textContent = 'Importa Scheda';
         return;
     }
 
-    _parsedImportDays = parseFullWorkoutPlan(text);
-    const totalEx = _parsedImportDays.reduce((acc, d) => acc + d.exercises.length, 0);
+    const totalEx = days.reduce((acc, d) => acc + (d.exercises?.length || 0), 0);
 
-    if (_parsedImportDays.length === 0) {
-        preview.innerHTML = `<p class="text-dim italic text-center py-4">Nessun giorno riconosciuto.</p>`;
-        btn.disabled = true;
-        btn.textContent = 'Importa Scheda';
-        return;
-    }
-
-    preview.innerHTML = _parsedImportDays.map(d => `
+    preview.innerHTML = days.map(d => `
         <div class="mb-3 last:mb-0 pb-2.5 last:pb-0 border-b last:border-b-0 border-app">
             <div class="flex items-center gap-2 font-extrabold text-app mb-1.5">
                 <span class="brand-text">${DAY_ICONS[d.icon]?.svg || DAY_ICONS.dumbbell.svg}</span>
@@ -2180,35 +2426,56 @@ function updateImportPlanPreview() {
             </div>
             <div class="space-y-1.5 pl-6">
                 ${d.exercises.map(ex => {
+                    const coachNotePreview = ex.coachNote
+                        ? `<div class="import-coach-note">${escapeHtml(ex.coachNote)}</div>`
+                        : '';
                     if (ex.hasWeeklyProg) {
                         const groups = summarizeWeeklyProgression(ex);
+                        const w0Rests = getRestsForWeek(ex, 0);
                         const w0Pill = ex.week0Target
-                            ? `<span class="import-prog-pill"><strong>S0</strong> ${escapeHtml(ex.week0Target)}</span>`
+                            ? `<span class="import-prog-pill"><strong>S0</strong> ${escapeHtml(formatTargetWithRests(ex.week0Target, w0Rests))}</span>`
                             : '';
                         return `<div class="text-[11px]">
                             <div class="font-semibold text-app truncate">${escapeHtml(ex.name)}</div>
+                            ${coachNotePreview}
                             <div class="import-prog-list">
                                 ${w0Pill}
                                 ${groups.map(g => `<span class="import-prog-pill"><strong>${escapeHtml(g.label)}</strong> ${escapeHtml(g.text)}</span>`).join('')}
                             </div>
                         </div>`;
                     }
-                    const restTag = ex.rests.length ? ` <span class="text-dim">(${escapeHtml(ex.rests.filter(Boolean).join(' / '))})</span>` : '';
-                    return `<div class="flex justify-between gap-2 text-[11px]">
-                        <span class="text-muted truncate">${escapeHtml(ex.name)}</span>
-                        <span class="font-bold brand-text flex-shrink-0">${escapeHtml(ex.target)}${restTag}</span>
+                    const restsClean = Array.isArray(ex.rests) ? ex.rests.filter(Boolean) : [];
+                    const restTag = restsClean.length ? ` <span class="text-dim">(${escapeHtml(restsClean.join(' / '))})</span>` : '';
+                    return `<div class="text-[11px]">
+                        <div class="flex justify-between gap-2">
+                            <span class="text-muted truncate">${escapeHtml(ex.name)}</span>
+                            <span class="font-bold brand-text flex-shrink-0">${escapeHtml(ex.target)}${restTag}</span>
+                        </div>
+                        ${coachNotePreview}
                     </div>`;
                 }).join('')}
             </div>
         </div>
     `).join('');
 
-    btn.disabled = false;
-    btn.textContent = `Importa ${_parsedImportDays.length} giorni (${totalEx} esercizi)`;
+    btn.disabled = _pdfParsingInFlight;
+    btn.textContent = `Importa ${days.length} giorni (${totalEx} esercizi)`;
+}
+
+function updateImportPlanPreview() {
+    const text = document.getElementById('import-plan-text').value;
+    if (!text.trim()) {
+        _parsedImportDays = [];
+        renderImportPlanPreviewList([], 'text');
+        return;
+    }
+
+    _parsedImportDays = parseFullWorkoutPlan(text);
+    renderImportPlanPreviewList(_parsedImportDays, 'text');
 }
 
 function executeImportPlan() {
-    if (_parsedImportDays.length === 0) return;
+    if (_parsedImportDays.length === 0 || _pdfParsingInFlight) return;
     const currentUser = ensureCurrentUser();
     const baseTs = Date.now();
     let firstNewId = null;
@@ -2229,11 +2496,10 @@ function executeImportPlan() {
 
     activeDayId = firstNewId;
     saveData();
-    closeModal('import-plan-modal');
+    closeImportPlanModal();
     switchTab('workout');
     renderApp();
 }
-
 // ============================================================
 //  LOGS & SETTIMANE (0..6, input debounced 500ms + change/blur)
 // ============================================================

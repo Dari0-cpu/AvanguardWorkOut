@@ -1,5 +1,5 @@
 /* ====================================================================
-   AVANGUARD WORKOUT - NATIVE FITNESS UI v4.2 (Week 0 + Feature B)
+   AVANGUARD WORKOUT - NATIVE FITNESS UI v4.3 (Feature C: AI PDF Import)
    Clean flat hierarchy, hairline borders, bottom dock, zero clutter
    ==================================================================== */
 
@@ -314,6 +314,14 @@ code {
 .ex-card.done {
     background: var(--brand-50);
     border-color: var(--brand-200);
+}
+
+.ex-coach-note {
+    margin-top: 3px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-muted);
+    line-height: 1.35;
 }
 
 .ex-blocks-list {
@@ -650,9 +658,8 @@ input:checked + .ex-check svg { opacity: 1; transform: scale(1); }
 }
 
 .prog-accordion-body {
-    padding: 0 12px 12px;
+    padding: 10px 12px 12px;
     border-top: 1px solid var(--border);
-    padding-top: 10px;
 }
 
 .prog-week-row {
@@ -764,6 +771,141 @@ input:checked + .ex-check svg { opacity: 1; transform: scale(1); }
     color: var(--text-muted);
 }
 .import-prog-pill strong { color: var(--brand-500); }
+
+/* ---------- FEATURE C: IMPORT TABS & PDF AI DROPZONE ---------- */
+.import-tabs {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 5px;
+    padding: 4px;
+    border-radius: 13px;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+}
+.import-tab-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 8px 10px;
+    border-radius: 9px;
+    font-size: 12px;
+    font-weight: 800;
+    color: var(--text-muted);
+    background: transparent;
+    cursor: pointer;
+    transition: all 0.16s ease;
+}
+.import-tab-btn:hover { color: var(--text); }
+.import-tab-btn.active {
+    background: var(--brand-500);
+    color: var(--brand-contrast);
+    box-shadow: 0 3px 10px rgba(var(--brand-rgb), 0.25);
+}
+
+.pdf-dropzone {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px;
+    border-radius: 14px;
+    border: 1.5px dashed var(--border-strong);
+    background: var(--bg);
+    cursor: pointer;
+    transition: all 0.16s ease;
+}
+.pdf-dropzone:hover,
+.pdf-dropzone.is-dragover {
+    border-color: var(--brand-500);
+    background: var(--brand-50);
+}
+.pdf-dropzone-icon {
+    width: 38px;
+    height: 38px;
+    border-radius: 11px;
+    background: var(--brand-100);
+    color: var(--brand-500);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.pdf-file-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: 13px;
+    background: var(--surface-2);
+    border: 1px solid var(--border-strong);
+}
+.pdf-file-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    border-radius: 9px;
+    background: var(--brand-100);
+    color: var(--brand-500);
+    font-size: 10px;
+    font-weight: 900;
+    letter-spacing: 0.04em;
+    flex-shrink: 0;
+}
+
+.pdf-loading-box {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    padding: 11px 13px;
+    border-radius: 13px;
+    background: var(--brand-50);
+    border: 1px solid var(--brand-200);
+}
+.ai-spinner {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    border: 2.5px solid var(--brand-200);
+    border-top-color: var(--brand-500);
+    flex-shrink: 0;
+    animation: ai-spin 0.8s linear infinite;
+}
+@keyframes ai-spin {
+    to { transform: rotate(360deg); }
+}
+
+.pdf-error-box {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 10px 12px;
+    border-radius: 12px;
+    background: rgba(239, 68, 68, 0.10);
+    border: 1px solid rgba(239, 68, 68, 0.28);
+    color: #ef4444;
+}
+.pdf-success-box {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 9px 12px;
+    border-radius: 12px;
+    background: rgba(16, 185, 129, 0.11);
+    border: 1px solid rgba(16, 185, 129, 0.28);
+    color: #10b981;
+}
+
+.import-coach-note {
+    margin-top: 2px;
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--text-dim);
+    line-height: 1.3;
+}
 
 /* ---------- BOTTOM NAVIGATION DOCK ---------- */
 .bottom-nav {
