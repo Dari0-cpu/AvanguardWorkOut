@@ -3,7 +3,9 @@
    Zero dipendenze npm, native Node fetch, Gemini 2.5 Flash JSON Schema
    ==================================================================== */
 
-const GEMINI_MODEL = 'gemini-2.5-flash';
+const GEMINI_MODELS = process.env.GEMINI_MODEL
+    ? [process.env.GEMINI_MODEL.trim()]
+    : ['gemini-3.8-flash', 'gemini-3.5-flash-lite'];
 const MAX_PDF_BYTES = 3 * 1024 * 1024; // 3 MB raw (~4 MB in base64, sotto il limite 4.5 MB di Vercel)
 const MAX_REQUEST_BYTES = 4.4 * 1024 * 1024;
 const GEMINI_TIMEOUT_MS = 55000;
@@ -453,7 +455,6 @@ async function handler(req, res) {
         return res.status(400).json({ error: 'Il file caricato non è un PDF valido.' });
     }
 
-    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
     const geminiPayload = {
         systemInstruction: {
             parts: [{ text: SYSTEM_PROMPT }],
@@ -475,11 +476,10 @@ async function handler(req, res) {
             },
         ],
         generationConfig: {
-            temperature: 0.1,
             responseMimeType: 'application/json',
             responseSchema: RESPONSE_SCHEMA,
             thinkingConfig: {
-                thinkingBudget: 1024,
+                thinkingLevel: 'low',
             },
         },
     };
@@ -488,39 +488,64 @@ async function handler(req, res) {
     const timeoutId = setTimeout(() => controller.abort(), GEMINI_TIMEOUT_MS);
 
     try {
-        const aiRes = await fetch(geminiUrl, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'x-goog-api-key': GEMINI_API_KEY,
-            },
-            body: JSON.stringify(geminiPayload),
-            signal: controller.signal,
-        });
+        let aiRes = null;
+        let usedModel = GEMINI_MODELS[0];
+        let lastErrStatus = 0;
+        let lastErrBody = '';
+
+        for (let i = 0; i < GEMINI_MODELS.length; i++) {
+            const model = GEMINI_MODELS[i];
+            usedModel = model;
+            const geminiUrl = `[https://generativelanguage.googleapis.com/v1beta/models/$](https://generativelanguage.googleapis.com/v1beta/models/$){model}:generateContent`;
+
+            aiRes = await fetch(geminiUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'x-goog-api-key': GEMINI_API_KEY,
+                },
+                body: JSON.stringify(geminiPayload),
+                signal: controller.signal,
+            });
+
+            if (aiRes.ok) break;
+
+            lastErrStatus = aiRes.status;
+            lastErrBody = await aiRes.text().catch(() => '');
+            console.error(`Errore Gemini API [${model}]:`, lastErrStatus, lastErrBody.slice(0, 500));
+
+            const hasNext = i < GEMINI_MODELS.length - 1;
+            if (hasNext && (lastErrStatus === 404 || lastErrStatus === 503)) {
+                continue;
+            }
+            break;
+        }
 
         clearTimeout(timeoutId);
 
-        if (!aiRes.ok) {
-            const errBody = await aiRes.text().catch(() => '');
-            console.error('Errore Gemini API:', aiRes.status, errBody.slice(0, 500));
-
-            if (aiRes.status === 401 || aiRes.status === 403) {
+        if (!aiRes || !aiRes.ok) {
+            if (lastErrStatus === 401 || lastErrStatus === 403) {
                 return res.status(500).json({
                     error: 'Chiave GEMINI_API_KEY non valida o priva di permessi su Vercel.',
                 });
             }
-            if (aiRes.status === 429) {
+            if (lastErrStatus === 429) {
                 return res.status(429).json({
-                    error: 'Quota Gemini temporaneamente esaurita. Riprova tra un minuto.',
+                    error: 'Quota gratuita Gemini temporaneamente esaurita. Riprova tra un minuto.',
                 });
             }
-            if (aiRes.status === 400) {
+            if (lastErrStatus === 404) {
+                return res.status(502).json({
+                    error: `Modello AI non disponibile per questa chiave (${usedModel}, HTTP 404).`,
+                });
+            }
+            if (lastErrStatus === 400) {
                 return res.status(400).json({
-                    error: 'PDF non leggibile o protetto da password. Prova a riesportarlo come PDF standard.',
+                    error: 'PDF non leggibile o richiesta rifiutata da Gemini (HTTP 400). Prova a riesportarlo.',
                 });
             }
             return res.status(502).json({
-                error: 'Servizio AI temporaneamente non disponibile. Riprova tra poco.',
+                error: `Servizio AI temporaneamente non disponibile (HTTP ${lastErrStatus || 502}). Riprova tra poco.`,
             });
         }
 
@@ -575,7 +600,7 @@ async function handler(req, res) {
             meta: {
                 daysCount: days.length,
                 exercisesCount: totalExercises,
-                model: GEMINI_MODEL,
+                model: usedModel,
             },
         });
     } catch (err) {
