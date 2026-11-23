@@ -1,5 +1,5 @@
-// Service Worker v6 - Offline Ready + Esclusione /api/
-const CACHE_NAME = 'avanguard-cache-v6';
+// Service Worker v7 - Offline Ready + Esclusione /api/ (Feature B)
+const CACHE_NAME = 'avanguard-cache-v7';
 
 const CORE_ASSETS = [
     './',

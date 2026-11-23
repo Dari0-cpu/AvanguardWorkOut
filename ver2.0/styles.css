@@ -1,5 +1,5 @@
 /* ====================================================================
-   AVANGUARD WORKOUT - NATIVE FITNESS UI v4.1 (Week 0 Support)
+   AVANGUARD WORKOUT - NATIVE FITNESS UI v4.2 (Week 0 + Feature B)
    Clean flat hierarchy, hairline borders, bottom dock, zero clutter
    ==================================================================== */
 
@@ -577,6 +577,193 @@ input:checked + .ex-check svg { opacity: 1; transform: scale(1); }
 .btn-outline:hover:not(:disabled) { background: var(--brand-500); color: var(--brand-contrast); }
 .btn-danger { background: rgba(239, 68, 68, 0.08); color: #ef4444; border-color: rgba(239, 68, 68, 0.22); }
 .btn-danger:hover { background: #ef4444; color: #ffffff; }
+
+/* ---------- FEATURE B: SCOPE PILLS & ACCORDION PROGRESSIONE S1-S6 ---------- */
+.scope-pills {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+}
+.scope-pill {
+    padding: 8px 6px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--surface-2);
+    color: var(--text-muted);
+    font-size: 11px;
+    font-weight: 700;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    line-height: 1.2;
+}
+.scope-pill:hover { color: var(--text); border-color: var(--border-strong); }
+.scope-pill.active {
+    background: var(--brand-100);
+    border-color: var(--brand-500);
+    color: var(--brand-500);
+}
+
+.prog-accordion {
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    background: var(--surface-2);
+    overflow: hidden;
+}
+.prog-accordion-trigger {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 11px 13px;
+    font-size: 12.5px;
+    font-weight: 700;
+    color: var(--text);
+    background: transparent;
+    cursor: pointer;
+    text-align: left;
+    transition: background-color 0.15s ease;
+}
+.prog-accordion-trigger:hover { background: var(--surface-3); }
+
+.prog-badge {
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    padding: 2px 7px;
+    border-radius: 999px;
+    background: var(--surface-3);
+    color: var(--text-dim);
+}
+.prog-badge.is-custom {
+    background: var(--brand-100);
+    color: var(--brand-500);
+}
+
+.prog-chevron {
+    transition: transform 0.2s ease;
+}
+.prog-accordion-trigger[aria-expanded="true"] .prog-chevron {
+    transform: rotate(180deg);
+}
+
+.prog-accordion-body {
+    padding: 0 12px 12px;
+    border-top: 1px solid var(--border);
+    padding-top: 10px;
+}
+
+.prog-week-row {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 9px 10px;
+    transition: border-color 0.15s ease;
+}
+.prog-week-row.is-current {
+    border-color: var(--brand-200);
+    background: var(--brand-50);
+}
+
+.prog-week-top {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.prog-week-label {
+    min-width: 30px;
+    height: 28px;
+    border-radius: 8px;
+    background: var(--surface-2);
+    color: var(--text-muted);
+    font-size: 11px;
+    font-weight: 800;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    font-variant-numeric: tabular-nums;
+}
+.prog-week-row.is-current .prog-week-label {
+    background: var(--brand-500);
+    color: var(--brand-contrast);
+}
+
+.prog-fill-btn {
+    padding: 5px 8px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--surface-2);
+    color: var(--text-muted);
+    font-size: 10.5px;
+    font-weight: 700;
+    white-space: nowrap;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: all 0.15s ease;
+}
+.prog-fill-btn:hover {
+    color: var(--brand-500);
+    border-color: var(--brand-200);
+    background: var(--brand-50);
+}
+
+.prog-week-rests {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 7px;
+    padding-top: 7px;
+    border-top: 1px dashed var(--border);
+}
+.prog-rest-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 3px 7px;
+    max-width: 100%;
+}
+.prog-rest-block {
+    font-size: 10px;
+    font-weight: 800;
+    color: var(--brand-500);
+    white-space: nowrap;
+}
+.prog-rest-input {
+    width: 62px;
+    background: transparent;
+    border: 0;
+    color: var(--text);
+    font-size: 11px;
+    font-weight: 700;
+    outline: none;
+}
+.prog-rest-input::placeholder { color: var(--text-dim); font-weight: 500; }
+
+.import-prog-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 3px;
+}
+.import-prog-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 6px;
+    border-radius: 6px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--text-muted);
+}
+.import-prog-pill strong { color: var(--brand-500); }
 
 /* ---------- BOTTOM NAVIGATION DOCK ---------- */
 .bottom-nav {

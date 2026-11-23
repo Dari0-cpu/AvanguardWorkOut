@@ -1,6 +1,6 @@
 /* ====================================================================
    AVANGUARD WORKOUT - PDF EXPORT VETTORIALE (jsPDF)
-   Nitido, leggibile, multi-pagina, S1-S6 + colonna S0 opzionale se presente
+   Nitido, leggibile, multi-pagina, S1-S6 + S0 opz. + progressioni B
    ==================================================================== */
 
 function hexToRgb(hex) {
@@ -18,6 +18,70 @@ function pdfSafeText(str) {
         .replace(/•/g, '-')
         .replace(/×/g, 'x')
         .replace(/[^\x20-\x7E\xA0-\xFF]/g, '');
+}
+
+// Adatta una singola riga alla larghezza della cella evitando a capo indesiderati
+function fitPdfLine(doc, text, maxW, baseSize, minSize = 5.4) {
+    let str = pdfSafeText(text);
+    let size = baseSize;
+    doc.setFontSize(size);
+    while (size > minSize && doc.getTextWidth(str) > maxW) {
+        size = Number((size - 0.4).toFixed(1));
+        doc.setFontSize(size);
+    }
+    if (doc.getTextWidth(str) > maxW) {
+        while (str.length > 3 && doc.getTextWidth(str + '...') > maxW) {
+            str = str.slice(0, -1);
+        }
+        str = str.trimEnd() + '...';
+    }
+    return { text: str, fontSize: size };
+}
+
+function getPdfRestsForWeek(ex, weekNum) {
+    if (typeof getRestsForWeek === 'function') {
+        return getRestsForWeek(ex, weekNum);
+    }
+    const rawTarget = getRawTargetForWeek(ex, weekNum);
+    const parsed = parseTargetAndRests(rawTarget);
+    return (Array.isArray(ex.rests) && ex.rests.length) ? ex.rests : parsed.rests;
+}
+
+function inspectExerciseWeeklySpec(ex) {
+    const targets = [];
+    const rests = [];
+    for (let w = 1; w <= 6; w++) {
+        targets.push(parseTargetAndRests(getRawTargetForWeek(ex, w)).cleanTarget);
+        rests.push(getPdfRestsForWeek(ex, w).filter(Boolean));
+    }
+    const targetsVary = targets.some(t => t !== targets[0]);
+    const baseRestSig = JSON.stringify(rests[0]);
+    const restsVary = rests.some(r => JSON.stringify(r) !== baseRestSig);
+
+    return {
+        hasWeeklyProg: targetsVary || restsVary,
+        targetsVary,
+        restsVary,
+        targets,
+        rests,
+    };
+}
+
+function buildCellSpecLabel(ex, weekNum, specInfo) {
+    const cleanTarget = weekNum === 0
+        ? parseTargetAndRests(getRawTargetForWeek(ex, 0)).cleanTarget
+        : specInfo.targets[weekNum - 1];
+    const wkRests = weekNum === 0
+        ? getPdfRestsForWeek(ex, 0).filter(Boolean)
+        : specInfo.rests[weekNum - 1];
+
+    if (!specInfo.targetsVary && specInfo.restsVary) {
+        return wkRests.length ? `Rec ${wkRests.join('/')}` : '-';
+    }
+    if (specInfo.targetsVary && specInfo.restsVary && wkRests.length === 1 && cleanTarget.length <= 6) {
+        return `${cleanTarget} (${wkRests[0]})`;
+    }
+    return cleanTarget;
 }
 
 function downloadPDF() {
@@ -133,7 +197,9 @@ function downloadPDF() {
 
         // ---- LOOP ESERCIZI ----
         day.exercises.forEach(ex => {
-            const cardH = 34;
+            const specInfo = inspectExerciseWeeklySpec(ex);
+            const hasWeeklyProg = specInfo.hasWeeklyProg;
+            const cardH = hasWeeklyProg ? 38.5 : 34;
             ensureSpace(cardH + 4);
 
             // Riquadro esterno esercizio
@@ -179,8 +245,9 @@ function downloadPDF() {
             // Nome esercizio
             const rawTarget = getRawTargetForWeek(ex, appState.week);
             const parsed = parseTargetAndRests(rawTarget);
-            const rests = (Array.isArray(ex.rests) && ex.rests.length) ? ex.rests : parsed.rests;
-            const restStr = rests.filter(Boolean).length ? `  |  Rec: ${rests.filter(Boolean).join(' / ')}` : '';
+            const rests = getPdfRestsForWeek(ex, appState.week).filter(Boolean);
+            const restStr = rests.length ? `  |  Rec: ${rests.join(' / ')}` : '';
+            const targetPrefix = hasWeeklyProg ? `Target (${activeWeekLabel})` : 'Target';
 
             doc.setFont('helvetica', 'bold');
             doc.setFontSize(10.5);
@@ -191,13 +258,13 @@ function downloadPDF() {
             doc.setFont('helvetica', 'normal');
             doc.setFontSize(8);
             doc.setTextColor(110, 116, 128);
-            doc.text(pdfSafeText(`Target: ${parsed.cleanTarget}${restStr}`), margin + 5.5, y + 11.2, { maxWidth: titleMaxW });
+            doc.text(pdfSafeText(`${targetPrefix}: ${parsed.cleanTarget}${restStr}`), margin + 5.5, y + 11.2, { maxWidth: titleMaxW });
 
             // Griglia 6 settimane S1..S6 (+ colonna smorzata S0 solo se presente)
             const gridX = margin + 5;
             const gridY = y + 14.5;
             const gap = 2;
-            const boxH = 16;
+            const boxH = hasWeeklyProg ? 20.5 : 16;
             const totalGridW = contentW - 9;
             const hasS0 = !!(reportData.week0 && reportData.week0.hasAny);
 
@@ -218,14 +285,21 @@ function downloadPDF() {
                 doc.setFont('helvetica', 'bold');
                 doc.setFontSize(7);
                 doc.setTextColor(161, 130, 74);
-                doc.text('S0 PROVA', gridX + s0W / 2, gridY + 5, { align: 'center' });
+                doc.text('S0 PROVA', gridX + s0W / 2, gridY + (hasWeeklyProg ? 4.4 : 5), { align: 'center' });
 
-                const s0Text = pdfSafeText(reportData.week0.text);
-                const s0Font = s0Text.length > 8 ? 7 : 8.5;
+                if (hasWeeklyProg) {
+                    doc.setFont('helvetica', 'normal');
+                    const s0Spec = fitPdfLine(doc, buildCellSpecLabel(ex, 0, specInfo), s0W - 2.2, 6.2, 5.2);
+                    doc.setFontSize(s0Spec.fontSize);
+                    doc.setTextColor(145, 132, 108);
+                    doc.text(s0Spec.text, gridX + s0W / 2, gridY + 9.2, { align: 'center' });
+                }
+
                 doc.setFont('helvetica', 'bold');
-                doc.setFontSize(s0Font);
+                const s0Weight = fitPdfLine(doc, `${reportData.week0.text} kg`, s0W - 2.2, 8.5, 6.2);
+                doc.setFontSize(s0Weight.fontSize);
                 doc.setTextColor(120, 124, 134);
-                doc.text(`${s0Text} kg`, gridX + s0W / 2, gridY + 12, { align: 'center', maxWidth: s0W - 2 });
+                doc.text(s0Weight.text, gridX + s0W / 2, gridY + (hasWeeklyProg ? 16.5 : 12), { align: 'center' });
             }
 
             for (let w = 1; w <= 6; w++) {
@@ -245,17 +319,27 @@ function downloadPDF() {
 
                 // Header Sett
                 doc.setFont('helvetica', 'bold');
-                doc.setFontSize(7.5);
+                doc.setFontSize(hasWeeklyProg ? 7 : 7.5);
                 doc.setTextColor(...(isCurrent ? accentRgb : [135, 140, 152]));
-                doc.text(`SETT ${w}`, bx + colW / 2, gridY + 5, { align: 'center' });
+                doc.text(`SETT ${w}`, bx + colW / 2, gridY + (hasWeeklyProg ? 4.4 : 5), { align: 'center' });
+
+                // Micro-riga target/recupero specifico della settimana quando varia nel mesociclo
+                if (hasWeeklyProg) {
+                    doc.setFont('helvetica', 'bold');
+                    const wkSpec = fitPdfLine(doc, buildCellSpecLabel(ex, w, specInfo), colW - 2.2, 6.5, 5.2);
+                    doc.setFontSize(wkSpec.fontSize);
+                    doc.setTextColor(...(isCurrent ? accentRgb : [100, 108, 122]));
+                    doc.text(wkSpec.text, bx + colW / 2, gridY + 9.2, { align: 'center' });
+                }
 
                 // Valore peso troncato al numero reale di blocchi
-                const val = pdfSafeText(reportData.weeks[w - 1]?.text || '-');
-                const fontSize = val.length > 10 ? 7.2 : (val.length > 6 ? 8.2 : 10);
+                const rawVal = reportData.weeks[w - 1]?.text || '-';
+                const displayVal = rawVal === '-' ? '-' : `${rawVal} kg`;
                 doc.setFont('helvetica', 'bold');
-                doc.setFontSize(fontSize);
-                doc.setTextColor(...(val === '-' ? [170, 174, 182] : [20, 22, 28]));
-                doc.text(val === '-' ? '-' : `${val} kg`, bx + colW / 2, gridY + 12, { align: 'center', maxWidth: colW - 2 });
+                const weightFit = fitPdfLine(doc, displayVal, colW - 2.2, hasWeeklyProg ? 9.5 : 10, 6.4);
+                doc.setFontSize(weightFit.fontSize);
+                doc.setTextColor(...(rawVal === '-' ? [170, 174, 182] : [20, 22, 28]));
+                doc.text(weightFit.text, bx + colW / 2, gridY + (hasWeeklyProg ? 16.5 : 12), { align: 'center' });
             }
 
             y += cardH + 4;

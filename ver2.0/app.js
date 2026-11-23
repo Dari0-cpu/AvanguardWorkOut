@@ -109,6 +109,8 @@ let openPopoverId = null;
 let tempTargetDayId = null;
 let tempEditDayId = null;
 let tempEditExId = null;
+let tempEditScope = 'only'; // 'only' | 'from' | 'all'
+let _modalProgDraft = { single: null, edit: null };
 let tempSelectedNewDayIcon = 'dumbbell';
 let tempSelectedEditDayIcon = 'dumbbell';
 let currentExportText = '';
@@ -956,7 +958,7 @@ function renderExerciseCard(currentUser, day, ex) {
     const rawTarget = getRawTargetForWeek(ex, appState.week);
     const parsedTarget = parseTargetAndRests(rawTarget);
     const blocks = parseTargetBlocks(parsedTarget.cleanTarget);
-    const restsArray = (Array.isArray(ex.rests) && ex.rests.length > 0) ? ex.rests : parsedTarget.rests;
+    const restsArray = getRestsForWeek(ex, appState.week);
 
     let upBadgeHtml = '';
     if (appState.week >= 1) {
@@ -966,12 +968,19 @@ function renderExerciseCard(currentUser, day, ex) {
         }
     }
 
+    // Auto-carry sicuro anche se il numero di blocchi cambia tra S(w-1) e S(w)
     let carriedNow = false;
     let prevWeights = null;
     if (appState.week >= 1) {
-        const prevLog = appState.logs[`w${appState.week - 1}_${currentUser.id}_${day.id}_${ex.id}`];
+        const prevWeek = appState.week - 1;
+        const prevLog = appState.logs[`w${prevWeek}_${currentUser.id}_${day.id}_${ex.id}`];
+        const prevRawTarget = getRawTargetForWeek(ex, prevWeek);
+        const prevBlocks = parseTargetBlocks(parseTargetAndRests(prevRawTarget).cleanTarget);
+
         let pArr = prevLog ? (Array.isArray(prevLog.weights) ? prevLog.weights : []) : [];
         if (prevLog && prevLog.weight && pArr.length === 0) pArr = [prevLog.weight];
+        // Tronca ai blocchi reali della settimana precedente (evita pesi "fantasma")
+        pArr = pArr.slice(0, Math.max(1, prevBlocks.length));
         if (pArr.some(v => v !== '' && v !== undefined && v !== null)) {
             prevWeights = pArr;
         }
@@ -981,17 +990,22 @@ function renderExerciseCard(currentUser, day, ex) {
     const isCurrentEmpty = !activeSlice.some(v => v !== '' && v !== undefined && v !== null);
     let finalLog = log;
     if (isCurrentEmpty && prevWeights && !appState.carried[logKey]) {
-        const carriedWeights = prevWeights.slice(0, blocks.length).map(v => v ?? '');
-        appState.logs[logKey] = {
-            ...(appState.logs[logKey] || {}),
-            weights: carriedWeights,
-            done: false,
-            up: false,
-            carried: true,
-        };
-        appState.carried[logKey] = true;
-        finalLog = appState.logs[logKey];
-        carriedNow = true;
+        const carriedWeights = Array.from({ length: blocks.length }, (_, idx) => {
+            const pv = prevWeights[idx];
+            return (pv !== '' && pv !== undefined && pv !== null) ? String(pv) : '';
+        });
+        if (carriedWeights.some(v => v !== '')) {
+            appState.logs[logKey] = {
+                ...(appState.logs[logKey] || {}),
+                weights: carriedWeights,
+                done: false,
+                up: false,
+                carried: true,
+            };
+            appState.carried[logKey] = true;
+            finalLog = appState.logs[logKey];
+            carriedNow = true;
+        }
     }
 
     return {
@@ -1327,8 +1341,153 @@ function deleteUser() {
 }
 
 // ============================================================
-//  ESERCIZI: add, bulk, edit, delete + RECUPERI
+//  ESERCIZI: add, bulk, edit, delete + PROGRESSIONI S1-S6 & RECUPERI
 // ============================================================
+function getRestsForWeek(ex, weekNum) {
+    if (!ex) return [];
+    const w = Number.isFinite(weekNum) ? weekNum : 1;
+    const rawTarget = getRawTargetForWeek(ex, w);
+    const parsed = parseTargetAndRests(rawTarget);
+    const blockCount = Math.max(1, parseTargetBlocks(parsed.cleanTarget).length);
+
+    let chosen = null;
+    if (Array.isArray(ex.restsByWeek)) {
+        const idx = w === 0 ? 0 : Math.max(0, Math.min(5, w - 1));
+        if (Array.isArray(ex.restsByWeek[idx])) chosen = ex.restsByWeek[idx];
+    } else if (ex.restsByWeek && typeof ex.restsByWeek === 'object') {
+        const key = String(w);
+        if (Object.prototype.hasOwnProperty.call(ex.restsByWeek, key) && Array.isArray(ex.restsByWeek[key])) {
+            chosen = ex.restsByWeek[key];
+        } else if (w === 0 && Object.prototype.hasOwnProperty.call(ex.restsByWeek, '1') && Array.isArray(ex.restsByWeek['1'])) {
+            chosen = ex.restsByWeek['1'];
+        }
+    }
+
+    if (chosen === null && Array.isArray(ex.rests) && ex.rests.length > 0) {
+        chosen = ex.rests;
+    }
+    if (chosen === null) {
+        chosen = parsed.rests;
+    }
+
+    return Array.isArray(chosen)
+        ? chosen.slice(0, blockCount).map(r => normalizeRestLabel(r))
+        : [];
+}
+
+function normalizeRestsForTarget(targetStr, restsArr) {
+    const parsed = parseTargetAndRests(targetStr || '3x10');
+    const blockCount = Math.max(1, parseTargetBlocks(parsed.cleanTarget).length);
+    const src = Array.isArray(restsArr) ? restsArr : [];
+    const out = Array.from({ length: blockCount }, (_, i) =>
+        normalizeRestLabel(src[i] || parsed.rests[i] || '')
+    );
+    return out.some(v => v !== '') ? out : [];
+}
+
+function hasWeeklyVariation(targets6, rests6) {
+    if (!Array.isArray(targets6) || targets6.length < 6) return false;
+    const baseT = String(targets6[0] || '').trim();
+    const baseR = JSON.stringify(rests6?.[0] || []);
+    for (let i = 1; i < 6; i++) {
+        if (String(targets6[i] || '').trim() !== baseT) return true;
+        if (JSON.stringify(rests6?.[i] || []) !== baseR) return true;
+    }
+    return false;
+}
+
+function hasExerciseWeeklyProgression(ex) {
+    if (!ex) return false;
+    const targets = [];
+    const rests = [];
+    for (let w = 1; w <= 6; w++) {
+        targets.push(parseTargetAndRests(getRawTargetForWeek(ex, w)).cleanTarget);
+        rests.push(getRestsForWeek(ex, w));
+    }
+    return hasWeeklyVariation(targets, rests);
+}
+
+function formatTargetWithRests(cleanTarget, restsArr) {
+    const blocks = parseTargetBlocks(cleanTarget || '3x10');
+    const rests = Array.isArray(restsArr) ? restsArr : [];
+    return blocks.map((blk, i) => rests[i] ? `${blk} (${rests[i]})` : blk).join(' + ');
+}
+
+function summarizeWeeklyProgression(exOrParsed) {
+    const entries = [];
+    for (let w = 1; w <= 6; w++) {
+        let cleanTarget, rests;
+        if (Array.isArray(exOrParsed.progression)) {
+            const raw = exOrParsed.progression[w - 1] || exOrParsed.progression[0] || '3x10';
+            cleanTarget = parseTargetAndRests(raw).cleanTarget;
+            rests = getRestsForWeek(exOrParsed, w);
+        } else {
+            cleanTarget = exOrParsed.target || '3x10';
+            rests = exOrParsed.rests || [];
+        }
+        const sig = formatTargetWithRests(cleanTarget, rests);
+        const last = entries[entries.length - 1];
+        if (last && last.sig === sig) {
+            last.end = w;
+        } else {
+            entries.push({ start: w, end: w, sig });
+        }
+    }
+    return entries.map(g => ({
+        label: g.start === g.end ? `S${g.start}` : `S${g.start}-${g.end}`,
+        text: g.sig,
+    }));
+}
+
+function applyProgressionAndRestsToExercise(ex, targets6, rests6, { week0Target = undefined, week0Rests = undefined, clearWeek0 = false } = {}) {
+    const cleanTargets = [];
+    const cleanRests = [];
+
+    for (let i = 0; i < 6; i++) {
+        const parsed = parseTargetAndRests(targets6[i] || targets6[0] || '3x10');
+        cleanTargets.push(parsed.cleanTarget);
+        cleanRests.push(normalizeRestsForTarget(parsed.cleanTarget, rests6?.[i]));
+    }
+
+    ex.progression = cleanTargets;
+
+    if (clearWeek0) {
+        delete ex.week0Target;
+    } else if (week0Target !== undefined) {
+        const parsed0 = parseTargetAndRests(week0Target);
+        ex.week0Target = parsed0.cleanTarget;
+    }
+
+    // Preserva eventuale recupero dedicato per S0 se non si azzera S0
+    let finalW0Rests = null;
+    if (!clearWeek0) {
+        if (week0Rests !== undefined) {
+            const t0 = ex.week0Target || cleanTargets[0];
+            finalW0Rests = normalizeRestsForTarget(t0, week0Rests);
+        } else if (ex.restsByWeek && !Array.isArray(ex.restsByWeek) && Array.isArray(ex.restsByWeek['0'])) {
+            finalW0Rests = ex.restsByWeek['0'];
+        }
+    }
+
+    const firstSig = JSON.stringify(cleanRests[0]);
+    const restsUniform = cleanRests.every(r => JSON.stringify(r) === firstSig) && !finalW0Rests;
+
+    if (restsUniform) {
+        delete ex.restsByWeek;
+        if (cleanRests[0].length > 0) ex.rests = cleanRests[0];
+        else delete ex.rests;
+    } else {
+        delete ex.rests;
+        const map = {};
+        if (finalW0Rests && finalW0Rests.length > 0) map['0'] = finalW0Rests;
+        for (let i = 0; i < 6; i++) {
+            if (cleanRests[i].length > 0) map[String(i + 1)] = cleanRests[i];
+        }
+        if (Object.keys(map).length > 0) ex.restsByWeek = map;
+        else delete ex.restsByWeek;
+    }
+}
+
 function renderRestInputs(prefix, existingRests = null) {
     const targetInput = document.getElementById(`${prefix}-ex-target`);
     const container = document.getElementById(`${prefix}-ex-rests-container`);
@@ -1346,7 +1505,7 @@ function renderRestInputs(prefix, existingRests = null) {
         html += `
             <div class="flex items-center gap-2">
                 <span class="text-xs font-bold brand-text min-w-[78px] truncate">${escapeHtml(blk)}</span>
-                <input type="text" data-rest-idx="${idx}" value="${escapeHtml(val)}" class="field !py-2 !text-xs flex-1" placeholder="es. 3'  o  1'30&quot;  o  90s">
+                <input type="text" data-rest-prefix="${escapeHtml(prefix)}" data-rest-idx="${idx}" value="${escapeHtml(val)}" class="field !py-2 !text-xs flex-1" placeholder="es. 3'  o  1'30&quot;  o  90s">
             </div>
         `;
     });
@@ -1361,11 +1520,244 @@ function collectRestInputs(prefix) {
     return values.some(v => v !== '') ? values : [];
 }
 
+function updateProgBadge(prefix) {
+    const draft = _modalProgDraft[prefix];
+    const badge = document.getElementById(`${prefix}-prog-badge`);
+    if (!draft || !badge) return;
+    const isCustom = hasWeeklyVariation(draft.targets, draft.rests);
+    badge.textContent = isCustom ? 'Personalizzata' : 'Uniforme';
+    badge.classList.toggle('is-custom', isCustom);
+}
+
+function renderProgWeekRestsHtml(prefix, weekNum, targetStr, restsArr) {
+    const parsed = parseTargetAndRests(targetStr || '3x10');
+    const blocks = parseTargetBlocks(parsed.cleanTarget);
+    const rests = Array.isArray(restsArr) ? restsArr : [];
+
+    return blocks.map((blk, idx) => {
+        const val = rests[idx] || parsed.rests[idx] || '';
+        return `
+            <label class="prog-rest-item">
+                <span class="prog-rest-block">${escapeHtml(blk)}</span>
+                <input type="text" class="prog-rest-input"
+                    data-prog-prefix="${escapeHtml(prefix)}"
+                    data-prog-week="${weekNum}"
+                    data-prog-rest-idx="${idx}"
+                    value="${escapeHtml(val)}"
+                    placeholder="rec.">
+            </label>
+        `;
+    }).join('');
+}
+
+function renderProgAccordionRows(prefix) {
+    const draft = _modalProgDraft[prefix];
+    const listEl = document.getElementById(`${prefix}-prog-weeks-list`);
+    if (!draft || !listEl) return;
+
+    let html = '';
+    for (let w = 1; w <= 6; w++) {
+        const idx = w - 1;
+        const targetVal = draft.targets[idx] || '3x10';
+        const restsVal = draft.rests[idx] || [];
+        const isCurrent = (prefix === 'edit' && appState.week === w);
+        const fillBtn = w < 6
+            ? `<button type="button" data-action="prog-fill-forward" data-prog-prefix="${escapeHtml(prefix)}" data-prog-week="${w}" class="prog-fill-btn" title="Copia S${w} su S${w}–S6">Da S${w} in poi</button>`
+            : '';
+
+        html += `
+            <div class="prog-week-row ${isCurrent ? 'is-current' : ''}">
+                <div class="prog-week-top">
+                    <span class="prog-week-label">S${w}</span>
+                    <input type="text"
+                        class="field !py-1.5 !px-2.5 !text-xs flex-1"
+                        data-prog-prefix="${escapeHtml(prefix)}"
+                        data-prog-week="${w}"
+                        data-prog-target="1"
+                        value="${escapeHtml(targetVal)}"
+                        placeholder="es. 4x6 o 2x4 + 2x6">
+                    ${fillBtn}
+                </div>
+                <div class="prog-week-rests" data-prog-rests-wrap="${escapeHtml(prefix)}-${w}">
+                    ${renderProgWeekRestsHtml(prefix, w, targetVal, restsVal)}
+                </div>
+            </div>
+        `;
+    }
+    listEl.innerHTML = html;
+    updateProgBadge(prefix);
+}
+
+function setProgAccordionOpen(prefix, isOpen) {
+    const draft = _modalProgDraft[prefix];
+    if (!draft) return;
+    draft.open = isOpen;
+
+    const toggle = document.getElementById(`${prefix}-prog-toggle`);
+    const body = document.getElementById(`${prefix}-prog-body`);
+    if (toggle) toggle.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+    if (body) body.classList.toggle('hidden', !isOpen);
+
+    if (isOpen) {
+        if (!draft.touched) syncTopInputsToProgDraft(prefix);
+        renderProgAccordionRows(prefix);
+    }
+}
+
+function toggleProgAccordion(prefix) {
+    const draft = _modalProgDraft[prefix];
+    if (!draft) return;
+    setProgAccordionOpen(prefix, !draft.open);
+}
+
+function syncTopInputsToProgDraft(prefix) {
+    const draft = _modalProgDraft[prefix];
+    if (!draft) return;
+    const rawTarget = document.getElementById(`${prefix}-ex-target`)?.value.trim() || '3x10';
+    const parsed = parseTargetAndRests(rawTarget);
+    const manualRests = collectRestInputs(prefix);
+    const finalRests = manualRests.length > 0 ? manualRests : parsed.rests;
+
+    if (prefix === 'single') {
+        if (!draft.touched) {
+            draft.targets = Array(6).fill(parsed.cleanTarget);
+            draft.rests = Array.from({ length: 6 }, () => [...finalRests]);
+        }
+    } else if (prefix === 'edit') {
+        if (!draft.touched) {
+            // Ricalcola dalla base applicando lo scope selezionato
+            draft.targets = [...draft.baseTargets];
+            draft.rests = draft.baseRests.map(r => [...r]);
+
+            if (tempEditScope === 'all') {
+                draft.targets = Array(6).fill(parsed.cleanTarget);
+                draft.rests = Array.from({ length: 6 }, () => [...finalRests]);
+            } else if (tempEditScope === 'from') {
+                const startIdx = appState.week === 0 ? 0 : Math.max(0, appState.week - 1);
+                for (let i = startIdx; i < 6; i++) {
+                    draft.targets[i] = parsed.cleanTarget;
+                    draft.rests[i] = [...finalRests];
+                }
+            } else if (appState.week >= 1) {
+                const idx = appState.week - 1;
+                draft.targets[idx] = parsed.cleanTarget;
+                draft.rests[idx] = [...finalRests];
+            }
+        } else if (appState.week >= 1) {
+            const idx = appState.week - 1;
+            draft.targets[idx] = parsed.cleanTarget;
+            draft.rests[idx] = [...finalRests];
+        }
+    }
+
+    if (draft.open) renderProgAccordionRows(prefix);
+    else updateProgBadge(prefix);
+}
+
+function handleExerciseTargetInput(prefix) {
+    renderRestInputs(prefix);
+    syncTopInputsToProgDraft(prefix);
+}
+
+function setEditScope(scope) {
+    tempEditScope = scope;
+    document.querySelectorAll('#edit-ex-scope-group [data-edit-scope]').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.editScope === scope);
+    });
+    const draft = _modalProgDraft.edit;
+    if (draft) {
+        // Permette allo scope rapido di riallineare il draft se l'utente lo clicca esplicitamente
+        draft.touched = false;
+        syncTopInputsToProgDraft('edit');
+    }
+}
+
+function copyProgFromWeekForward(prefix, fromWeek) {
+    const draft = _modalProgDraft[prefix];
+    if (!draft || fromWeek < 1 || fromWeek > 6) return;
+    draft.touched = true;
+    const srcIdx = fromWeek - 1;
+    const parsed = parseTargetAndRests(draft.targets[srcIdx] || '3x10');
+    const cleanT = parsed.cleanTarget;
+    const srcRests = normalizeRestsForTarget(cleanT, draft.rests[srcIdx]);
+
+    for (let i = srcIdx; i < 6; i++) {
+        draft.targets[i] = cleanT;
+        draft.rests[i] = [...srcRests];
+    }
+    renderProgAccordionRows(prefix);
+
+    if (prefix === 'edit' && appState.week >= fromWeek) {
+        document.getElementById('edit-ex-target').value = cleanT;
+        renderRestInputs('edit', srcRests);
+    }
+}
+
+function handleProgTargetRowInput(inputEl) {
+    const prefix = inputEl.dataset.progPrefix;
+    const w = parseInt(inputEl.dataset.progWeek, 10);
+    const draft = _modalProgDraft[prefix];
+    if (!draft || isNaN(w) || w < 1 || w > 6) return;
+
+    draft.touched = true;
+    const rawVal = inputEl.value;
+    const parsed = parseTargetAndRests(rawVal.trim() || '3x10');
+    const idx = w - 1;
+    draft.targets[idx] = parsed.cleanTarget;
+
+    const existing = draft.rests[idx] || [];
+    const blockCount = Math.max(1, parseTargetBlocks(parsed.cleanTarget).length);
+    const mergedRests = Array.from({ length: blockCount }, (_, b) =>
+        normalizeRestLabel(parsed.rests[b] || existing[b] || '')
+    );
+    draft.rests[idx] = mergedRests.some(v => v !== '') ? mergedRests : [];
+
+    const restsWrap = document.querySelector(`[data-prog-rests-wrap="${CSS.escape(prefix)}-${w}"]`);
+    if (restsWrap) {
+        restsWrap.innerHTML = renderProgWeekRestsHtml(prefix, w, draft.targets[idx], draft.rests[idx]);
+    }
+
+    if (prefix === 'edit' && appState.week === w) {
+        document.getElementById('edit-ex-target').value = draft.targets[idx];
+        renderRestInputs('edit', draft.rests[idx]);
+    }
+    updateProgBadge(prefix);
+}
+
+function handleProgRestRowInput(inputEl) {
+    const prefix = inputEl.dataset.progPrefix;
+    const w = parseInt(inputEl.dataset.progWeek, 10);
+    const restIdx = parseInt(inputEl.dataset.progRestIdx, 10);
+    const draft = _modalProgDraft[prefix];
+    if (!draft || isNaN(w) || isNaN(restIdx) || w < 1 || w > 6) return;
+
+    draft.touched = true;
+    const idx = w - 1;
+    if (!Array.isArray(draft.rests[idx])) draft.rests[idx] = [];
+    draft.rests[idx][restIdx] = normalizeRestLabel(inputEl.value);
+
+    if (prefix === 'edit' && appState.week === w) {
+        const topRestInp = document.querySelector(`input[data-rest-prefix="edit"][data-rest-idx="${restIdx}"]`);
+        if (topRestInp) topRestInp.value = inputEl.value;
+    }
+    updateProgBadge(prefix);
+}
+
 function prepareSingleAdd(dayId) {
     tempTargetDayId = dayId;
     document.getElementById('single-ex-name').value = '';
     document.getElementById('single-ex-target').value = '';
+
+    _modalProgDraft.single = {
+        open: false,
+        touched: false,
+        targets: Array(6).fill('3x10'),
+        rests: Array.from({ length: 6 }, () => []),
+    };
+
     renderRestInputs('single', []);
+    setProgAccordionOpen('single', false);
+    updateProgBadge('single');
     openModal('single-add-modal');
 }
 
@@ -1379,20 +1771,25 @@ function saveSingleExercise() {
     const rawTarget = document.getElementById('single-ex-target').value.trim() || '3x10';
     if (!name) return;
 
-    const parsed = parseTargetAndRests(rawTarget);
-    const manualRests = collectRestInputs('single');
-    const finalRests = manualRests.length > 0 ? manualRests : parsed.rests;
-
     const currentUser = appState.users.find(u => u.id === appState.currentUserId);
     const day = currentUser?.days.find(d => d.id === tempTargetDayId);
     if (!day) return;
 
-    const newEx = {
-        id: 'e_' + Date.now(),
-        name: name,
-        progression: Array(6).fill(parsed.cleanTarget)
-    };
-    if (finalRests.length > 0) newEx.rests = finalRests;
+    const draft = _modalProgDraft.single;
+    const newEx = { id: 'e_' + Date.now(), name: name, progression: [] };
+
+    if (draft && (draft.open || draft.touched)) {
+        applyProgressionAndRestsToExercise(newEx, draft.targets, draft.rests);
+    } else {
+        const parsed = parseTargetAndRests(rawTarget);
+        const manualRests = collectRestInputs('single');
+        const finalRests = manualRests.length > 0 ? manualRests : parsed.rests;
+        applyProgressionAndRestsToExercise(
+            newEx,
+            Array(6).fill(parsed.cleanTarget),
+            Array.from({ length: 6 }, () => [...finalRests])
+        );
+    }
 
     day.exercises.push(newEx);
     saveData();
@@ -1400,9 +1797,91 @@ function saveSingleExercise() {
     renderApp();
 }
 
+function parseWeeklyProgressionSpec(rawSpec) {
+    const segments = String(rawSpec || '').split(/[|;]/).map(s => s.trim()).filter(Boolean);
+    if (segments.length === 0) return null;
+
+    const weekSegRegex = /^(?:sett\.?|settimana|s|w)\s*([0-6])(?:\s*[-–—]\s*(?:s|w)?\s*([0-6]))?\s*[:\-]\s*(.+)$/i;
+    const matched = [];
+
+    for (const seg of segments) {
+        const m = seg.match(weekSegRegex);
+        if (!m) return null;
+        const start = parseInt(m[1], 10);
+        const end = m[2] !== undefined ? parseInt(m[2], 10) : start;
+        const lo = Math.min(start, end);
+        const hi = Math.max(start, end);
+        const parsed = parseTargetAndRests(m[3].trim());
+        matched.push({ lo, hi, target: parsed.cleanTarget, rests: parsed.rests });
+    }
+
+    if (matched.length === 0) return null;
+
+    const targets = Array(6).fill(null);
+    const rests = Array(6).fill(null);
+    let week0Target = null;
+    let week0Rests = null;
+
+    matched.forEach(seg => {
+        for (let w = seg.lo; w <= seg.hi; w++) {
+            if (w === 0) {
+                week0Target = seg.target;
+                week0Rests = seg.rests;
+            } else if (w >= 1 && w <= 6) {
+                targets[w - 1] = seg.target;
+                rests[w - 1] = [...seg.rests];
+            }
+        }
+    });
+
+    // Riempi eventuali settimane mancanti propagando l'ultima valida (o la prima definita)
+    const firstDefinedIdx = targets.findIndex(t => t !== null);
+    const fallbackTarget = firstDefinedIdx !== -1 ? targets[firstDefinedIdx] : (week0Target || '3x10');
+    const fallbackRests = firstDefinedIdx !== -1 ? rests[firstDefinedIdx] : (week0Rests || []);
+
+    let lastTarget = fallbackTarget;
+    let lastRests = [...fallbackRests];
+    for (let i = 0; i < 6; i++) {
+        if (targets[i] === null) {
+            targets[i] = lastTarget;
+            rests[i] = [...lastRests];
+        } else {
+            lastTarget = targets[i];
+            lastRests = [...rests[i]];
+        }
+    }
+
+    const tempEx = {};
+    applyProgressionAndRestsToExercise(tempEx, targets, rests, {
+        week0Target: week0Target !== null ? week0Target : undefined,
+        week0Rests: week0Rests !== null ? week0Rests : undefined,
+    });
+
+    return {
+        target: targets[0],
+        rests: tempEx.rests || [],
+        progression: tempEx.progression,
+        restsByWeek: tempEx.restsByWeek || null,
+        week0Target: tempEx.week0Target || null,
+        hasWeeklyProg: hasWeeklyVariation(targets, rests) || week0Target !== null,
+    };
+}
+
 function parseExerciseLine(line) {
     let cleaned = line.replace(/^[\-\*•\d\.\)\s]+(?=[A-Za-zÀ-ÿ])/, '').trim();
     if (!cleaned) cleaned = line.trim();
+
+    // 1. Rilevazione prioritaria della sintassi multi-settimana (es. S1-2: 4x6 (2'30") | S3-4: ...)
+    const weekStartMatch = cleaned.match(/^(.*?)(?:\s*[-–—:|]\s*|\s+)((?:sett\.?|settimana|s|w)\s*[0-6](?:\s*[-–—]\s*(?:s|w)?\s*[0-6])?\s*[:\-].+)$/i);
+    if (weekStartMatch && weekStartMatch[1].trim()) {
+        const weekly = parseWeeklyProgressionSpec(weekStartMatch[2].trim());
+        if (weekly) {
+            return {
+                name: weekStartMatch[1].replace(/[-–—:|]+$/, '').trim(),
+                ...weekly,
+            };
+        }
+    }
 
     let name = cleaned;
     let rawTarget = '3x10';
@@ -1423,7 +1902,32 @@ function parseExerciseLine(line) {
     }
 
     const parsed = parseTargetAndRests(rawTarget);
-    return { name, target: parsed.cleanTarget, rests: parsed.rests };
+    return {
+        name,
+        target: parsed.cleanTarget,
+        rests: parsed.rests,
+        progression: Array(6).fill(parsed.cleanTarget),
+        restsByWeek: null,
+        week0Target: null,
+        hasWeeklyProg: false,
+    };
+}
+
+function buildExerciseObjectFromParsed(id, parsed) {
+    const ex = {
+        id,
+        name: parsed.name,
+        progression: Array.isArray(parsed.progression) && parsed.progression.length === 6
+            ? [...parsed.progression]
+            : Array(6).fill(parsed.target || '3x10'),
+    };
+    if (parsed.week0Target) ex.week0Target = parsed.week0Target;
+    if (parsed.restsByWeek && Object.keys(parsed.restsByWeek).length > 0) {
+        ex.restsByWeek = parsed.restsByWeek;
+    } else if (Array.isArray(parsed.rests) && parsed.rests.length > 0) {
+        ex.rests = parsed.rests;
+    }
+    return ex;
 }
 
 function saveBulkExercises() {
@@ -1438,13 +1942,7 @@ function saveBulkExercises() {
 
     lines.forEach((line, index) => {
         const parsed = parseExerciseLine(line);
-        const ex = {
-            id: `e_bulk_${baseTs}_${index}`,
-            name: parsed.name,
-            progression: Array(6).fill(parsed.target)
-        };
-        if (parsed.rests.length > 0) ex.rests = parsed.rests;
-        day.exercises.push(ex);
+        day.exercises.push(buildExerciseObjectFromParsed(`e_bulk_${baseTs}_${index}`, parsed));
     });
 
     document.getElementById('bulk-text').value = '';
@@ -1472,17 +1970,104 @@ function openEditEx(dayId, exId) {
 
     tempEditDayId = dayId;
     tempEditExId = exId;
+    tempEditScope = 'only';
+
     const rawTarget = getRawTargetForWeek(ex, appState.week);
     const parsed = parseTargetAndRests(rawTarget);
+    const initialRests = getRestsForWeek(ex, appState.week);
 
     document.getElementById('edit-ex-name').value = ex.name;
     document.getElementById('edit-ex-target').value = parsed.cleanTarget;
-    document.getElementById('edit-ex-apply-all').checked = false;
     document.getElementById('edit-ex-week-label').textContent = appState.week === 0 ? '0 - Prova' : appState.week;
 
-    const initialRests = (Array.isArray(ex.rests) && ex.rests.length > 0) ? ex.rests : parsed.rests;
+    // Aggiorna etichette pillole scope rapido
+    document.getElementById('edit-scope-only-label').textContent = appState.week === 0 ? 'Solo S0' : `Solo S${appState.week}`;
+    document.getElementById('edit-scope-from-label').textContent = appState.week === 0 ? 'S0 + S1–S6' : `Da S${appState.week} in poi`;
+    document.querySelectorAll('#edit-ex-scope-group [data-edit-scope]').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.editScope === 'only');
+    });
+
+    const baseTargets = [];
+    const baseRests = [];
+    for (let w = 1; w <= 6; w++) {
+        baseTargets.push(parseTargetAndRests(getRawTargetForWeek(ex, w)).cleanTarget);
+        baseRests.push(getRestsForWeek(ex, w));
+    }
+
+    _modalProgDraft.edit = {
+        open: false,
+        touched: false,
+        baseTargets,
+        baseRests,
+        targets: [...baseTargets],
+        rests: baseRests.map(r => [...r]),
+    };
+
     renderRestInputs('edit', initialRests);
+    setProgAccordionOpen('edit', false);
+    updateProgBadge('edit');
     openModal('edit-ex-modal');
+}
+
+function saveEditEx() {
+    const newName = document.getElementById('edit-ex-name').value.trim();
+    const rawTarget = document.getElementById('edit-ex-target').value.trim() || '3x10';
+    if (!newName) return;
+
+    const currentUser = appState.users.find(u => u.id === appState.currentUserId);
+    const day = currentUser?.days.find(d => d.id === tempEditDayId);
+    const ex = day?.exercises.find(e => e.id === tempEditExId);
+    if (!ex) return;
+
+    ex.name = newName;
+
+    const parsed = parseTargetAndRests(rawTarget);
+    const manualRests = collectRestInputs('edit');
+    const finalRests = manualRests.length > 0 ? manualRests : parsed.rests;
+    const draft = _modalProgDraft.edit;
+
+    if (draft && (draft.open || draft.touched)) {
+        const opts = {};
+        if (appState.week === 0) {
+            opts.week0Target = parsed.cleanTarget;
+            opts.week0Rests = finalRests;
+        }
+        applyProgressionAndRestsToExercise(ex, draft.targets, draft.rests, opts);
+    } else {
+        const targets = draft ? [...draft.baseTargets] : Array(6).fill(parsed.cleanTarget);
+        const rests = draft ? draft.baseRests.map(r => [...r]) : Array.from({ length: 6 }, () => []);
+        const opts = {};
+
+        if (tempEditScope === 'all') {
+            for (let i = 0; i < 6; i++) {
+                targets[i] = parsed.cleanTarget;
+                rests[i] = [...finalRests];
+            }
+            opts.clearWeek0 = true;
+        } else if (tempEditScope === 'from') {
+            const startIdx = appState.week === 0 ? 0 : Math.max(0, appState.week - 1);
+            for (let i = startIdx; i < 6; i++) {
+                targets[i] = parsed.cleanTarget;
+                rests[i] = [...finalRests];
+            }
+            if (appState.week === 0) opts.clearWeek0 = true;
+        } else {
+            if (appState.week === 0) {
+                opts.week0Target = parsed.cleanTarget;
+                opts.week0Rests = finalRests;
+            } else {
+                const idx = Math.max(0, appState.week - 1);
+                targets[idx] = parsed.cleanTarget;
+                rests[idx] = [...finalRests];
+            }
+        }
+
+        applyProgressionAndRestsToExercise(ex, targets, rests, opts);
+    }
+
+    saveData();
+    closeModal('edit-ex-modal');
+    renderApp();
 }
 
 function saveEditEx() {
@@ -1593,8 +2178,21 @@ function updateImportPlanPreview() {
                 <span>${escapeHtml(d.name)}</span>
                 <span class="text-[10px] font-bold text-dim ml-auto">${d.exercises.length} es.</span>
             </div>
-            <div class="space-y-1 pl-6">
+            <div class="space-y-1.5 pl-6">
                 ${d.exercises.map(ex => {
+                    if (ex.hasWeeklyProg) {
+                        const groups = summarizeWeeklyProgression(ex);
+                        const w0Pill = ex.week0Target
+                            ? `<span class="import-prog-pill"><strong>S0</strong> ${escapeHtml(ex.week0Target)}</span>`
+                            : '';
+                        return `<div class="text-[11px]">
+                            <div class="font-semibold text-app truncate">${escapeHtml(ex.name)}</div>
+                            <div class="import-prog-list">
+                                ${w0Pill}
+                                ${groups.map(g => `<span class="import-prog-pill"><strong>${escapeHtml(g.label)}</strong> ${escapeHtml(g.text)}</span>`).join('')}
+                            </div>
+                        </div>`;
+                    }
                     const restTag = ex.rests.length ? ` <span class="text-dim">(${escapeHtml(ex.rests.filter(Boolean).join(' / '))})</span>` : '';
                     return `<div class="flex justify-between gap-2 text-[11px]">
                         <span class="text-muted truncate">${escapeHtml(ex.name)}</span>
@@ -1623,15 +2221,9 @@ function executeImportPlan() {
             name: d.name,
             icon: d.icon,
             isOpen: dIdx === 0,
-            exercises: d.exercises.map((ex, eIdx) => {
-                const obj = {
-                    id: `e_imp_${baseTs}_${dIdx}_${eIdx}`,
-                    name: ex.name,
-                    progression: Array(6).fill(ex.target)
-                };
-                if (ex.rests.length > 0) obj.rests = ex.rests;
-                return obj;
-            })
+            exercises: d.exercises.map((ex, eIdx) =>
+                buildExerciseObjectFromParsed(`e_imp_${baseTs}_${dIdx}_${eIdx}`, ex)
+            )
         });
     });
 
@@ -2240,11 +2832,17 @@ function generateReport() {
         day.exercises.forEach(ex => {
             const rawTarget = getRawTargetForWeek(ex, appState.week);
             const parsed = parseTargetAndRests(rawTarget);
-            const rests = (Array.isArray(ex.rests) && ex.rests.length) ? ex.rests : parsed.rests;
+            const rests = getRestsForWeek(ex, appState.week);
             const restNote = rests.filter(Boolean).length ? ` | Rec: ${rests.filter(Boolean).join(' / ')}` : '';
 
             md += `### ${ex.name}\n`;
-            md += `Target: ${parsed.cleanTarget}${restNote}\n`;
+            if (hasExerciseWeeklyProgression(ex)) {
+                const planStr = summarizeWeeklyProgression(ex).map(g => `${g.label}: ${g.text}`).join(' | ');
+                md += `Target (${activeWeekLabel}): ${parsed.cleanTarget}${restNote}\n`;
+                md += `Schema S1-S6: ${planStr}\n`;
+            } else {
+                md += `Target: ${parsed.cleanTarget}${restNote}\n`;
+            }
 
             const reportData = getExerciseReportData(currentUser.id, day.id, ex);
             if (reportData.week0 && reportData.week0.hasAny) {
@@ -2362,6 +2960,11 @@ function setupDelegatedEvents() {
                 case 'open-cloud-settings':
                     switchTab('settings', 'cloud-section');
                     return;
+                case 'prog-fill-forward': {
+                    const pw = parseInt(actionEl.dataset.progWeek, 10);
+                    if (!isNaN(pw)) copyProgFromWeekForward(actionEl.dataset.progPrefix, pw);
+                    return;
+                }
                 default:
                     break;
             }
@@ -2374,8 +2977,15 @@ function setupDelegatedEvents() {
 
     document.addEventListener('input', (e) => {
         const target = e.target;
-        if (target && target.matches && target.matches('input[data-weight-input="1"]')) {
+        if (!target || !target.matches) return;
+        if (target.matches('input[data-weight-input="1"]')) {
             handleWeightInputDebounced(target);
+        } else if (target.matches('input[data-rest-prefix][data-rest-idx]')) {
+            syncTopInputsToProgDraft(target.dataset.restPrefix);
+        } else if (target.matches('input[data-prog-target="1"]')) {
+            handleProgTargetRowInput(target);
+        } else if (target.matches('input[data-prog-rest-idx]')) {
+            handleProgRestRowInput(target);
         }
     });
 

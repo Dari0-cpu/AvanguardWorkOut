@@ -230,7 +230,7 @@
                     <span class="micro-label !mb-0">Cloud Sync Sicuro</span>
                     <span id="cloud-status-badge" class="text-[11px] font-bold text-muted">Locale</span>
                 </div>
-                <p class="text-xs text-muted mb-3 leading-relaxed">Usa la stessa chiave segreta su tutti i dispositivi per sincronizzare via server protetto.</p>
+                <p class="text-xs text-muted mb-3 leading-relaxed">Usa la stessa chiave segreta su tutti i dispositivi per sincronizzare via server protetto (per nuove chiavi consigliati almeno 10 caratteri).</p>
                 <div class="flex gap-2 mb-4">
                     <input type="text" id="cloud-sync-key" class="field font-mono text-sm flex-1" placeholder="es. chiave-segreta-2026">
                     <button onclick="saveCloudKey()" class="btn btn-primary flex-shrink-0">Connetti</button>
@@ -371,7 +371,7 @@
 
     <!-- SINGLE ADD EXERCISE -->
     <div id="single-add-modal" class="fixed inset-0 modal-overlay z-50 hidden flex-col justify-end sm:justify-center p-3 sm:p-4">
-        <div class="modal-card w-full max-w-md mx-auto p-5 max-h-[88vh] overflow-y-auto">
+        <div class="modal-card w-full max-w-lg mx-auto p-5 max-h-[88vh] overflow-y-auto">
             <div class="flex justify-between items-center mb-4">
                 <h3 class="text-base font-extrabold">Nuovo Esercizio</h3>
                 <button onclick="closeModal('single-add-modal')" class="icon-btn !w-8 !h-8">
@@ -380,9 +380,30 @@
             </div>
             <label class="micro-label">Nome</label>
             <input type="text" id="single-ex-name" class="field mb-3" placeholder="es. Panca Piana">
-            <label class="micro-label">Target (blocchi separati da +)</label>
-            <input type="text" id="single-ex-target" oninput="renderRestInputs('single')" class="field mb-3" placeholder="es. 2x4 + 1x6  oppure  3x10+10">
-            <div id="single-ex-rests-container" class="mb-4"></div>
+            <label class="micro-label">Target base (blocchi separati da +)</label>
+            <input type="text" id="single-ex-target" oninput="handleExerciseTargetInput('single')" class="field mb-3" placeholder="es. 2x4 (3') + 1x6 (2')  oppure  3x10+10">
+            <div id="single-ex-rests-container" class="mb-3.5"></div>
+
+            <!-- Accordion Progressione S1-S6 -->
+            <div class="prog-accordion mb-4">
+                <button type="button" id="single-prog-toggle" onclick="toggleProgAccordion('single')" class="prog-accordion-trigger" aria-expanded="false">
+                    <span class="flex items-center gap-2 min-w-0">
+                        <svg class="w-4 h-4 brand-text flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
+                        <span class="truncate">Progressione per settimana (S1–S6)</span>
+                    </span>
+                    <span class="flex items-center gap-1.5 flex-shrink-0">
+                        <span id="single-prog-badge" class="prog-badge">Uniforme</span>
+                        <svg id="single-prog-chevron" class="w-4 h-4 text-dim prog-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                    </span>
+                </button>
+                <div id="single-prog-body" class="prog-accordion-body hidden">
+                    <p class="text-[11px] text-muted mb-2.5 leading-relaxed">
+                        Personalizza serie, blocchi e recuperi settimana per settimana. Usa <strong>Da Sx in poi</strong> per copiare rapidamente sulle settimane successive.
+                    </p>
+                    <div id="single-prog-weeks-list" class="space-y-2"></div>
+                </div>
+            </div>
+
             <button onclick="saveSingleExercise()" class="btn btn-primary w-full">Aggiungi</button>
         </div>
     </div>
@@ -396,8 +417,11 @@
                     <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                 </button>
             </div>
-            <p class="text-xs text-muted mb-3 leading-relaxed">Una riga per esercizio. I recuperi tra parentesi vengono estratti per singolo blocco:<br><code>Panca piana - 2x4 (3') + 1x6 (2')</code></p>
-            <textarea id="bulk-text" rows="7" class="field !font-mono !text-xs mb-4" placeholder="Panca piana - 2x4 (3') + 1x6 (2')&#10;Croci ai cavi - 3x12 (1'30&quot;)&#10;Curl alternato - 3x10+10 (1')"></textarea>
+            <p class="text-xs text-muted mb-3 leading-relaxed">
+                Una riga per esercizio. Supporta recuperi tra parentesi e progressioni per settimana:<br>
+                <code>Panca piana - S1-2: 4x6 (2'30") | S3-4: 2x4 (3') + 2x6 (2') | S5-6: 3x3 (3')</code>
+            </p>
+            <textarea id="bulk-text" rows="7" class="field !font-mono !text-xs mb-4" placeholder="Panca piana - S1-2: 4x6 (2'30&quot;) | S3-4: 2x4 (3') + 2x6 (2') | S5-6: 3x3 (3')&#10;Croci ai cavi - 3x12 (1'30&quot;)&#10;Curl alternato - 3x10+10 (1')"></textarea>
             <button onclick="saveBulkExercises()" class="btn btn-primary w-full">Carica Lista</button>
         </div>
     </div>
@@ -412,9 +436,9 @@
                 </button>
             </div>
             <p class="text-xs text-muted mb-3 leading-relaxed flex-shrink-0">
-                Riconosce automaticamente <strong>giorni</strong>, <strong>icone</strong>, <strong>blocchi</strong> e <strong>recuperi</strong>. I nuovi giorni si aggiungono senza cancellare quelli esistenti.
+                Riconosce automaticamente <strong>giorni</strong>, <strong>icone</strong>, <strong>blocchi</strong>, <strong>recuperi</strong> e <strong>progressioni S1–S6</strong> (es. <code>S1-2: 4x6 (2'30") | S3-4: 2x4 (3') + 2x6 (2')</code>). I nuovi giorni si aggiungono senza cancellare quelli esistenti.
             </p>
-            <textarea id="import-plan-text" rows="7" oninput="updateImportPlanPreview()" class="field !font-mono !text-xs mb-3 flex-shrink-0" placeholder="Giorno 1 - Petto e Bicipiti&#10;Panca piana - 2x4 (3') + 1x6 (2')&#10;Spinte manubri - 3x8 (2')&#10;&#10;Giorno 2 - Gambe&#10;Squat - 4x6 (3')&#10;Leg press - 3x10 (2')"></textarea>
+            <textarea id="import-plan-text" rows="7" oninput="updateImportPlanPreview()" class="field !font-mono !text-xs mb-3 flex-shrink-0" placeholder="Giorno 1 - Petto e Bicipiti&#10;Panca piana - S1-2: 4x6 (2'30&quot;) | S3-4: 2x4 (3') + 2x6 (2') | S5-6: 3x3 (3')&#10;Spinte manubri - 3x8 (2')&#10;&#10;Giorno 2 - Gambe&#10;Squat - 4x6 (3')&#10;Leg press - 3x10 (2')"></textarea>
             <div id="import-plan-preview" class="scroll-area flex-1 bg-surface-2 border border-app rounded-xl p-3 text-xs mb-4">
                 <p class="text-dim italic text-center py-4">Incolla la scheda sopra per vedere l'anteprima...</p>
             </div>
@@ -424,7 +448,7 @@
 
     <!-- EDIT EXERCISE -->
     <div id="edit-ex-modal" class="fixed inset-0 modal-overlay z-50 hidden flex-col justify-end sm:justify-center p-3 sm:p-4">
-        <div class="modal-card w-full max-w-md mx-auto p-5 max-h-[88vh] overflow-y-auto">
+        <div class="modal-card w-full max-w-lg mx-auto p-5 max-h-[88vh] overflow-y-auto">
             <div class="flex justify-between items-center mb-4">
                 <h3 class="text-base font-extrabold">Modifica Esercizio</h3>
                 <button onclick="closeModal('edit-ex-modal')" class="icon-btn !w-8 !h-8">
@@ -434,12 +458,45 @@
             <label class="micro-label">Nome</label>
             <input type="text" id="edit-ex-name" class="field mb-3">
             <label class="micro-label">Target (settimana <span id="edit-ex-week-label">1</span>)</label>
-            <input type="text" id="edit-ex-target" oninput="renderRestInputs('edit')" class="field mb-3" placeholder="es. 2x4 + 1x6  oppure  3x10+10">
+            <input type="text" id="edit-ex-target" oninput="handleExerciseTargetInput('edit')" class="field mb-3" placeholder="es. 2x4 + 1x6  oppure  3x10+10">
             <div id="edit-ex-rests-container" class="mb-3"></div>
-            <label class="flex items-center gap-2 text-xs text-muted mb-4 cursor-pointer">
-                <input type="checkbox" id="edit-ex-apply-all" class="w-4 h-4 rounded accent-current brand-text">
-                Applica target a tutte le 6 settimane
-            </label>
+
+            <!-- Ambito applicazione rapido -->
+            <div id="edit-ex-scope-wrap" class="mb-3.5">
+                <label class="micro-label">Applica modifica target e recuperi a</label>
+                <div id="edit-ex-scope-group" class="scope-pills">
+                    <button type="button" data-edit-scope="only" onclick="setEditScope('only')" class="scope-pill active">
+                        <span id="edit-scope-only-label">Solo S1</span>
+                    </button>
+                    <button type="button" data-edit-scope="from" onclick="setEditScope('from')" class="scope-pill">
+                        <span id="edit-scope-from-label">Da S1 in poi</span>
+                    </button>
+                    <button type="button" data-edit-scope="all" onclick="setEditScope('all')" class="scope-pill">
+                        <span>Tutte (S1–S6)</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Accordion Progressione S1-S6 -->
+            <div class="prog-accordion mb-4">
+                <button type="button" id="edit-prog-toggle" onclick="toggleProgAccordion('edit')" class="prog-accordion-trigger" aria-expanded="false">
+                    <span class="flex items-center gap-2 min-w-0">
+                        <svg class="w-4 h-4 brand-text flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
+                        <span class="truncate">Progressione per settimana (S1–S6)</span>
+                    </span>
+                    <span class="flex items-center gap-1.5 flex-shrink-0">
+                        <span id="edit-prog-badge" class="prog-badge">Uniforme</span>
+                        <svg id="edit-prog-chevron" class="w-4 h-4 text-dim prog-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                    </span>
+                </button>
+                <div id="edit-prog-body" class="prog-accordion-body hidden">
+                    <p class="text-[11px] text-muted mb-2.5 leading-relaxed">
+                        Modifica ogni settimana singolarmente (target e recuperi per blocco). Con questa sezione aperta vengono salvati direttamente i valori S1–S6 qui sotto.
+                    </p>
+                    <div id="edit-prog-weeks-list" class="space-y-2"></div>
+                </div>
+            </div>
+
             <button onclick="saveEditEx()" class="btn btn-primary w-full">Salva</button>
         </div>
     </div>
