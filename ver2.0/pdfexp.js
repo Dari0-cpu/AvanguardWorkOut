@@ -1,6 +1,6 @@
 /* ====================================================================
    AVANGUARD WORKOUT - PDF EXPORT VETTORIALE (jsPDF)
-   Nitido, leggibile, multi-pagina, S1-S6 + S0 opz. + progressioni B
+   Nitido, leggibile, multi-pagina, S1-S9 configurabili + S0 opz. + progressioni B
    ==================================================================== */
 
 function hexToRgb(hex) {
@@ -50,7 +50,8 @@ function getPdfRestsForWeek(ex, weekNum) {
 function inspectExerciseWeeklySpec(ex) {
     const targets = [];
     const rests = [];
-    for (let w = 1; w <= 6; w++) {
+    const weekCount = typeof getProgramWeekCount === 'function' ? getProgramWeekCount() : 6;
+    for (let w = 1; w <= weekCount; w++) {
         targets.push(parseTargetAndRests(getRawTargetForWeek(ex, w)).cleanTarget);
         rests.push(getPdfRestsForWeek(ex, w).filter(Boolean));
     }
@@ -212,7 +213,7 @@ function downloadPDF() {
             doc.setFillColor(...accentRgb);
             doc.roundedRect(margin, y, 1.8, cardH, 1, 1, 'F');
 
-            // Dati troncati al numero di blocchi + trend multi-blocco (S1-S6) + S0 opzionale
+            // Dati troncati al numero di blocchi + trend multi-blocco (S1-SN) + S0 opzionale
             const reportData = getExerciseReportData(currentUser.id, day.id, ex);
             const trendLabel = pdfSafeText(reportData.trend.pdfLabel);
 
@@ -260,7 +261,7 @@ function downloadPDF() {
             doc.setTextColor(110, 116, 128);
             doc.text(pdfSafeText(`${targetPrefix}: ${parsed.cleanTarget}${restStr}`), margin + 5.5, y + 11.2, { maxWidth: titleMaxW });
 
-            // Griglia 6 settimane S1..S6 (+ colonna smorzata S0 solo se presente)
+            // Griglia S1..S-N configurate (+ colonna smorzata S0 solo se presente)
             const gridX = margin + 5;
             const gridY = y + 14.5;
             const gap = 2;
@@ -269,11 +270,12 @@ function downloadPDF() {
             const hasS0 = !!(reportData.week0 && reportData.week0.hasAny);
 
             let s1StartX = gridX;
-            let colW = (totalGridW - gap * 5) / 6;
+            const weekCount = reportData.weeks.length;
+            let colW = (totalGridW - gap * (weekCount - 1)) / weekCount;
 
             if (hasS0) {
                 const s0W = 20;
-                colW = (totalGridW - s0W - gap * 6) / 6;
+                colW = (totalGridW - s0W - gap * weekCount) / weekCount;
                 s1StartX = gridX + s0W + gap;
 
                 // Box riferimento S0 smorzato
@@ -302,7 +304,7 @@ function downloadPDF() {
                 doc.text(s0Weight.text, gridX + s0W / 2, gridY + (hasWeeklyProg ? 16.5 : 12), { align: 'center' });
             }
 
-            for (let w = 1; w <= 6; w++) {
+            for (let w = 1; w <= weekCount; w++) {
                 const bx = s1StartX + (w - 1) * (colW + gap);
                 const isCurrent = (w === appState.week);
 

@@ -1,5 +1,5 @@
-// Service Worker v10 - Offline Ready + Esclusione /api/ (Feature D: Note Esercizi)
-const CACHE_NAME = 'avanguard-cache-v10';
+// Service Worker v11 - Cache aggiornata per ciclo settimane configurabile
+const CACHE_NAME = 'avanguard-cache-v12';
 
 const CORE_ASSETS = [
     './',

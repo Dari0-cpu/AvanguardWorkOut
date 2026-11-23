@@ -89,10 +89,14 @@ function getDayIconSvg(day) {
 // ============================================================
 //  STATO APPLICATIVO (100% retrocompatibile + updatedAt opzionale)
 // ============================================================
+const DEFAULT_PROGRAM_WEEKS = 6;
+const MAX_PROGRAM_WEEKS = 9;
+
 let appState = {
     users: [],
     currentUserId: null,
     week: 1,
+    totalWeeks: DEFAULT_PROGRAM_WEEKS,
     logs: {},
     bodyWeight: {},
     bodyWeightGoal: {},
@@ -102,6 +106,84 @@ let appState = {
     carried: {},
     updatedAt: 0,
 };
+
+// Numero di settimane del ciclo: preferenza opzionale retrocompatibile.
+// I vecchi backup/cloud state senza totalWeeks restano automaticamente a 6.
+function getProgramWeekCount() {
+    const value = Number(appState.totalWeeks);
+    if (!Number.isInteger(value)) return DEFAULT_PROGRAM_WEEKS;
+    return Math.max(DEFAULT_PROGRAM_WEEKS, Math.min(MAX_PROGRAM_WEEKS, value));
+}
+
+function renderProgramWeeksSetting() {
+    const count = getProgramWeekCount();
+    const countEl = document.getElementById('program-weeks-count');
+    const addBtn = document.getElementById('add-program-week-btn');
+    const removeBtn = document.getElementById('remove-program-week-btn');
+    const noteEl = document.getElementById('program-weeks-note');
+
+    if (countEl) countEl.textContent = `${count} / ${MAX_PROGRAM_WEEKS}`;
+    if (addBtn) {
+        const atLimit = count >= MAX_PROGRAM_WEEKS;
+        addBtn.disabled = atLimit;
+        addBtn.textContent = atLimit ? 'Massimo raggiunto' : 'Aggiungi 1 settimana';
+        addBtn.setAttribute('aria-label', atLimit ? 'Hai già raggiunto 9 settimane' : `Estendi il ciclo a ${count + 1} settimane`);
+    }
+    if (removeBtn) {
+        const atMinimum = count <= DEFAULT_PROGRAM_WEEKS;
+        removeBtn.disabled = atMinimum;
+        removeBtn.textContent = atMinimum ? 'Minimo raggiunto' : 'Rimuovi 1 settimana';
+        removeBtn.setAttribute('aria-label', atMinimum ? 'Il ciclo non può scendere sotto 6 settimane' : `Riduci il ciclo a ${count - 1} settimane`);
+    }
+    if (noteEl) {
+        const limitMessage = count >= MAX_PROGRAM_WEEKS
+            ? ' Hai raggiunto il limite massimo di 9 settimane.'
+            : ` Il ciclo attuale è di ${count} settimane.`;
+        noteEl.textContent = `Le settimane aggiunte riprendono inizialmente target e recuperi dell’ultima settimana; puoi personalizzarli nella progressione dell’esercizio.${limitMessage} Riducendo il ciclo, le settimane oltre il limite vengono solo nascoste: progressioni, carichi e pesi restano salvati e ricompaiono se estendi di nuovo il ciclo.`;
+    }
+
+    const rangeLabel = `S1–S${count}`;
+    ['single-prog-title', 'edit-prog-title'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = `Progressione per settimana (${rangeLabel})`;
+    });
+    const allLabel = document.getElementById('edit-scope-all-label');
+    if (allLabel) allLabel.textContent = `Tutte (${rangeLabel})`;
+    const editHelp = document.getElementById('edit-prog-help');
+    if (editHelp) editHelp.textContent = `Modifica ogni settimana singolarmente (target e recuperi per blocco). Con questa sezione aperta vengono salvati direttamente i valori ${rangeLabel} qui sotto.`;
+    const week0FromLabel = document.getElementById('edit-scope-from-label');
+    if (week0FromLabel && appState.week === 0) week0FromLabel.textContent = `S0 + ${rangeLabel}`;
+    const weightTrendLabel = document.getElementById('weight-trend-week-count');
+    if (weightTrendLabel) weightTrendLabel.textContent = String(count);
+}
+
+function addProgramWeek() {
+    const current = getProgramWeekCount();
+    if (current >= MAX_PROGRAM_WEEKS) return;
+
+    appState.totalWeeks = current + 1;
+    // Non tocchiamo logs, pesi o progressioni esistenti: la nuova settimana
+    // eredita i valori finali finché non viene personalizzata.
+    saveData();
+    renderApp();
+}
+
+function removeProgramWeek() {
+    const current = getProgramWeekCount();
+    if (current <= DEFAULT_PROGRAM_WEEKS) return;
+
+    const nextCount = current - 1;
+    appState.totalWeeks = nextCount;
+
+    // Riduciamo solo la durata visibile del ciclo: non cancelliamo log,
+    // peso corporeo, progressioni o recuperi delle settimane nascoste.
+    // Se l'utente stava visualizzando una settimana rimossa, lo riportiamo
+    // all'ultima settimana ancora attiva senza alterare il suo storico.
+    if (appState.week > nextCount) appState.week = nextCount;
+
+    saveData();
+    renderApp();
+}
 
 // Stato UI solo in memoria
 const NAV_TABS_ORDER = ['workout', 'weight', 'report', 'settings'];
@@ -193,14 +275,19 @@ function mergeStateSafely(incoming) {
         ? incoming.updatedAt
         : (typeof appState.updatedAt === 'number' ? appState.updatedAt : 0);
 
-    const incomingWeek = (typeof incoming.week === 'number' && Number.isFinite(incoming.week) && incoming.week >= 0 && incoming.week <= 6)
+    const rawWeeks = incoming.totalWeeks;
+    const incomingTotalWeeks = (typeof rawWeeks === 'number' && Number.isInteger(rawWeeks) && rawWeeks >= DEFAULT_PROGRAM_WEEKS && rawWeeks <= MAX_PROGRAM_WEEKS)
+        ? rawWeeks
+        : getProgramWeekCount();
+    const currentWeek = (typeof incoming.week === 'number' && Number.isFinite(incoming.week) && incoming.week >= 0 && incoming.week <= incomingTotalWeeks)
         ? incoming.week
-        : appState.week;
+        : Math.min(appState.week, incomingTotalWeeks);
 
     appState = {
         ...appState,
         ...incoming,
-        week: incomingWeek,
+        week: currentWeek,
+        totalWeeks: incomingTotalWeeks,
         users: Array.isArray(incoming.users) ? incoming.users : (appState.users || []),
         logs: (incoming.logs && typeof incoming.logs === 'object' && !Array.isArray(incoming.logs)) ? incoming.logs : (appState.logs || {}),
         bodyWeight: (incoming.bodyWeight && typeof incoming.bodyWeight === 'object' && !Array.isArray(incoming.bodyWeight)) ? incoming.bodyWeight : (appState.bodyWeight || {}),
@@ -848,6 +935,7 @@ function playTimerDoneFeedback() {
 //  RENDER PRINCIPALE
 // ============================================================
 function renderApp() {
+    renderProgramWeeksSetting();
     const weekDisplay = document.getElementById('week-display');
     weekDisplay.innerText = appState.week;
     weekDisplay.closest('.week-pill')?.classList.toggle('is-week0', appState.week === 0);
@@ -1445,7 +1533,7 @@ function deleteUser() {
 }
 
 // ============================================================
-//  ESERCIZI: add, bulk, edit, delete + PROGRESSIONI S1-S6 & RECUPERI
+//  ESERCIZI: add, bulk, edit, delete + PROGRESSIONI S1-S9 CONFIGURABILI & RECUPERI
 // ============================================================
 function getRestsForWeek(ex, weekNum) {
     if (!ex) return [];
@@ -1456,14 +1544,20 @@ function getRestsForWeek(ex, weekNum) {
 
     let chosen = null;
     if (Array.isArray(ex.restsByWeek)) {
-        const idx = w === 0 ? 0 : Math.max(0, Math.min(5, w - 1));
-        if (Array.isArray(ex.restsByWeek[idx])) chosen = ex.restsByWeek[idx];
+        const idx = w === 0 ? 0 : Math.min(w - 1, ex.restsByWeek.length - 1);
+        if (idx >= 0 && Array.isArray(ex.restsByWeek[idx])) chosen = ex.restsByWeek[idx];
     } else if (ex.restsByWeek && typeof ex.restsByWeek === 'object') {
-        const key = String(w);
-        if (Object.prototype.hasOwnProperty.call(ex.restsByWeek, key) && Array.isArray(ex.restsByWeek[key])) {
-            chosen = ex.restsByWeek[key];
-        } else if (w === 0 && Object.prototype.hasOwnProperty.call(ex.restsByWeek, '1') && Array.isArray(ex.restsByWeek['1'])) {
-            chosen = ex.restsByWeek['1'];
+        // Per S7-S9 eredita il recupero dell'ultima settimana con un valore
+        // esplicito, invece di perdere un recupero salvato in S6.
+        const candidates = Object.keys(ex.restsByWeek)
+            .map(key => Number(key))
+            .filter(key => Number.isInteger(key) && key >= 1 && key <= w)
+            .sort((a, b) => b - a);
+        const selectedWeek = w === 0
+            ? (Array.isArray(ex.restsByWeek['0']) ? 0 : (Array.isArray(ex.restsByWeek['1']) ? 1 : null))
+            : candidates.find(key => Array.isArray(ex.restsByWeek[String(key)]));
+        if (selectedWeek !== null && selectedWeek !== undefined && Array.isArray(ex.restsByWeek[String(selectedWeek)])) {
+            chosen = ex.restsByWeek[String(selectedWeek)];
         }
     }
 
@@ -1489,13 +1583,13 @@ function normalizeRestsForTarget(targetStr, restsArr) {
     return out.some(v => v !== '') ? out : [];
 }
 
-function hasWeeklyVariation(targets6, rests6) {
-    if (!Array.isArray(targets6) || targets6.length < 6) return false;
-    const baseT = String(targets6[0] || '').trim();
-    const baseR = JSON.stringify(rests6?.[0] || []);
-    for (let i = 1; i < 6; i++) {
-        if (String(targets6[i] || '').trim() !== baseT) return true;
-        if (JSON.stringify(rests6?.[i] || []) !== baseR) return true;
+function hasWeeklyVariation(targets, rests) {
+    if (!Array.isArray(targets) || targets.length < 2) return false;
+    const baseT = String(targets[0] || '').trim();
+    const baseR = JSON.stringify(rests?.[0] || []);
+    for (let i = 1; i < targets.length; i++) {
+        if (String(targets[i] || '').trim() !== baseT) return true;
+        if (JSON.stringify(rests?.[i] || []) !== baseR) return true;
     }
     return false;
 }
@@ -1504,7 +1598,7 @@ function hasExerciseWeeklyProgression(ex) {
     if (!ex) return false;
     const targets = [];
     const rests = [];
-    for (let w = 1; w <= 6; w++) {
+    for (let w = 1; w <= getProgramWeekCount(); w++) {
         targets.push(parseTargetAndRests(getRawTargetForWeek(ex, w)).cleanTarget);
         rests.push(getRestsForWeek(ex, w));
     }
@@ -1519,7 +1613,7 @@ function formatTargetWithRests(cleanTarget, restsArr) {
 
 function summarizeWeeklyProgression(exOrParsed) {
     const entries = [];
-    for (let w = 1; w <= 6; w++) {
+    for (let w = 1; w <= getProgramWeekCount(); w++) {
         let cleanTarget, rests;
         if (Array.isArray(exOrParsed.progression)) {
             const raw = exOrParsed.progression[w - 1] || exOrParsed.progression[0] || '3x10';
@@ -1543,14 +1637,16 @@ function summarizeWeeklyProgression(exOrParsed) {
     }));
 }
 
-function applyProgressionAndRestsToExercise(ex, targets6, rests6, { week0Target = undefined, week0Rests = undefined, clearWeek0 = false } = {}) {
+function applyProgressionAndRestsToExercise(ex, targets, rests, { week0Target = undefined, week0Rests = undefined, clearWeek0 = false } = {}) {
     const cleanTargets = [];
     const cleanRests = [];
+    const weekCount = Math.max(DEFAULT_PROGRAM_WEEKS, getProgramWeekCount(), Array.isArray(targets) ? targets.length : 0);
 
-    for (let i = 0; i < 6; i++) {
-        const parsed = parseTargetAndRests(targets6[i] || targets6[0] || '3x10');
+    for (let i = 0; i < weekCount; i++) {
+        const fallbackTarget = cleanTargets[i - 1] || targets?.[0] || '3x10';
+        const parsed = parseTargetAndRests(targets?.[i] || fallbackTarget);
         cleanTargets.push(parsed.cleanTarget);
-        cleanRests.push(normalizeRestsForTarget(parsed.cleanTarget, rests6?.[i]));
+        cleanRests.push(normalizeRestsForTarget(parsed.cleanTarget, rests?.[i] || rests?.[i - 1]));
     }
 
     ex.progression = cleanTargets;
@@ -1584,7 +1680,7 @@ function applyProgressionAndRestsToExercise(ex, targets6, rests6, { week0Target 
         delete ex.rests;
         const map = {};
         if (finalW0Rests && finalW0Rests.length > 0) map['0'] = finalW0Rests;
-        for (let i = 0; i < 6; i++) {
+        for (let i = 0; i < weekCount; i++) {
             if (cleanRests[i].length > 0) map[String(i + 1)] = cleanRests[i];
         }
         if (Object.keys(map).length > 0) ex.restsByWeek = map;
@@ -1660,13 +1756,13 @@ function renderProgAccordionRows(prefix) {
     if (!draft || !listEl) return;
 
     let html = '';
-    for (let w = 1; w <= 6; w++) {
+    for (let w = 1; w <= draft.targets.length; w++) {
         const idx = w - 1;
         const targetVal = draft.targets[idx] || '3x10';
         const restsVal = draft.rests[idx] || [];
         const isCurrent = (prefix === 'edit' && appState.week === w);
-        const fillBtn = w < 6
-            ? `<button type="button" data-action="prog-fill-forward" data-prog-prefix="${escapeHtml(prefix)}" data-prog-week="${w}" class="prog-fill-btn" title="Copia S${w} su S${w}–S6">Da S${w} in poi</button>`
+        const fillBtn = w < draft.targets.length
+            ? `<button type="button" data-action="prog-fill-forward" data-prog-prefix="${escapeHtml(prefix)}" data-prog-week="${w}" class="prog-fill-btn" title="Copia S${w} fino a S${draft.targets.length}">Da S${w} in poi</button>`
             : '';
 
         html += `
@@ -1724,8 +1820,8 @@ function syncTopInputsToProgDraft(prefix) {
 
     if (prefix === 'single') {
         if (!draft.touched) {
-            draft.targets = Array(6).fill(parsed.cleanTarget);
-            draft.rests = Array.from({ length: 6 }, () => [...finalRests]);
+            draft.targets = Array(getProgramWeekCount()).fill(parsed.cleanTarget);
+            draft.rests = Array.from({ length: getProgramWeekCount() }, () => [...finalRests]);
         }
     } else if (prefix === 'edit') {
         if (!draft.touched) {
@@ -1734,11 +1830,11 @@ function syncTopInputsToProgDraft(prefix) {
             draft.rests = draft.baseRests.map(r => [...r]);
 
             if (tempEditScope === 'all') {
-                draft.targets = Array(6).fill(parsed.cleanTarget);
-                draft.rests = Array.from({ length: 6 }, () => [...finalRests]);
+                draft.targets = Array(draft.baseTargets.length).fill(parsed.cleanTarget);
+                draft.rests = Array.from({ length: draft.baseTargets.length }, () => [...finalRests]);
             } else if (tempEditScope === 'from') {
                 const startIdx = appState.week === 0 ? 0 : Math.max(0, appState.week - 1);
-                for (let i = startIdx; i < 6; i++) {
+                for (let i = startIdx; i < draft.targets.length; i++) {
                     draft.targets[i] = parsed.cleanTarget;
                     draft.rests[i] = [...finalRests];
                 }
@@ -1778,14 +1874,14 @@ function setEditScope(scope) {
 
 function copyProgFromWeekForward(prefix, fromWeek) {
     const draft = _modalProgDraft[prefix];
-    if (!draft || fromWeek < 1 || fromWeek > 6) return;
+    if (!draft || fromWeek < 1 || fromWeek > draft.targets.length) return;
     draft.touched = true;
     const srcIdx = fromWeek - 1;
     const parsed = parseTargetAndRests(draft.targets[srcIdx] || '3x10');
     const cleanT = parsed.cleanTarget;
     const srcRests = normalizeRestsForTarget(cleanT, draft.rests[srcIdx]);
 
-    for (let i = srcIdx; i < 6; i++) {
+    for (let i = srcIdx; i < draft.targets.length; i++) {
         draft.targets[i] = cleanT;
         draft.rests[i] = [...srcRests];
     }
@@ -1801,7 +1897,7 @@ function handleProgTargetRowInput(inputEl) {
     const prefix = inputEl.dataset.progPrefix;
     const w = parseInt(inputEl.dataset.progWeek, 10);
     const draft = _modalProgDraft[prefix];
-    if (!draft || isNaN(w) || w < 1 || w > 6) return;
+    if (!draft || isNaN(w) || w < 1 || w > draft.targets.length) return;
 
     draft.touched = true;
     const rawVal = inputEl.value;
@@ -1833,7 +1929,7 @@ function handleProgRestRowInput(inputEl) {
     const w = parseInt(inputEl.dataset.progWeek, 10);
     const restIdx = parseInt(inputEl.dataset.progRestIdx, 10);
     const draft = _modalProgDraft[prefix];
-    if (!draft || isNaN(w) || isNaN(restIdx) || w < 1 || w > 6) return;
+    if (!draft || isNaN(w) || isNaN(restIdx) || w < 1 || w > draft.targets.length) return;
 
     draft.touched = true;
     const idx = w - 1;
@@ -1855,8 +1951,8 @@ function prepareSingleAdd(dayId) {
     _modalProgDraft.single = {
         open: false,
         touched: false,
-        targets: Array(6).fill('3x10'),
-        rests: Array.from({ length: 6 }, () => []),
+        targets: Array(getProgramWeekCount()).fill('3x10'),
+        rests: Array.from({ length: getProgramWeekCount() }, () => []),
     };
 
     renderRestInputs('single', []);
@@ -1890,8 +1986,8 @@ function saveSingleExercise() {
         const finalRests = manualRests.length > 0 ? manualRests : parsed.rests;
         applyProgressionAndRestsToExercise(
             newEx,
-            Array(6).fill(parsed.cleanTarget),
-            Array.from({ length: 6 }, () => [...finalRests])
+            Array(getProgramWeekCount()).fill(parsed.cleanTarget),
+            Array.from({ length: getProgramWeekCount() }, () => [...finalRests])
         );
     }
 
@@ -1905,7 +2001,7 @@ function parseWeeklyProgressionSpec(rawSpec) {
     const segments = String(rawSpec || '').split(/[|;]/).map(s => s.trim()).filter(Boolean);
     if (segments.length === 0) return null;
 
-    const weekSegRegex = /^(?:sett\.?|settimana|s|w)\s*([0-6])(?:\s*[-–—]\s*(?:s|w)?\s*([0-6]))?\s*[:\-]\s*(.+)$/i;
+    const weekSegRegex = /^(?:sett\.?|settimana|s|w)\s*([0-9])(?:\s*[-–—]\s*(?:s|w)?\s*([0-9]))?\s*[:\-]\s*(.+)$/i;
     const matched = [];
 
     for (const seg of segments) {
@@ -1915,14 +2011,16 @@ function parseWeeklyProgressionSpec(rawSpec) {
         const end = m[2] !== undefined ? parseInt(m[2], 10) : start;
         const lo = Math.min(start, end);
         const hi = Math.max(start, end);
+        if (lo < 0 || hi > getProgramWeekCount()) return null;
         const parsed = parseTargetAndRests(m[3].trim());
         matched.push({ lo, hi, target: parsed.cleanTarget, rests: parsed.rests });
     }
 
     if (matched.length === 0) return null;
 
-    const targets = Array(6).fill(null);
-    const rests = Array(6).fill(null);
+    const weekCount = getProgramWeekCount();
+    const targets = Array(weekCount).fill(null);
+    const rests = Array(weekCount).fill(null);
     let week0Target = null;
     let week0Rests = null;
 
@@ -1931,7 +2029,7 @@ function parseWeeklyProgressionSpec(rawSpec) {
             if (w === 0) {
                 week0Target = seg.target;
                 week0Rests = seg.rests;
-            } else if (w >= 1 && w <= 6) {
+            } else if (w >= 1 && w <= weekCount) {
                 targets[w - 1] = seg.target;
                 rests[w - 1] = [...seg.rests];
             }
@@ -1945,7 +2043,7 @@ function parseWeeklyProgressionSpec(rawSpec) {
 
     let lastTarget = fallbackTarget;
     let lastRests = [...fallbackRests];
-    for (let i = 0; i < 6; i++) {
+    for (let i = 0; i < weekCount; i++) {
         if (targets[i] === null) {
             targets[i] = lastTarget;
             rests[i] = [...lastRests];
@@ -1976,7 +2074,7 @@ function parseExerciseLine(line) {
     if (!cleaned) cleaned = line.trim();
 
     // 1. Rilevazione prioritaria della sintassi multi-settimana (es. S1-2: 4x6 (2'30") | S3-4: ...)
-    const weekStartMatch = cleaned.match(/^(.*?)(?:\s*[-–—:|]\s*|\s+)((?:sett\.?|settimana|s|w)\s*[0-6](?:\s*[-–—]\s*(?:s|w)?\s*[0-6])?\s*[:\-].+)$/i);
+    const weekStartMatch = cleaned.match(/^(.*?)(?:\s*[-–—:|]\s*|\s+)((?:sett\.?|settimana|s|w)\s*[0-9](?:\s*[-–—]\s*(?:s|w)?\s*[0-9])?\s*[:\-].+)$/i);
     if (weekStartMatch && weekStartMatch[1].trim()) {
         const weekly = parseWeeklyProgressionSpec(weekStartMatch[2].trim());
         if (weekly) {
@@ -2010,7 +2108,7 @@ function parseExerciseLine(line) {
         name,
         target: parsed.cleanTarget,
         rests: parsed.rests,
-        progression: Array(6).fill(parsed.cleanTarget),
+        progression: Array(getProgramWeekCount()).fill(parsed.cleanTarget),
         restsByWeek: null,
         week0Target: null,
         hasWeeklyProg: false,
@@ -2018,12 +2116,17 @@ function parseExerciseLine(line) {
 }
 
 function buildExerciseObjectFromParsed(id, parsed) {
+    const fallbackTarget = parsed.target || parsed.progression?.[0] || '3x10';
+    const sourceProgression = Array.isArray(parsed.progression) && parsed.progression.length > 0
+        ? parsed.progression
+        : [fallbackTarget];
+    const progression = Array.from({ length: getProgramWeekCount() }, (_, idx) =>
+        sourceProgression[idx] || sourceProgression[idx - 1] || sourceProgression[sourceProgression.length - 1] || fallbackTarget
+    );
     const ex = {
         id,
         name: parsed.name,
-        progression: Array.isArray(parsed.progression) && parsed.progression.length === 6
-            ? [...parsed.progression]
-            : Array(6).fill(parsed.target || '3x10'),
+        progression,
     };
     if (parsed.week0Target) ex.week0Target = parsed.week0Target;
     if (parsed.restsByWeek && Object.keys(parsed.restsByWeek).length > 0) {
@@ -2089,14 +2192,14 @@ function openEditEx(dayId, exId) {
 
     // Aggiorna etichette pillole scope rapido
     document.getElementById('edit-scope-only-label').textContent = appState.week === 0 ? 'Solo S0' : `Solo S${appState.week}`;
-    document.getElementById('edit-scope-from-label').textContent = appState.week === 0 ? 'S0 + S1–S6' : `Da S${appState.week} in poi`;
+    document.getElementById('edit-scope-from-label').textContent = appState.week === 0 ? `S0 + S1–S${getProgramWeekCount()}` : `Da S${appState.week} in poi`;
     document.querySelectorAll('#edit-ex-scope-group [data-edit-scope]').forEach(btn => {
         btn.classList.toggle('active', btn.dataset.editScope === 'only');
     });
 
     const baseTargets = [];
     const baseRests = [];
-    for (let w = 1; w <= 6; w++) {
+    for (let w = 1; w <= getProgramWeekCount(); w++) {
         baseTargets.push(parseTargetAndRests(getRawTargetForWeek(ex, w)).cleanTarget);
         baseRests.push(getRestsForWeek(ex, w));
     }
@@ -2141,19 +2244,20 @@ function saveEditEx() {
         }
         applyProgressionAndRestsToExercise(ex, draft.targets, draft.rests, opts);
     } else {
-        const targets = draft ? [...draft.baseTargets] : Array(6).fill(parsed.cleanTarget);
-        const rests = draft ? draft.baseRests.map(r => [...r]) : Array.from({ length: 6 }, () => []);
+        const weekCount = draft ? draft.baseTargets.length : getProgramWeekCount();
+        const targets = draft ? [...draft.baseTargets] : Array(weekCount).fill(parsed.cleanTarget);
+        const rests = draft ? draft.baseRests.map(r => [...r]) : Array.from({ length: weekCount }, () => []);
         const opts = {};
 
         if (tempEditScope === 'all') {
-            for (let i = 0; i < 6; i++) {
+            for (let i = 0; i < weekCount; i++) {
                 targets[i] = parsed.cleanTarget;
                 rests[i] = [...finalRests];
             }
             opts.clearWeek0 = true;
         } else if (tempEditScope === 'from') {
             const startIdx = appState.week === 0 ? 0 : Math.max(0, appState.week - 1);
-            for (let i = startIdx; i < 6; i++) {
+            for (let i = startIdx; i < weekCount; i++) {
                 targets[i] = parsed.cleanTarget;
                 rests[i] = [...finalRests];
             }
@@ -2790,7 +2894,7 @@ function toggleUpFlag(logKey) {
 
 function changeWeek(delta) {
     const newWeek = appState.week + delta;
-    if (newWeek >= 0 && newWeek <= 6) {
+    if (newWeek >= 0 && newWeek <= getProgramWeekCount()) {
         _openNoteKeys.clear();
         appState.week = newWeek;
         saveData();
@@ -2799,7 +2903,7 @@ function changeWeek(delta) {
 }
 
 function jumpToWeek(weekNum) {
-    if (weekNum >= 0 && weekNum <= 6) {
+    if (weekNum >= 0 && weekNum <= getProgramWeekCount()) {
         _openNoteKeys.clear();
         appState.week = weekNum;
         saveData();
@@ -2808,7 +2912,7 @@ function jumpToWeek(weekNum) {
 }
 
 // ============================================================
-//  VISTA PESO CORPOREO + OBIETTIVO STELLA SVG (S1–S6 + S0 opz.)
+//  VISTA PESO CORPOREO + OBIETTIVO STELLA SVG (S1–S9 configurabili + S0 opz.)
 // ============================================================
 function getUserWeights() {
     if (!appState.currentUserId) return {};
@@ -2853,7 +2957,7 @@ function renderWeightView() {
 
     let latest = curW;
     if (latest == null) {
-        for (let w = 6; w >= 0; w--) {
+        for (let w = getProgramWeekCount(); w >= 0; w--) {
             if (weights['w' + w] != null) { latest = weights['w' + w]; break; }
         }
     }
@@ -2883,14 +2987,14 @@ function renderWeightView() {
     const w0Val = weights['w0'];
     if (appState.week === 0 || w0Val != null) {
         gridHtml += `
-            <button type="button" data-action="jump-week" data-week="0" class="weight-week-chip week0-chip col-span-3 sm:col-span-6 ${appState.week === 0 ? 'active' : ''}">
+            <button type="button" data-action="jump-week" data-week="0" class="weight-week-chip week0-chip col-span-3 sm:col-span-9 ${appState.week === 0 ? 'active' : ''}">
                 <span class="text-[10.5px] font-bold ${appState.week === 0 ? 'text-amber-500' : 'text-dim'}">SETT 0 · PROVA (RIFERIMENTO)</span>
                 <span class="text-sm font-extrabold tabular-nums ${w0Val != null ? 'text-app' : 'text-dim'}">${w0Val != null ? `${w0Val.toFixed(1)} kg` : '—'}</span>
             </button>
         `;
     }
 
-    for (let w = 1; w <= 6; w++) {
+    for (let w = 1; w <= getProgramWeekCount(); w++) {
         const v = weights['w' + w];
         gridHtml += `
             <button type="button" data-action="jump-week" data-week="${w}" class="weight-week-chip ${w === appState.week ? 'active' : ''}">
@@ -2949,10 +3053,11 @@ function renderWeightChart() {
 
     const hasW0 = typeof data['w0'] === 'number' && !isNaN(data['w0']);
     const startW = hasW0 ? 0 : 1;
-    const stepsCount = hasW0 ? 6 : 5;
+    const totalWeeks = getProgramWeekCount();
+    const stepsCount = hasW0 ? totalWeeks : Math.max(1, totalWeeks - 1);
 
     const points = [];
-    for (let w = startW; w <= 6; w++) {
+    for (let w = startW; w <= totalWeeks; w++) {
         const v = data['w' + w];
         const idx = w - startW;
         const x = padL + 16 + (idx / stepsCount) * (plotW - 32);
@@ -3056,7 +3161,7 @@ function renderWeightChart() {
         `;
     }
 
-    // Curva principale S1–S6
+    // Curva principale S1–S-N
     const mainCoords = recordedMain.map(p => ({ ...p, y: valToY(p.val) }));
     let lineSvg = '';
     if (mainCoords.length >= 2) {
@@ -3068,7 +3173,7 @@ function renderWeightChart() {
         `;
     }
 
-    // Connettore tratteggiato smorzato da S0 (riferimento) al primo punto S1–S6
+    // Connettore tratteggiato smorzato da S0 (riferimento) al primo punto S1–S-N
     let refSvg = '';
     if (refPoint && refPoint.val !== null) {
         const ry = valToY(refPoint.val);
@@ -3186,7 +3291,7 @@ function getExerciseReportData(userId, dayId, ex) {
     const weeks = [];
     const loggedWeeks = [];
 
-    for (let w = 1; w <= 6; w++) {
+    for (let w = 1; w <= getProgramWeekCount(); w++) {
         const entry = buildWeekWeightEntry(userId, dayId, ex, w);
         weeks.push(entry);
         if (entry.nums.some(n => n !== null)) {
@@ -3194,7 +3299,7 @@ function getExerciseReportData(userId, dayId, ex) {
         }
     }
 
-    // Trend calcolato esclusivamente su S1–S6
+    // Trend calcolato sulle settimane del ciclo configurato
     let trend = {
         status: 'none',
         pdfLabel: 'N/D',
@@ -3330,7 +3435,7 @@ function generateReport() {
             if (hasExerciseWeeklyProgression(ex)) {
                 const planStr = summarizeWeeklyProgression(ex).map(g => `${g.label}: ${g.text}`).join(' | ');
                 md += `Target (${activeWeekLabel}): ${parsed.cleanTarget}${restNote}\n`;
-                md += `Schema S1-S6: ${planStr}\n`;
+                md += `Schema S1-S${getProgramWeekCount()}: ${planStr}\n`;
             } else {
                 md += `Target: ${parsed.cleanTarget}${restNote}\n`;
             }
@@ -3445,6 +3550,12 @@ function setupDelegatedEvents() {
                     return;
                 case 'set-theme':
                     setTheme(actionEl.dataset.themeKey);
+                    return;
+                case 'add-program-week':
+                    addProgramWeek();
+                    return;
+                case 'remove-program-week':
+                    removeProgramWeek();
                     return;
                 case 'jump-week': {
                     const w = parseInt(actionEl.dataset.week, 10);

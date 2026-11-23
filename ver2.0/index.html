@@ -123,7 +123,7 @@
             <!-- Grafico andamento -->
             <div class="panel-card p-4">
                 <div class="flex items-center justify-between mb-3">
-                    <span class="micro-label !mb-0">Trend 6 Settimane</span>
+                    <span class="micro-label !mb-0">Trend <span id="weight-trend-week-count">6</span> Settimane</span>
                     <span class="text-[11px] font-semibold text-muted flex items-center gap-1">
                         <svg class="w-3 h-3" viewBox="0 0 24 24" fill="#f59e0b"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
                         Traguardo
@@ -132,10 +132,10 @@
                 <div id="weight-chart-wrap" class="w-full"></div>
             </div>
 
-            <!-- Griglia 6 settimane -->
+            <!-- Griglia settimane configurabili -->
             <div class="panel-card p-4">
                 <span class="micro-label">Storico Settimane (tocca per modificare)</span>
-                <div id="weight-weeks-grid" class="grid grid-cols-3 sm:grid-cols-6 gap-2 mt-1"></div>
+                <div id="weight-weeks-grid" class="grid grid-cols-3 sm:grid-cols-9 gap-2 mt-1"></div>
             </div>
         </section>
 
@@ -205,6 +205,25 @@
                         Nuovo Giorno
                     </button>
                 </div>
+            </div>
+
+            <!-- Durata del ciclo: preferenza salvata nell'oggetto state esistente -->
+            <div class="panel-card p-4">
+                <div class="flex items-center justify-between gap-3">
+                    <div class="min-w-0">
+                        <span class="micro-label">Durata del ciclo</span>
+                        <p class="text-xs text-muted mt-1 leading-relaxed">Il ciclo parte da 6 settimane. Puoi estenderlo gradualmente fino a 9.</p>
+                    </div>
+                    <div class="flex-shrink-0 text-right">
+                        <div id="program-weeks-count" class="text-lg font-black tabular-nums brand-text">6 / 9</div>
+                        <div class="text-[10px] font-bold text-dim uppercase tracking-wider">settimane</div>
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-2 mt-3">
+                    <button type="button" id="add-program-week-btn" data-action="add-program-week" class="btn btn-outline w-full">Aggiungi 1 settimana</button>
+                    <button type="button" id="remove-program-week-btn" data-action="remove-program-week" class="btn btn-ghost w-full" disabled>Minimo raggiunto</button>
+                </div>
+                <p id="program-weeks-note" class="text-[11px] text-muted mt-2 leading-relaxed">Le settimane aggiunte riprendono inizialmente i valori dell'ultima settimana. Le settimane nascoste non vengono cancellate.</p>
             </div>
 
             <!-- Stile e Temi -->
@@ -408,12 +427,12 @@
             <input type="text" id="single-ex-target" oninput="handleExerciseTargetInput('single')" class="field mb-3" placeholder="es. 2x4 (3') + 1x6 (2')  oppure  3x10+10">
             <div id="single-ex-rests-container" class="mb-3.5"></div>
 
-            <!-- Accordion Progressione S1-S6 -->
+            <!-- Accordion Progressione settimanale -->
             <div class="prog-accordion mb-4">
                 <button type="button" id="single-prog-toggle" onclick="toggleProgAccordion('single')" class="prog-accordion-trigger" aria-expanded="false">
                     <span class="flex items-center gap-2 min-w-0">
                         <svg class="w-4 h-4 brand-text flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
-                        <span class="truncate">Progressione per settimana (S1–S6)</span>
+                        <span id="single-prog-title" class="truncate">Progressione per settimana (S1–S6)</span>
                     </span>
                     <span class="flex items-center gap-1.5 flex-shrink-0">
                         <span id="single-prog-badge" class="prog-badge">Uniforme</span>
@@ -442,8 +461,8 @@
                 </button>
             </div>
             <p class="text-xs text-muted mb-3 leading-relaxed">
-                Una riga per esercizio. Supporta recuperi tra parentesi e progressioni per settimana:<br>
-                <code>Panca piana - S1-2: 4x6 (2'30") | S3-4: 2x4 (3') + 2x6 (2') | S5-6: 3x3 (3')</code>
+                Una riga per esercizio. Supporta recuperi tra parentesi e progressioni per settimana (fino alla durata impostata):<br>
+                <code>Panca piana - S1-2: 4x6 (2'30") | S3-4: 2x4 (3') + 2x6 (2') | S5-6: 3x3 (3')</code><br>Con ciclo esteso puoi indicare anche le settimane S7–S9.
             </p>
             <textarea id="bulk-text" rows="7" class="field !font-mono !text-xs mb-4" placeholder="Panca piana - S1-2: 4x6 (2'30&quot;) | S3-4: 2x4 (3') + 2x6 (2') | S5-6: 3x3 (3')&#10;Croci ai cavi - 3x12 (1'30&quot;)&#10;Curl alternato - 3x10+10 (1')"></textarea>
             <button onclick="saveBulkExercises()" class="btn btn-primary w-full">Carica Lista</button>
@@ -475,7 +494,7 @@
             <!-- PANNELLO 1: TESTO -->
             <div id="import-tab-text" class="flex-shrink-0">
                 <p class="text-xs text-muted mb-3 leading-relaxed">
-                    Riconosce automaticamente <strong>giorni</strong>, <strong>icone</strong>, <strong>blocchi</strong>, <strong>recuperi</strong> e <strong>progressioni S1–S6</strong> (es. <code>S1-2: 4x6 (2'30") | S3-4: 2x4 (3') + 2x6 (2')</code>). I nuovi giorni si aggiungono senza cancellare quelli esistenti.
+                    Riconosce automaticamente <strong>giorni</strong>, <strong>icone</strong>, <strong>blocchi</strong>, <strong>recuperi</strong> e progressioni settimanali fino alla durata impostata (massimo S9). Esempio: <code>S1-2: 4x6 (2'30") | S3-4: 2x4 (3') + 2x6 (2')</code>. Le settimane non specificate ereditano l’ultimo valore valido. I nuovi giorni si aggiungono senza cancellare quelli esistenti.
                 </p>
                 <textarea id="import-plan-text" rows="6" oninput="updateImportPlanPreview()" class="field !font-mono !text-xs mb-3" placeholder="Giorno 1 - Petto e Bicipiti&#10;Panca piana - S1-2: 4x6 (2'30&quot;) | S3-4: 2x4 (3') + 2x6 (2') | S5-6: 3x3 (3')&#10;Spinte manubri - 3x8 (2')&#10;&#10;Giorno 2 - Gambe&#10;Squat - 4x6 (3')&#10;Leg press - 3x10 (2')"></textarea>
             </div>
@@ -483,7 +502,7 @@
             <!-- PANNELLO 2: PDF AI -->
             <div id="import-tab-pdf" class="hidden flex-shrink-0 mb-3 space-y-2.5">
                 <p class="text-xs text-muted leading-relaxed">
-                    Carica il PDF della tua scheda (max <strong>3 MB</strong>). L'AI estrae giorni, icone, progressioni <strong>S1–S6</strong> (e S0), recuperi e note tecniche. Prima di importare vedrai l'anteprima qui sotto.
+                    Carica il PDF della tua scheda (max <strong>3 MB</strong>). L'AI estrae giorni, icone, recuperi, note tecniche e progressioni fino a <strong>S6</strong> (oltre all'eventuale S0). Se il ciclo è esteso, S7–S9 vengono inizializzate copiando target e recuperi di S6: potrai poi personalizzarle. Prima di importare vedrai l'anteprima qui sotto.
                 </p>
 
                 <input type="file" id="import-pdf-file" accept=".pdf,application/pdf" class="hidden" onchange="handlePdfFileSelected(event)">
@@ -518,7 +537,7 @@
                     <span class="ai-spinner" aria-hidden="true"></span>
                     <div class="min-w-0">
                         <div id="pdf-loading-title" class="text-xs font-extrabold text-app">Analisi PDF con Gemini AI in corso...</div>
-                        <div class="text-[11px] text-muted mt-0.5">Estrazione giorni, blocchi, recuperi e progressioni S1–S6 (10–25 sec).</div>
+                        <div class="text-[11px] text-muted mt-0.5">Estrazione fino a S6; le eventuali settimane successive ereditano S6.</div>
                     </div>
                 </div>
 
@@ -569,17 +588,17 @@
                         <span id="edit-scope-from-label">Da S1 in poi</span>
                     </button>
                     <button type="button" data-edit-scope="all" onclick="setEditScope('all')" class="scope-pill">
-                        <span>Tutte (S1–S6)</span>
+                        <span id="edit-scope-all-label">Tutte (S1–S6)</span>
                     </button>
                 </div>
             </div>
 
-            <!-- Accordion Progressione S1-S6 -->
+            <!-- Accordion Progressione settimanale -->
             <div class="prog-accordion mb-4">
                 <button type="button" id="edit-prog-toggle" onclick="toggleProgAccordion('edit')" class="prog-accordion-trigger" aria-expanded="false">
                     <span class="flex items-center gap-2 min-w-0">
                         <svg class="w-4 h-4 brand-text flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
-                        <span class="truncate">Progressione per settimana (S1–S6)</span>
+                        <span id="edit-prog-title" class="truncate">Progressione per settimana (S1–S6)</span>
                     </span>
                     <span class="flex items-center gap-1.5 flex-shrink-0">
                         <span id="edit-prog-badge" class="prog-badge">Uniforme</span>
@@ -587,8 +606,8 @@
                     </span>
                 </button>
                 <div id="edit-prog-body" class="prog-accordion-body hidden">
-                    <p class="text-[11px] text-muted mb-2.5 leading-relaxed">
-                        Modifica ogni settimana singolarmente (target e recuperi per blocco). Con questa sezione aperta vengono salvati direttamente i valori S1–S6 qui sotto.
+                    <p id="edit-prog-help" class="text-[11px] text-muted mb-2.5 leading-relaxed">
+                        Modifica ogni settimana singolarmente (target e recuperi per blocco).
                     </p>
                     <div id="edit-prog-weeks-list" class="space-y-2"></div>
                 </div>
