@@ -1,5 +1,5 @@
 /* ====================================================================
-   AVANGUARD WORKOUT - APP LOGIC v4.1 (Offline-Safe Sync + Hardening)
+   AVANGUARD WORKOUT - APP LOGIC v4.2 (Offline-Safe Sync + Week 0)
    100% retrocompatibile con gym_tracker_pro_v6 e Supabase gym_sync
    ==================================================================== */
 
@@ -44,6 +44,7 @@ const UI_SVG = {
     cloud:   `<svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/></svg>`,
     cloudUp: `<svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14.9A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.24"/><path d="M12 12v9"/><path d="m16 16-4-4-4 4"/></svg>`,
     cloudOff:`<svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m2 2 20 20"/><path d="M5.78 5.78A7 7 0 0 0 9 19h8.5a4.5 4.5 0 0 0 1.31-.19"/><path d="M21.16 15.5A4.5 4.5 0 0 0 17.5 10h-1.79A7 7 0 0 0 9.4 5.14"/></svg>`,
+    compass: `<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/></svg>`,
 };
 
 // ============================================================
@@ -150,7 +151,6 @@ async function init() {
     applyTheme();
     setupDelegatedEvents();
 
-    // Render immediato da cache locale (zero attesa offline)
     renderApp();
 
     if (CLOUD_ENABLED && appState.syncKey) {
@@ -173,9 +173,14 @@ function mergeStateSafely(incoming) {
         ? incoming.updatedAt
         : (typeof appState.updatedAt === 'number' ? appState.updatedAt : 0);
 
+    const incomingWeek = (typeof incoming.week === 'number' && Number.isFinite(incoming.week) && incoming.week >= 0 && incoming.week <= 6)
+        ? incoming.week
+        : appState.week;
+
     appState = {
         ...appState,
         ...incoming,
+        week: incomingWeek,
         users: Array.isArray(incoming.users) ? incoming.users : (appState.users || []),
         logs: (incoming.logs && typeof incoming.logs === 'object' && !Array.isArray(incoming.logs)) ? incoming.logs : (appState.logs || {}),
         bodyWeight: (incoming.bodyWeight && typeof incoming.bodyWeight === 'object' && !Array.isArray(incoming.bodyWeight)) ? incoming.bodyWeight : (appState.bodyWeight || {}),
@@ -261,7 +266,6 @@ async function flushCloudSync({ keepalive = false } = {}) {
         return { ok: false, offline: true };
     }
 
-    // Serializzazione: se una richiesta è già in corso, accoda un solo giro successivo
     if (_cloudSyncInFlight) {
         _cloudSyncQueued = true;
         return { ok: true, queued: true };
@@ -285,7 +289,6 @@ async function flushCloudSync({ keepalive = false } = {}) {
                 },
                 body: payloadStr,
             };
-            // keepalive ha limite ~64 KB nei browser
             if (keepalive && payloadStr.length < 60000) {
                 fetchOpts.keepalive = true;
             }
@@ -298,7 +301,6 @@ async function flushCloudSync({ keepalive = false } = {}) {
                 break;
             }
 
-            // Pulisce il flag dirty solo se non ci sono state modifiche locali più recenti durante la POST
             if ((Number(appState.updatedAt) || 0) <= sentUpdatedAt && !_cloudSyncQueued) {
                 setLocalDirty(false);
             }
@@ -356,7 +358,6 @@ async function syncWithCloud({ isManualConnect = false } = {}) {
     const localEmpty = !hasMeaningfulLocalData(appState);
     const localTs = Number(appState.updatedAt) || 0;
 
-    // Nessuno stato sul cloud (nuova chiave): se abbiamo dati locali o dirty, carichiamoli
     if (!cloudState) {
         if (!localEmpty || dirty) {
             if (!appState.updatedAt) appState.updatedAt = Date.now();
@@ -371,13 +372,11 @@ async function syncWithCloud({ isManualConnect = false } = {}) {
 
     const cloudTs = Number(cloudState.updatedAt) || 0;
 
-    // Locale modificato offline e più recente del cloud -> pusha locale senza sovrascriverlo!
     if (dirty && localTs > cloudTs && !(isManualConnect && localEmpty)) {
         const pushRes = await flushCloudSync();
         return { ok: pushRes.ok, action: 'pushed' };
     }
 
-    // Cloud più recente oppure locale vuoto/pulito -> applica cloud
     if (cloudTs > localTs || localEmpty || !dirty) {
         mergeStateSafely(cloudState);
         if (!appState.syncKey && activeSyncKey) appState.syncKey = activeSyncKey;
@@ -805,7 +804,9 @@ function playTimerDoneFeedback() {
 //  RENDER PRINCIPALE
 // ============================================================
 function renderApp() {
-    document.getElementById('week-display').innerText = appState.week;
+    const weekDisplay = document.getElementById('week-display');
+    weekDisplay.innerText = appState.week;
+    weekDisplay.closest('.week-pill')?.classList.toggle('is-week0', appState.week === 0);
 
     const userSelector = document.getElementById('user-selector');
     userSelector.innerHTML = '';
@@ -892,7 +893,19 @@ function renderWorkoutView(currentUser) {
         });
     }
 
+    // Banner dedicato SOLO in Settimana 0 (Prova / Calibrazione)
+    const week0BannerHtml = appState.week === 0
+        ? `<div class="week0-banner" role="note">
+               <span class="week0-banner-icon">${UI_SVG.compass}</span>
+               <p class="week0-banner-text">
+                   <strong>Settimana 0 (Prova)</strong> — Oggi vai leggero, concentra la tecnica e cerca di capire i carichi giusti.
+               </p>
+           </div>`
+        : '';
+
     container.innerHTML = `
+        ${week0BannerHtml}
+
         <div class="day-hero">
             <div class="flex items-center justify-between gap-3">
                 <div class="flex items-center gap-3 min-w-0">
@@ -946,7 +959,7 @@ function renderExerciseCard(currentUser, day, ex) {
     const restsArray = (Array.isArray(ex.rests) && ex.rests.length > 0) ? ex.rests : parsedTarget.rests;
 
     let upBadgeHtml = '';
-    if (appState.week > 1) {
+    if (appState.week >= 1) {
         const prevLog = appState.logs[`w${appState.week - 1}_${currentUser.id}_${day.id}_${ex.id}`];
         if (prevLog && prevLog.up) {
             upBadgeHtml = `<div class="up-badge">${UI_SVG.flame} Aumenta il carico</div>`;
@@ -955,10 +968,12 @@ function renderExerciseCard(currentUser, day, ex) {
 
     let carriedNow = false;
     let prevWeights = null;
-    if (appState.week > 1) {
+    if (appState.week >= 1) {
         const prevLog = appState.logs[`w${appState.week - 1}_${currentUser.id}_${day.id}_${ex.id}`];
-        if (prevLog && prevLog.weights && prevLog.weights.some(v => v !== '' && v !== undefined && v !== null)) {
-            prevWeights = prevLog.weights;
+        let pArr = prevLog ? (Array.isArray(prevLog.weights) ? prevLog.weights : []) : [];
+        if (prevLog && prevLog.weight && pArr.length === 0) pArr = [prevLog.weight];
+        if (pArr.some(v => v !== '' && v !== undefined && v !== null)) {
+            prevWeights = pArr;
         }
     }
 
@@ -1022,8 +1037,9 @@ function renderExerciseCardInternal(dayId, ex, logKey, log, blocks, restsArray, 
         `;
     }).join('');
 
+    const carriedLabel = appState.week === 1 ? 'da S0' : `S${appState.week - 1}`;
     const carriedBadge = isCarried
-        ? `<span class="carried-badge" data-carried-for="${escapeHtml(logKey)}">${UI_SVG.arrowUp} S${appState.week - 1}</span>`
+        ? `<span class="carried-badge" data-carried-for="${escapeHtml(logKey)}">${UI_SVG.arrowUp} ${carriedLabel}</span>`
         : '';
 
     return `
@@ -1462,7 +1478,7 @@ function openEditEx(dayId, exId) {
     document.getElementById('edit-ex-name').value = ex.name;
     document.getElementById('edit-ex-target').value = parsed.cleanTarget;
     document.getElementById('edit-ex-apply-all').checked = false;
-    document.getElementById('edit-ex-week-label').textContent = appState.week;
+    document.getElementById('edit-ex-week-label').textContent = appState.week === 0 ? '0 - Prova' : appState.week;
 
     const initialRests = (Array.isArray(ex.rests) && ex.rests.length > 0) ? ex.rests : parsed.rests;
     renderRestInputs('edit', initialRests);
@@ -1487,6 +1503,10 @@ function saveEditEx() {
 
     if (applyAll) {
         ex.progression = Array(6).fill(parsed.cleanTarget);
+        delete ex.week0Target;
+    } else if (appState.week === 0) {
+        // Settimana 0: salva il target opzionale dedicato senza toccare S1..S6
+        ex.week0Target = parsed.cleanTarget;
     } else {
         if (!ex.progression || ex.progression.length < 6) {
             ex.progression = Array(6).fill(ex.progression?.[0] || parsed.cleanTarget);
@@ -1623,7 +1643,7 @@ function executeImportPlan() {
 }
 
 // ============================================================
-//  LOGS & SETTIMANE (input debounced 500ms + change/blur)
+//  LOGS & SETTIMANE (0..6, input debounced 500ms + change/blur)
 // ============================================================
 function toggleDone(logKey, isChecked) {
     if (!appState.logs[logKey]) appState.logs[logKey] = { weights: [] };
@@ -1689,7 +1709,7 @@ function toggleUpFlag(logKey) {
 
 function changeWeek(delta) {
     const newWeek = appState.week + delta;
-    if (newWeek >= 1 && newWeek <= 6) {
+    if (newWeek >= 0 && newWeek <= 6) {
         appState.week = newWeek;
         saveData();
         renderApp();
@@ -1697,7 +1717,7 @@ function changeWeek(delta) {
 }
 
 function jumpToWeek(weekNum) {
-    if (weekNum >= 1 && weekNum <= 6) {
+    if (weekNum >= 0 && weekNum <= 6) {
         appState.week = weekNum;
         saveData();
         renderApp();
@@ -1705,7 +1725,7 @@ function jumpToWeek(weekNum) {
 }
 
 // ============================================================
-//  VISTA PESO CORPOREO + OBIETTIVO STELLA SVG
+//  VISTA PESO CORPOREO + OBIETTIVO STELLA SVG (S1–S6 + S0 opz.)
 // ============================================================
 function getUserWeights() {
     if (!appState.currentUserId) return {};
@@ -1743,14 +1763,14 @@ function renderWeightView() {
     const goal = getUserWeightGoal();
     const curW = weights['w' + appState.week];
 
-    document.getElementById('weight-week-label').textContent = appState.week;
-    document.getElementById('weight-week-label-2').textContent = appState.week;
+    document.getElementById('weight-week-label').textContent = appState.week === 0 ? '0 (Prova)' : String(appState.week);
+    document.getElementById('weight-week-label-2').textContent = String(appState.week);
     document.getElementById('weight-input').value = curW != null ? curW : '';
     document.getElementById('weight-goal-input').value = goal != null ? goal : '';
 
     let latest = curW;
     if (latest == null) {
-        for (let w = 6; w >= 1; w--) {
+        for (let w = 6; w >= 0; w--) {
             if (weights['w' + w] != null) { latest = weights['w' + w]; break; }
         }
     }
@@ -1775,6 +1795,18 @@ function renderWeightView() {
 
     const grid = document.getElementById('weight-weeks-grid');
     let gridHtml = '';
+
+    // Riferimento S0 opzionale (visibile solo se sei su S0 o se hai registrato un peso in S0)
+    const w0Val = weights['w0'];
+    if (appState.week === 0 || w0Val != null) {
+        gridHtml += `
+            <button type="button" data-action="jump-week" data-week="0" class="weight-week-chip week0-chip col-span-3 sm:col-span-6 ${appState.week === 0 ? 'active' : ''}">
+                <span class="text-[10.5px] font-bold ${appState.week === 0 ? 'text-amber-500' : 'text-dim'}">SETT 0 · PROVA (RIFERIMENTO)</span>
+                <span class="text-sm font-extrabold tabular-nums ${w0Val != null ? 'text-app' : 'text-dim'}">${w0Val != null ? `${w0Val.toFixed(1)} kg` : '—'}</span>
+            </button>
+        `;
+    }
+
     for (let w = 1; w <= 6; w++) {
         const v = weights['w' + w];
         gridHtml += `
@@ -1832,15 +1864,22 @@ function renderWeightChart() {
     const padB = 26;
     const plotW = W - padL - padR;
 
+    const hasW0 = typeof data['w0'] === 'number' && !isNaN(data['w0']);
+    const startW = hasW0 ? 0 : 1;
+    const stepsCount = hasW0 ? 6 : 5;
+
     const points = [];
-    for (let w = 1; w <= 6; w++) {
+    for (let w = startW; w <= 6; w++) {
         const v = data['w' + w];
-        const x = padL + 16 + ((w - 1) / 5) * (plotW - 32);
-        points.push({ w, x, val: (typeof v === 'number' && !isNaN(v)) ? v : null });
+        const idx = w - startW;
+        const x = padL + 16 + (idx / stepsCount) * (plotW - 32);
+        points.push({ w, x, val: (typeof v === 'number' && !isNaN(v)) ? v : null, isRef: w === 0 });
     }
 
-    const recorded = points.filter(p => p.val !== null);
-    const validVals = recorded.map(p => p.val);
+    const recordedAll = points.filter(p => p.val !== null);
+    const recordedMain = recordedAll.filter(p => !p.isRef);
+    const refPoint = hasW0 ? points[0] : null;
+    const validVals = recordedAll.map(p => p.val);
 
     if (validVals.length === 0) {
         const goalHtml = goal != null ? `
@@ -1934,18 +1973,39 @@ function renderWeightChart() {
         `;
     }
 
-    const coords = recorded.map(p => ({ ...p, y: valToY(p.val) }));
+    // Curva principale S1–S6
+    const mainCoords = recordedMain.map(p => ({ ...p, y: valToY(p.val) }));
     let lineSvg = '';
-    if (coords.length >= 2) {
-        const linePath = coords.map((c, idx) => `${idx === 0 ? 'M' : 'L'} ${c.x.toFixed(1)} ${c.y.toFixed(1)}`).join(' ');
-        const areaPath = `${linePath} L ${coords[coords.length - 1].x.toFixed(1)} ${botY.toFixed(1)} L ${coords[0].x.toFixed(1)} ${botY.toFixed(1)} Z`;
+    if (mainCoords.length >= 2) {
+        const linePath = mainCoords.map((c, idx) => `${idx === 0 ? 'M' : 'L'} ${c.x.toFixed(1)} ${c.y.toFixed(1)}`).join(' ');
+        const areaPath = `${linePath} L ${mainCoords[mainCoords.length - 1].x.toFixed(1)} ${botY.toFixed(1)} L ${mainCoords[0].x.toFixed(1)} ${botY.toFixed(1)} Z`;
         lineSvg = `
             <path d="${areaPath}" fill="url(#weightAreaGrad)"/>
             <path d="${linePath}" fill="none" stroke="${brandColor}" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
         `;
     }
 
-    const dotsSvg = coords.map(c => {
+    // Connettore tratteggiato smorzato da S0 (riferimento) al primo punto S1–S6
+    let refSvg = '';
+    if (refPoint && refPoint.val !== null) {
+        const ry = valToY(refPoint.val);
+        const isActive = appState.week === 0;
+        const refColor = isActive ? '#f59e0b' : textDim;
+        const labelY = ry - 11 < topY - 4 ? ry + 18 : ry - 10;
+
+        if (mainCoords.length > 0) {
+            refSvg += `<line x1="${refPoint.x.toFixed(1)}" y1="${ry.toFixed(1)}" x2="${mainCoords[0].x.toFixed(1)}" y2="${mainCoords[0].y.toFixed(1)}" stroke="${textDim}" stroke-width="1.5" stroke-dasharray="4 4" opacity="0.6"/>`;
+        }
+        refSvg += `
+            <g style="cursor:pointer;" data-action="jump-week" data-week="0">
+                ${isActive ? `<circle cx="${refPoint.x.toFixed(1)}" cy="${ry.toFixed(1)}" r="8.5" fill="#f59e0b" opacity="0.22"/>` : ''}
+                <circle cx="${refPoint.x.toFixed(1)}" cy="${ry.toFixed(1)}" r="4" fill="${surfaceColor}" stroke="${refColor}" stroke-width="2"/>
+                <text x="${refPoint.x.toFixed(1)}" y="${labelY.toFixed(1)}" text-anchor="middle" fill="${refColor}" font-size="10" font-weight="700" font-family="Inter, sans-serif">${refPoint.val.toFixed(1)}</text>
+            </g>
+        `;
+    }
+
+    const dotsSvg = mainCoords.map(c => {
         const isActive = c.w === appState.week;
         const labelY = c.y - 11 < topY - 4 ? c.y + 18 : c.y - 10;
         return `
@@ -1959,9 +2019,12 @@ function renderWeightChart() {
 
     const xLabelsSvg = points.map(p => {
         const isActive = p.w === appState.week;
+        const fill = p.isRef
+            ? (isActive ? '#f59e0b' : textDim)
+            : (isActive ? brandColor : textDim);
         return `
             <text x="${p.x.toFixed(1)}" y="${H - 7}" text-anchor="middle" style="cursor:pointer;" data-action="jump-week" data-week="${p.w}"
-                  fill="${isActive ? brandColor : textDim}" font-size="10.5" font-weight="${isActive ? '800' : '700'}" font-family="Inter, sans-serif">
+                  fill="${fill}" font-size="${p.isRef ? '9.5' : '10.5'}" font-weight="${isActive ? '800' : '700'}" opacity="${p.isRef && !isActive ? '0.75' : '1'}" font-family="Inter, sans-serif">
                 S${p.w}
             </text>
         `;
@@ -1981,6 +2044,7 @@ function renderWeightChart() {
             ${gridSvg}
             ${breakSvg}
             ${lineSvg}
+            ${refSvg}
             ${goalSvg}
             ${dotsSvg}
             ${xLabelsSvg}
@@ -1989,54 +2053,67 @@ function renderWeightChart() {
 }
 
 // ============================================================
-//  HELPER REPORT & PDF (troncamento blocchi + trend multi-blocco)
+//  HELPER REPORT & PDF (troncamento blocchi + trend multi-blocco + S0 opz.)
 // ============================================================
 function getRawTargetForWeek(ex, weekNum) {
-    if (!ex || !Array.isArray(ex.progression) || ex.progression.length === 0) return '3x10';
+    if (!ex) return '3x10';
+    if (weekNum === 0) {
+        if (typeof ex.week0Target === 'string' && ex.week0Target.trim() !== '') {
+            return ex.week0Target;
+        }
+        if (Array.isArray(ex.progression) && ex.progression.length > 0 && ex.progression[0]) {
+            return ex.progression[0];
+        }
+        return '3x10';
+    }
+    if (!Array.isArray(ex.progression) || ex.progression.length === 0) return '3x10';
     const idx = Math.max(0, weekNum - 1);
     return ex.progression[idx] || ex.progression[ex.progression.length - 1] || '3x10';
 }
 
+function buildWeekWeightEntry(userId, dayId, ex, w) {
+    const rawTarget = getRawTargetForWeek(ex, w);
+    const parsed = parseTargetAndRests(rawTarget);
+    const blocks = parseTargetBlocks(parsed.cleanTarget);
+    const blockCount = Math.max(1, blocks.length);
+
+    const logKey = `w${w}_${userId}_${dayId}_${ex.id}`;
+    const log = appState.logs[logKey];
+    let rawWeights = log ? (Array.isArray(log.weights) ? log.weights : []) : [];
+    if (log && log.weight && rawWeights.length === 0) rawWeights = [log.weight];
+
+    const truncated = Array.from({ length: blockCount }, (_, idx) => {
+        const v = rawWeights[idx];
+        return (v !== '' && v !== undefined && v !== null) ? String(v).trim() : '';
+    });
+
+    const hasAny = truncated.some(v => v !== '');
+    const nums = truncated.map(v => {
+        if (v === '') return null;
+        const n = parseFloat(v.replace(',', '.'));
+        return Number.isFinite(n) ? n : null;
+    });
+
+    const text = hasAny ? truncated.map(v => v !== '' ? v : '-').join(' + ') : '-';
+    return { week: w, blockCount, values: truncated, nums, hasAny, text };
+}
+
 function getExerciseReportData(userId, dayId, ex) {
+    const week0 = buildWeekWeightEntry(userId, dayId, ex, 0);
     const weeks = [];
     const loggedWeeks = [];
 
     for (let w = 1; w <= 6; w++) {
-        const rawTarget = getRawTargetForWeek(ex, w);
-        const parsed = parseTargetAndRests(rawTarget);
-        const blocks = parseTargetBlocks(parsed.cleanTarget);
-        const blockCount = Math.max(1, blocks.length);
-
-        const logKey = `w${w}_${userId}_${dayId}_${ex.id}`;
-        const log = appState.logs[logKey];
-        let rawWeights = log ? (Array.isArray(log.weights) ? log.weights : []) : [];
-        if (log && log.weight && rawWeights.length === 0) rawWeights = [log.weight];
-
-        // Tronca esattamente al numero reale di blocchi della settimana (zero pesi fantasma)
-        const truncated = Array.from({ length: blockCount }, (_, idx) => {
-            const v = rawWeights[idx];
-            return (v !== '' && v !== undefined && v !== null) ? String(v).trim() : '';
-        });
-
-        const hasAny = truncated.some(v => v !== '');
-        const nums = truncated.map(v => {
-            if (v === '') return null;
-            const n = parseFloat(v.replace(',', '.'));
-            return Number.isFinite(n) ? n : null;
-        });
-
-        const text = hasAny ? truncated.map(v => v !== '' ? v : '-').join(' + ') : '-';
-        const entry = { week: w, blockCount, values: truncated, nums, hasAny, text };
+        const entry = buildWeekWeightEntry(userId, dayId, ex, w);
         weeks.push(entry);
-
-        if (nums.some(n => n !== null)) {
+        if (entry.nums.some(n => n !== null)) {
             loggedWeeks.push(entry);
         }
     }
 
-    // Calcolo trend accurato anche su esercizi multi-blocco
+    // Trend calcolato esclusivamente su S1–S6
     let trend = {
-        status: 'none', // 'up' | 'down' | 'flat' | 'none'
+        status: 'none',
         pdfLabel: 'N/D',
         mdLabel: 'dati insufficienti',
     };
@@ -2100,7 +2177,7 @@ function getExerciseReportData(userId, dayId, ex) {
         }
     }
 
-    return { weeks, trend };
+    return { week0, weeks, trend };
 }
 
 // ============================================================
@@ -2153,8 +2230,9 @@ function generateReport() {
         ? currentUser.days
         : currentUser.days.filter(d => d.id === selected);
 
+    const activeWeekLabel = appState.week === 0 ? 'S0 (Prova)' : `S${appState.week}`;
     let md = `# Report Carichi — ${selected === '__ALL__' ? 'Scheda Completa' : daysToExport[0]?.name}\n`;
-    md += `Profilo: ${currentUser.name} · Settimana corrente: S${appState.week}\n\n`;
+    md += `Profilo: ${currentUser.name} · Settimana corrente: ${activeWeekLabel}\n\n`;
 
     daysToExport.forEach(day => {
         if (daysToExport.length > 1) md += `## ${day.name}\n\n`;
@@ -2169,6 +2247,10 @@ function generateReport() {
             md += `Target: ${parsed.cleanTarget}${restNote}\n`;
 
             const reportData = getExerciseReportData(currentUser.id, day.id, ex);
+            if (reportData.week0 && reportData.week0.hasAny) {
+                md += `Prova (S0): ${reportData.week0.text}kg\n`;
+            }
+
             const weightsStr = reportData.weeks.map(item =>
                 item.hasAny ? `S${item.week}: ${item.text}kg` : `S${item.week}: -`
             );
@@ -2314,7 +2396,6 @@ function setupDelegatedEvents() {
         }
     });
 
-    // Ricalcolo timer su rientro dallo standby + salvataggio immediato su blocco schermo
     document.addEventListener('visibilitychange', () => {
         if (document.visibilityState === 'hidden') {
             if (_weightInputDebounceTimer) {

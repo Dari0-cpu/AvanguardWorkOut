@@ -1,5 +1,5 @@
 /* ====================================================================
-   AVANGUARD WORKOUT - NATIVE FITNESS UI v4
+   AVANGUARD WORKOUT - NATIVE FITNESS UI v4.1 (Week 0 Support)
    Clean flat hierarchy, hairline borders, bottom dock, zero clutter
    ==================================================================== */
 
@@ -28,6 +28,11 @@
     --brand-700: #be123c;
     --brand-rgb: 244, 63, 94;
     --brand-contrast: #ffffff;
+
+    --week0-bg: rgba(245, 158, 11, 0.11);
+    --week0-border: rgba(245, 158, 11, 0.30);
+    --week0-text: #fde68a;
+    --week0-accent: #f59e0b;
 }
 
 [data-theme="light"] {
@@ -44,6 +49,11 @@
     --card-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
     --glass: rgba(244, 245, 247, 0.86);
     --dock-bg: rgba(255, 255, 255, 0.92);
+
+    --week0-bg: rgba(245, 158, 11, 0.12);
+    --week0-border: rgba(217, 119, 6, 0.30);
+    --week0-text: #92400e;
+    --week0-accent: #d97706;
 }
 
 /* ---------- BASE ---------- */
@@ -133,6 +143,11 @@ code {
     border: 1px solid var(--border);
     border-radius: 11px;
     padding: 2px;
+    transition: border-color 0.2s ease, background-color 0.2s ease;
+}
+.week-pill.is-week0 {
+    border-color: var(--week0-border);
+    background: var(--week0-bg);
 }
 .week-pill button {
     width: 26px;
@@ -153,6 +168,44 @@ code {
     font-size: 12.5px;
 }
 .week-pill .label .num { color: var(--brand-500); }
+.week-pill.is-week0 .label .num { color: var(--week0-accent); }
+
+/* ---------- WEEK 0 CALIBRATION BANNER ---------- */
+.week0-banner {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 11px 14px;
+    margin-bottom: 12px;
+    border-radius: 16px;
+    background: var(--week0-bg);
+    border: 1px solid var(--week0-border);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    color: var(--week0-text);
+}
+.week0-banner-icon {
+    width: 28px;
+    height: 28px;
+    border-radius: 9px;
+    background: rgba(245, 158, 11, 0.18);
+    color: var(--week0-accent);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    margin-top: 1px;
+}
+.week0-banner-text {
+    font-size: 12px;
+    line-height: 1.45;
+    font-weight: 600;
+    margin: 0;
+}
+.week0-banner-text strong {
+    font-weight: 800;
+    color: var(--week0-accent);
+}
 
 /* ---------- DAY TABS STRIP (NATIVE FITNESS STYLE) ---------- */
 .day-tabs-strip {
@@ -464,6 +517,18 @@ input:checked + .ex-check svg { opacity: 1; transform: scale(1); }
 .weight-week-chip.active {
     background: var(--brand-50);
     border-color: var(--brand-500);
+}
+.weight-week-chip.week0-chip {
+    flex-direction: row;
+    justify-content: space-between;
+    padding: 8px 12px;
+    border: 1px dashed var(--border-strong);
+    background: transparent;
+}
+.weight-week-chip.week0-chip.active {
+    background: var(--week0-bg);
+    border-style: solid;
+    border-color: var(--week0-border);
 }
 
 /* ---------- INPUTS & BUTTONS ---------- */

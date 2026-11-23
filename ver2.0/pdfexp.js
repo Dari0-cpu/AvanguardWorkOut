@@ -1,6 +1,6 @@
 /* ====================================================================
    AVANGUARD WORKOUT - PDF EXPORT VETTORIALE (jsPDF)
-   Nitido, leggibile, multi-pagina senza tagli, supporta 1 giorno o tutta la scheda
+   Nitido, leggibile, multi-pagina, S1-S6 + colonna S0 opzionale se presente
    ==================================================================== */
 
 function hexToRgb(hex) {
@@ -84,8 +84,9 @@ function downloadPDF() {
     const userWeights = getUserWeights();
     const curW = userWeights['w' + appState.week];
     const goalW = getUserWeightGoal();
+    const activeWeekLabel = appState.week === 0 ? 'S0 (Prova)' : `S${appState.week}`;
 
-    let metaText = `Atleta: ${pdfSafeText(currentUser.name)}   |   Settimana attiva: S${appState.week}`;
+    let metaText = `Atleta: ${pdfSafeText(currentUser.name)}   |   Settimana attiva: ${activeWeekLabel}`;
     if (curW != null) metaText += `   |   Peso S${appState.week}: ${curW.toFixed(1)} kg`;
     if (goalW != null) metaText += `   |   Obiettivo: ${goalW.toFixed(1)} kg`;
 
@@ -145,7 +146,7 @@ function downloadPDF() {
             doc.setFillColor(...accentRgb);
             doc.roundedRect(margin, y, 1.8, cardH, 1, 1, 'F');
 
-            // Dati troncati al numero di blocchi + trend multi-blocco condiviso con app.js
+            // Dati troncati al numero di blocchi + trend multi-blocco (S1-S6) + S0 opzionale
             const reportData = getExerciseReportData(currentUser.id, day.id, ex);
             const trendLabel = pdfSafeText(reportData.trend.pdfLabel);
 
@@ -162,7 +163,7 @@ function downloadPDF() {
                 badgeFg = [161, 98, 7];
             }
 
-            // Pillola Trend in alto a destra (calcolata prima per dare maxWidth sicuro al titolo)
+            // Pillola Trend in alto a destra
             const trendFontSize = trendLabel.length > 14 ? 7.5 : 8.5;
             doc.setFont('helvetica', 'bold');
             doc.setFontSize(trendFontSize);
@@ -192,15 +193,43 @@ function downloadPDF() {
             doc.setTextColor(110, 116, 128);
             doc.text(pdfSafeText(`Target: ${parsed.cleanTarget}${restStr}`), margin + 5.5, y + 11.2, { maxWidth: titleMaxW });
 
-            // Griglia 6 settimane S1..S6
+            // Griglia 6 settimane S1..S6 (+ colonna smorzata S0 solo se presente)
             const gridX = margin + 5;
             const gridY = y + 14.5;
             const gap = 2;
-            const colW = (contentW - 9 - gap * 5) / 6;
             const boxH = 16;
+            const totalGridW = contentW - 9;
+            const hasS0 = !!(reportData.week0 && reportData.week0.hasAny);
+
+            let s1StartX = gridX;
+            let colW = (totalGridW - gap * 5) / 6;
+
+            if (hasS0) {
+                const s0W = 20;
+                colW = (totalGridW - s0W - gap * 6) / 6;
+                s1StartX = gridX + s0W + gap;
+
+                // Box riferimento S0 smorzato
+                doc.setFillColor(250, 248, 244);
+                doc.setDrawColor(218, 214, 204);
+                doc.setLineWidth(0.25);
+                doc.roundedRect(gridX, gridY, s0W, boxH, 2, 2, 'FD');
+
+                doc.setFont('helvetica', 'bold');
+                doc.setFontSize(7);
+                doc.setTextColor(161, 130, 74);
+                doc.text('S0 PROVA', gridX + s0W / 2, gridY + 5, { align: 'center' });
+
+                const s0Text = pdfSafeText(reportData.week0.text);
+                const s0Font = s0Text.length > 8 ? 7 : 8.5;
+                doc.setFont('helvetica', 'bold');
+                doc.setFontSize(s0Font);
+                doc.setTextColor(120, 124, 134);
+                doc.text(`${s0Text} kg`, gridX + s0W / 2, gridY + 12, { align: 'center', maxWidth: s0W - 2 });
+            }
 
             for (let w = 1; w <= 6; w++) {
-                const bx = gridX + (w - 1) * (colW + gap);
+                const bx = s1StartX + (w - 1) * (colW + gap);
                 const isCurrent = (w === appState.week);
 
                 if (isCurrent) {
@@ -222,7 +251,7 @@ function downloadPDF() {
 
                 // Valore peso troncato al numero reale di blocchi
                 const val = pdfSafeText(reportData.weeks[w - 1]?.text || '-');
-                const fontSize = val.length > 10 ? 7.5 : (val.length > 6 ? 8.5 : 10);
+                const fontSize = val.length > 10 ? 7.2 : (val.length > 6 ? 8.2 : 10);
                 doc.setFont('helvetica', 'bold');
                 doc.setFontSize(fontSize);
                 doc.setTextColor(...(val === '-' ? [170, 174, 182] : [20, 22, 28]));
