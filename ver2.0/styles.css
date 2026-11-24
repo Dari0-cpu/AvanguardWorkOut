@@ -1712,3 +1712,231 @@ input:checked + .ex-check svg { opacity: 1; transform: scale(1); }
         animation: none !important;
     }
 }
+
+/* ====================================================================
+   SELETTORE SFONDI & 5 VARIANTI AMBIENTALI (DARK + LIGHT)
+   ==================================================================== */
+
+.bg-selector {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px;
+    border-radius: 15px;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+}
+
+.bg-arrow-btn {
+    width: 38px;
+    height: 38px;
+    border-radius: 11px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    cursor: pointer;
+    transition: all 0.16s ease;
+}
+.bg-arrow-btn:hover {
+    border-color: var(--brand-500);
+    color: var(--brand-500);
+    background: var(--brand-50);
+}
+.bg-arrow-btn:active {
+    transform: scale(0.93);
+}
+
+.bg-selector-display {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 2px 6px;
+}
+
+.bg-selector-name {
+    font-size: 13.5px;
+    font-weight: 800;
+    color: var(--text);
+    letter-spacing: -0.01em;
+    line-height: 1.2;
+}
+
+.bg-selector-sub {
+    font-size: 10.5px;
+    font-weight: 600;
+    color: var(--text-muted);
+    margin-top: 2px;
+}
+
+.bg-selector-dots {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    margin-top: 6px;
+}
+
+.bg-dot {
+    width: 5px;
+    height: 5px;
+    border-radius: 999px;
+    background: var(--border-strong);
+    transition: all 0.2s ease;
+}
+.bg-dot.active {
+    width: 16px;
+    background: var(--brand-500);
+}
+
+/* ---------- SFONDO 2: SCALE RANDOMICHE DI GRIGIO CHIARO, SCURO E NERO ---------- */
+[data-bg="2"] body {
+    background: #050506;
+}
+[data-bg="2"] body::before {
+    background:
+        radial-gradient(52% 38% at 12% 14%, rgba(212, 212, 216, 0.24) 0%, rgba(161, 161, 170, 0.08) 42%, transparent 74%),
+        radial-gradient(64% 46% at 86% 24%, rgba(63, 63, 70, 0.52) 0%, rgba(24, 24, 27, 0.24) 48%, transparent 78%),
+        radial-gradient(46% 34% at 38% 52%, rgba(228, 228, 231, 0.16) 0%, rgba(113, 113, 122, 0.09) 46%, transparent 76%),
+        radial-gradient(58% 42% at 8% 82%, rgba(39, 39, 42, 0.65) 0%, transparent 70%),
+        radial-gradient(56% 44% at 88% 86%, rgba(161, 161, 170, 0.22) 0%, rgba(82, 82, 91, 0.10) 45%, transparent 75%),
+        linear-gradient(142deg, #000000 0%, #141417 28%, #070709 54%, #1e1e22 79%, #020203 100%);
+}
+[data-bg="2"] body::after {
+    background:
+        radial-gradient(36% 28% at 72% 46%, rgba(0, 0, 0, 0.72) 0%, transparent 72%),
+        radial-gradient(44% 30% at 24% 34%, rgba(0, 0, 0, 0.58) 0%, transparent 70%),
+        radial-gradient(48% 36% at 62% 12%, rgba(180, 180, 186, 0.15) 0%, transparent 68%),
+        radial-gradient(42% 32% at 54% 94%, rgba(244, 244, 245, 0.12) 0%, transparent 70%);
+}
+
+[data-theme="light"][data-bg="2"] body {
+    background: #e4e5e8;
+}
+[data-theme="light"][data-bg="2"] body::before {
+    background:
+        radial-gradient(52% 38% at 14% 12%, rgba(24, 24, 27, 0.22) 0%, rgba(82, 82, 91, 0.08) 46%, transparent 74%),
+        radial-gradient(60% 44% at 86% 26%, rgba(255, 255, 255, 0.85) 0%, transparent 72%),
+        radial-gradient(48% 36% at 36% 56%, rgba(63, 63, 70, 0.20) 0%, transparent 74%),
+        radial-gradient(56% 42% at 88% 84%, rgba(9, 9, 11, 0.24) 0%, transparent 70%),
+        linear-gradient(138deg, #f4f4f5 0%, #d4d4d8 34%, #e4e4e7 60%, #a1a1aa 100%);
+}
+[data-theme="light"][data-bg="2"] body::after {
+    background:
+        radial-gradient(40% 30% at 74% 48%, rgba(39, 39, 42, 0.16) 0%, transparent 70%),
+        radial-gradient(46% 32% at 16% 88%, rgba(255, 255, 255, 0.72) 0%, transparent 72%);
+}
+
+/* ---------- SFONDO 3: FASCIO OBLIQUO (ISPIRATO FOTO 1) ---------- */
+[data-bg="3"] body {
+    background: #08060a;
+}
+[data-bg="3"] body::before {
+    background:
+        linear-gradient(
+            126deg,
+            transparent 10%,
+            rgba(186, 134, 168, 0.14) 28%,
+            rgba(var(--brand-rgb), 0.24) 41%,
+            rgba(232, 184, 214, 0.12) 50%,
+            transparent 66%
+        ),
+        radial-gradient(75% 44% at 32% 10%, rgba(196, 146, 178, 0.28) 0%, transparent 68%),
+        radial-gradient(64% 40% at 68% 96%, rgba(var(--brand-rgb), 0.22) 0%, transparent 70%);
+}
+[data-bg="3"] body::after {
+    background:
+        radial-gradient(90% 55% at 50% 55%, transparent 45%, rgba(0, 0, 0, 0.62) 100%);
+}
+
+[data-theme="light"][data-bg="3"] body {
+    background: #f2eef4;
+}
+[data-theme="light"][data-bg="3"] body::before {
+    background:
+        linear-gradient(
+            126deg,
+            transparent 12%,
+            rgba(168, 85, 247, 0.11) 30%,
+            rgba(var(--brand-rgb), 0.16) 44%,
+            transparent 66%
+        ),
+        radial-gradient(70% 44% at 28% 8%, rgba(192, 132, 252, 0.22) 0%, transparent 68%),
+        radial-gradient(64% 40% at 72% 96%, rgba(var(--brand-rgb), 0.16) 0%, transparent 70%);
+}
+[data-theme="light"][data-bg="3"] body::after {
+    background: none;
+}
+
+/* ---------- SFONDO 4: AURORA MESH MULTI-COLORE (ISPIRATO FOTO 2) ---------- */
+[data-bg="4"] body {
+    background: #0a0910;
+}
+[data-bg="4"] body::before {
+    background:
+        radial-gradient(78% 48% at 52% 4%, rgba(251, 146, 60, 0.30) 0%, rgba(244, 114, 182, 0.12) 48%, transparent 76%),
+        radial-gradient(62% 46% at 10% 48%, rgba(236, 72, 153, 0.26) 0%, transparent 70%),
+        radial-gradient(62% 46% at 92% 52%, rgba(168, 85, 247, 0.28) 0%, transparent 70%),
+        radial-gradient(70% 46% at 74% 96%, rgba(56, 189, 248, 0.28) 0%, transparent 72%);
+}
+[data-bg="4"] body::after {
+    background:
+        radial-gradient(56% 40% at 14% 92%, rgba(251, 146, 60, 0.22) 0%, transparent 70%);
+}
+
+[data-theme="light"][data-bg="4"] body {
+    background: #f7f4f8;
+}
+[data-theme="light"][data-bg="4"] body::before {
+    background:
+        radial-gradient(84% 52% at 50% 4%, rgba(251, 146, 60, 0.42) 0%, rgba(253, 186, 116, 0.16) 46%, transparent 75%),
+        radial-gradient(64% 46% at 10% 48%, rgba(244, 114, 182, 0.32) 0%, transparent 70%),
+        radial-gradient(64% 46% at 92% 52%, rgba(192, 132, 252, 0.32) 0%, transparent 70%),
+        radial-gradient(70% 46% at 74% 96%, rgba(56, 189, 248, 0.34) 0%, transparent 72%);
+}
+[data-theme="light"][data-bg="4"] body::after {
+    background:
+        radial-gradient(56% 42% at 16% 92%, rgba(251, 146, 60, 0.28) 0%, transparent 70%);
+}
+
+/* ---------- SFONDO 5: OSSIDIANA & MICRO-GRIGLIA ---------- */
+[data-bg="5"] body {
+    background: #050608;
+}
+[data-bg="5"] body::before {
+    background:
+        radial-gradient(86% 44% at 50% -4%, rgba(var(--brand-rgb), 0.30) 0%, rgba(var(--brand-rgb), 0.08) 44%, transparent 74%),
+        radial-gradient(70% 36% at 50% 106%, rgba(var(--brand-rgb), 0.16) 0%, transparent 70%);
+}
+[data-bg="5"] body::after {
+    background-image:
+        linear-gradient(rgba(255, 255, 255, 0.045) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.045) 1px, transparent 1px);
+    background-size: 28px 28px;
+    -webkit-mask-image: radial-gradient(ellipse 85% 70% at 50% 35%, #000 18%, transparent 88%);
+    mask-image: radial-gradient(ellipse 85% 70% at 50% 35%, #000 18%, transparent 88%);
+}
+
+[data-theme="light"][data-bg="5"] body {
+    background: #eef1f5;
+}
+[data-theme="light"][data-bg="5"] body::before {
+    background:
+        radial-gradient(86% 44% at 50% -4%, rgba(var(--brand-rgb), 0.20) 0%, transparent 72%),
+        radial-gradient(70% 36% at 50% 106%, rgba(var(--brand-rgb), 0.10) 0%, transparent 70%);
+}
+[data-theme="light"][data-bg="5"] body::after {
+    background-image:
+        linear-gradient(rgba(15, 23, 42, 0.055) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(15, 23, 42, 0.055) 1px, transparent 1px);
+    background-size: 28px 28px;
+    -webkit-mask-image: radial-gradient(ellipse 85% 70% at 50% 35%, #000 18%, transparent 88%);
+    mask-image: radial-gradient(ellipse 85% 70% at 50% 35%, #000 18%, transparent 88%);
+}

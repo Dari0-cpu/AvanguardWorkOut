@@ -25,6 +25,14 @@ const THEMES = {
     zinc:   { label: 'Titanium',    adaptive: true },
 };
 
+const BACKGROUNDS = [
+    { id: 1, name: 'Sfondo 1', desc: 'Luci soffuse' },
+    { id: 2, name: 'Sfondo 2', desc: 'Grigi & Nero' },
+    { id: 3, name: 'Sfondo 3', desc: 'Fascio obliquo' },
+    { id: 4, name: 'Sfondo 4', desc: 'Aurora mesh' },
+    { id: 5, name: 'Sfondo 5', desc: 'Ossidiana grid' },
+];
+
 // ============================================================
 //  ICONE SVG INLINE (100% offline)
 // ============================================================
@@ -102,6 +110,7 @@ let appState = {
     bodyWeightGoal: {},
     theme: 'red',
     mode: 'dark',
+    bgStyle: 1,
     syncKey: '',
     carried: {},
     updatedAt: 0,
@@ -251,8 +260,8 @@ async function init() {
     renderThemeSwatches();
     applyMode();
     applyTheme();
+    applyBackground();
     setupDelegatedEvents();
-
     renderApp();
 
     if (CLOUD_ENABLED && appState.syncKey) {
@@ -283,6 +292,12 @@ function mergeStateSafely(incoming) {
         ? incoming.week
         : Math.min(appState.week, incomingTotalWeeks);
 
+
+    const rawBg = Number(incoming.bgStyle);
+    const incomingBgStyle = (Number.isInteger(rawBg) && rawBg >= 1 && rawBg <= BACKGROUNDS.length)
+        ? rawBg
+        : (Number.isInteger(appState.bgStyle) ? appState.bgStyle : 1);
+
     appState = {
         ...appState,
         ...incoming,
@@ -294,7 +309,10 @@ function mergeStateSafely(incoming) {
         bodyWeightGoal: (incoming.bodyWeightGoal && typeof incoming.bodyWeightGoal === 'object' && !Array.isArray(incoming.bodyWeightGoal)) ? incoming.bodyWeightGoal : (appState.bodyWeightGoal || {}),
         carried: (incoming.carried && typeof incoming.carried === 'object' && !Array.isArray(incoming.carried)) ? incoming.carried : (appState.carried || {}),
         updatedAt: incomingTs,
+        bgStyle: incomingBgStyle,
     };
+
+    
 }
 
 // ============================================================
@@ -491,6 +509,7 @@ async function syncWithCloud({ isManualConnect = false } = {}) {
         setLocalDirty(false);
         applyMode();
         applyTheme();
+        applyBackground(); // <-- aggiungi questa riga
         updateCloudStatusUi('ok');
         return { ok: true, action: 'pulled' };
     }
@@ -588,6 +607,7 @@ function importJsonBackup(event) {
             if (!appState.syncKey && currentKey) appState.syncKey = currentKey;
             applyMode();
             applyTheme();
+            applyBackground();
             await saveData({ immediate: true });
             renderApp();
             alert("Backup ripristinato correttamente!");
@@ -716,6 +736,36 @@ function setMode(mode) {
     appState.mode = mode;
     applyMode();
     applyTheme();
+    saveData();
+}
+
+function applyBackground() {
+    const raw = Number(appState.bgStyle);
+    const bgId = (Number.isInteger(raw) && raw >= 1 && raw <= BACKGROUNDS.length) ? raw : 1;
+    appState.bgStyle = bgId;
+
+    document.documentElement.setAttribute('data-bg', String(bgId));
+
+    const current = BACKGROUNDS.find(b => b.id === bgId) || BACKGROUNDS[0];
+    const nameEl = document.getElementById('bg-selector-name');
+    const subEl = document.getElementById('bg-selector-sub');
+    const dotsEl = document.getElementById('bg-selector-dots');
+
+    if (nameEl) nameEl.textContent = current.name;
+    if (subEl) subEl.textContent = current.desc;
+    if (dotsEl) {
+        dotsEl.innerHTML = BACKGROUNDS.map(b =>
+            `<span class="bg-dot ${b.id === bgId ? 'active' : ''}"></span>`
+        ).join('');
+    }
+}
+
+function cycleBackground(delta) {
+    const total = BACKGROUNDS.length;
+    const current = Number.isInteger(appState.bgStyle) ? appState.bgStyle : 1;
+    const next = ((current - 1 + delta + total) % total) + 1;
+    appState.bgStyle = next;
+    applyBackground();
     saveData();
 }
 
@@ -3565,6 +3615,11 @@ function setupDelegatedEvents() {
                 case 'set-theme':
                     setTheme(actionEl.dataset.themeKey);
                     return;
+                case 'cycle-bg': {
+                    const delta = parseInt(actionEl.dataset.delta, 10);
+                    if (!isNaN(delta)) cycleBackground(delta);
+                    return;
+                }
                 case 'add-program-week':
                     addProgramWeek();
                     return;
