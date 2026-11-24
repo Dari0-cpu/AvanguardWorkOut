@@ -213,12 +213,13 @@ let tempSelectedEditDayIcon = 'dumbbell';
 let currentExportText = '';
 let _parsedImportDays = [];
 let _importPlanTab = 'text'; // 'text' | 'pdf'
-let _pdfSelectedFile = null;
+let _aiSelectedFiles = []; // [{ kind: 'pdf' | 'image', file?, name, mimeType, base64?, byteLength, previewUrl? }]
 let _pdfParsedDays = [];
 let _pdfParsingInFlight = false;
 let _pdfParseReqId = 0;
 let _pdfDropzoneBound = false;
-const MAX_PDF_IMPORT_BYTES = 3 * 1024 * 1024; // 3 MB
+const MAX_PDF_IMPORT_BYTES = 3 * 1024 * 1024; // 3 MB totali
+const MAX_AI_IMAGES = 5;
 
 // Stato Note inline (solo in memoria)
 const _openNoteKeys = new Set();
@@ -2414,22 +2415,35 @@ function switchImportPlanTab(tab) {
 }
 
 function resetPdfImportState() {
-    _pdfSelectedFile = null;
+    _aiSelectedFiles = [];
     _pdfParsedDays = [];
     _pdfParsingInFlight = false;
+    if (_importPlanTab === 'pdf') _parsedImportDays = [];
 
-    const fileInput = document.getElementById('import-pdf-file');
-    if (fileInput) fileInput.value = '';
-    document.getElementById('pdf-dropzone')?.classList.remove('hidden', 'is-dragover');
+    const pdfInput = document.getElementById('import-pdf-file');
+    const photoInput = document.getElementById('import-photo-file');
+    if (pdfInput) pdfInput.value = '';
+    if (photoInput) photoInput.value = '';
+
+    document.getElementById('pdf-dropzone')?.classList.remove('hidden');
+    document.getElementById('pdf-dropzone-area')?.classList.remove('is-dragover');
     document.getElementById('pdf-selected-card')?.classList.add('hidden');
+    const thumbs = document.getElementById('ai-thumbs-strip');
+    if (thumbs) {
+        thumbs.innerHTML = '';
+        thumbs.classList.add('hidden');
+    }
     setPdfLoadingUi(false);
     setPdfError('');
     setPdfSuccess('');
+    if (_importPlanTab === 'pdf') {
+        renderImportPlanPreviewList([], 'pdf');
+    }
 }
 
 function setupPdfDropzone() {
     if (_pdfDropzoneBound) return;
-    const dropzone = document.getElementById('pdf-dropzone');
+    const dropzone = document.getElementById('pdf-dropzone-area');
     if (!dropzone) return;
     _pdfDropzoneBound = true;
 
@@ -2450,14 +2464,14 @@ function setupPdfDropzone() {
     });
 
     dropzone.addEventListener('drop', (e) => {
-        const file = e.dataTransfer?.files?.[0];
-        if (file) setPdfSelectedFile(file);
+        const files = Array.from(e.dataTransfer?.files || []);
+        if (files.length > 0) processSelectedAiFiles(files);
     });
 
     dropzone.addEventListener('keydown', (e) => {
         if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault();
-            document.getElementById('import-pdf-file')?.click();
+            document.getElementById('import-photo-file')?.click();
         }
     });
 }
@@ -2507,48 +2521,266 @@ function setPdfLoadingUi(isLoading) {
     }
     if (changeBtn) changeBtn.disabled = isLoading;
     if (importBtn && isLoading) importBtn.disabled = true;
+
+    document.querySelectorAll('#ai-thumbs-strip button').forEach(btn => {
+        btn.disabled = isLoading;
+    });
 }
 
-function handlePdfFileSelected(event) {
-    const file = event.target.files?.[0];
+function handleAiFilesSelected(event, sourceMode = 'auto') {
+    const files = Array.from(event.target.files || []);
     event.target.value = '';
-    if (!file) return;
-    setPdfSelectedFile(file);
+    if (files.length === 0) return;
+    processSelectedAiFiles(files, sourceMode);
 }
 
-function setPdfSelectedFile(file) {
+function isPdfFile(file) {
+    return file && (file.type === 'application/pdf' || /\.pdf$/i.test(file.name || ''));
+}
+
+function isImageFile(file) {
+    return file && (
+        (typeof file.type === 'string' && file.type.startsWith('image/')) ||
+        /\.(jpe?g|png|webp|heic|heif|bmp|gif)$/i.test(file.name || '')
+    );
+}
+
+// Comprime e ridimensiona la foto lato client mantenendo nitide le tabelle della scheda
+async function compressImageFile(file, maxDim = 1800, maxTargetBytes = 900 * 1024) {
+    let source = null;
+    let width = 0;
+    let height = 0;
+    let objectUrl = null;
+
+    try {
+        if (typeof createImageBitmap === 'function') {
+            source = await createImageBitmap(file);
+            width = source.width;
+            height = source.height;
+        } else {
+            objectUrl = URL.createObjectURL(file);
+            source = await new Promise((resolve, reject) => {
+                const img = new Image();
+                img.onload = () => resolve(img);
+                img.onerror = () => reject(new Error('Impossibile decodificare l\'immagine.'));
+                img.src = objectUrl;
+            });
+            width = source.naturalWidth || source.width;
+            height = source.naturalHeight || source.height;
+        }
+
+        if (!width || !height) {
+            throw new Error('Immagine vuota o corrotta.');
+        }
+
+        const scale = Math.min(1, maxDim / Math.max(width, height));
+        const targetW = Math.max(1, Math.round(width * scale));
+        const targetH = Math.max(1, Math.round(height * scale));
+
+        const canvas = document.createElement('canvas');
+        canvas.width = targetW;
+        canvas.height = targetH;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) throw new Error('Canvas non disponibile sul dispositivo.');
+
+        // Sfondo bianco per evitare PNG trasparenti con testo scuro illeggibile in JPEG
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, targetW, targetH);
+        ctx.drawImage(source, 0, 0, targetW, targetH);
+
+        let quality = 0.85;
+        let dataUrl = canvas.toDataURL('image/jpeg', quality);
+        let base64 = dataUrl.slice(dataUrl.indexOf(',') + 1);
+        let byteLength = Math.floor((base64.length * 3) / 4);
+
+        // Se supera il budget per singola foto, abbassa leggermente la qualità
+        while (byteLength > maxTargetBytes && quality > 0.55) {
+            quality = Number((quality - 0.1).toFixed(2));
+            dataUrl = canvas.toDataURL('image/jpeg', quality);
+            base64 = dataUrl.slice(dataUrl.indexOf(',') + 1);
+            byteLength = Math.floor((base64.length * 3) / 4);
+        }
+
+        const cleanName = (file.name || 'foto_scheda.jpg').replace(/\.[^.]+$/, '') + '.jpg';
+        return {
+            kind: 'image',
+            name: cleanName,
+            mimeType: 'image/jpeg',
+            base64,
+            byteLength,
+            previewUrl: dataUrl,
+        };
+    } catch (_) {
+        throw new Error(`Impossibile leggere "${file.name || 'la foto'}". Usa un'immagine JPG, PNG o WebP.`);
+    } finally {
+        if (source && typeof source.close === 'function') source.close();
+        if (objectUrl) URL.revokeObjectURL(objectUrl);
+    }
+}
+
+async function processSelectedAiFiles(files, sourceMode = 'auto') {
     setPdfError('');
     setPdfSuccess('');
     _pdfParsedDays = [];
     if (_importPlanTab === 'pdf') _parsedImportDays = [];
 
-    const isPdfName = /\.pdf$/i.test(file.name || '');
-    const isPdfMime = file.type === 'application/pdf' || file.type === '';
-    if (!isPdfName && !isPdfMime) {
-        setPdfError('Seleziona un file in formato PDF (.pdf).');
+    const pdfCandidate = files.find(isPdfFile);
+    const imageCandidates = files.filter(isImageFile);
+
+    if (sourceMode === 'pdf' || (pdfCandidate && imageCandidates.length === 0)) {
+        const file = pdfCandidate || files[0];
+        if (!isPdfFile(file)) {
+            setPdfError('Seleziona un file in formato PDF (.pdf).');
+            renderImportPlanPreviewList([], 'pdf');
+            return;
+        }
+        if (file.size === 0) {
+            setPdfError('Il file PDF selezionato è vuoto.');
+            renderImportPlanPreviewList([], 'pdf');
+            return;
+        }
+        if (file.size > MAX_PDF_IMPORT_BYTES) {
+            setPdfError(`Il PDF pesa ${formatFileSize(file.size)} e supera il limite massimo di 3 MB. Prova a comprimerlo prima di caricarlo.`);
+            renderImportPlanPreviewList([], 'pdf');
+            return;
+        }
+
+        _aiSelectedFiles = [{
+            kind: 'pdf',
+            file,
+            name: file.name || 'scheda.pdf',
+            mimeType: 'application/pdf',
+            byteLength: file.size,
+        }];
+        renderSelectedAiFiles();
         renderImportPlanPreviewList([], 'pdf');
         return;
     }
 
-    if (file.size === 0) {
-        setPdfError('Il file PDF selezionato è vuoto.');
+    if (imageCandidates.length === 0) {
+        setPdfError('Formato non supportato. Seleziona un PDF oppure una o più foto (JPG, PNG, WebP).');
         renderImportPlanPreviewList([], 'pdf');
         return;
     }
 
-    if (file.size > MAX_PDF_IMPORT_BYTES) {
-        setPdfError(`Il PDF pesa ${formatFileSize(file.size)} e supera il limite massimo di 3 MB. Prova a comprimerlo prima di caricarlo.`);
-        renderImportPlanPreviewList([], 'pdf');
+    // Se ci sono già foto selezionate le accodiamo fino a MAX_AI_IMAGES; se c'era un PDF lo sostituiamo
+    const existingImages = _aiSelectedFiles.every(f => f.kind === 'image') ? [..._aiSelectedFiles] : [];
+    const availableSlots = MAX_AI_IMAGES - existingImages.length;
+    if (availableSlots <= 0) {
+        setPdfError(`Hai già raggiunto il massimo di ${MAX_AI_IMAGES} foto per analisi.`);
         return;
     }
 
-    _pdfSelectedFile = file;
-    document.getElementById('pdf-selected-name').textContent = file.name || 'scheda.pdf';
-    document.getElementById('pdf-selected-size').textContent = formatFileSize(file.size);
-    document.getElementById('pdf-dropzone')?.classList.add('hidden');
-    document.getElementById('pdf-selected-card')?.classList.remove('hidden');
+    const toProcess = imageCandidates.slice(0, availableSlots);
+    const ignoredCount = imageCandidates.length - toProcess.length;
+    const projectedCount = existingImages.length + toProcess.length;
+    const maxDim = projectedCount > 2 ? 1500 : 1800;
+    const perPhotoBudget = Math.floor((MAX_PDF_IMPORT_BYTES * 0.9) / Math.max(1, projectedCount));
 
-    renderImportPlanPreviewList([], 'pdf');
+    try {
+        const compressed = [];
+        for (const imgFile of toProcess) {
+            if (imgFile.size === 0) continue;
+            compressed.push(await compressImageFile(imgFile, maxDim, perPhotoBudget));
+        }
+
+        if (compressed.length === 0) {
+            setPdfError('Le immagini selezionate sembrano vuote.');
+            return;
+        }
+
+        const nextList = [...existingImages, ...compressed];
+        const totalBytes = nextList.reduce((acc, f) => acc + f.byteLength, 0);
+        if (totalBytes > MAX_PDF_IMPORT_BYTES) {
+            setPdfError(`Le foto superano i 3 MB totali (${formatFileSize(totalBytes)}). Rimuovi una foto o carica meno pagine alla volta.`);
+            return;
+        }
+
+        _aiSelectedFiles = nextList;
+        if (ignoredCount > 0) {
+            setPdfError(`Sono state aggiunte solo le prime ${toProcess.length} foto (limite massimo: ${MAX_AI_IMAGES}).`);
+        }
+        renderSelectedAiFiles();
+        renderImportPlanPreviewList([], 'pdf');
+    } catch (err) {
+        setPdfError(err?.message || 'Errore durante la preparazione della foto.');
+    }
+}
+
+function removeAiSelectedFile(index) {
+    if (_pdfParsingInFlight) return;
+    _aiSelectedFiles.splice(index, 1);
+    _pdfParsedDays = [];
+    if (_importPlanTab === 'pdf') _parsedImportDays = [];
+    setPdfError('');
+    setPdfSuccess('');
+
+    if (_aiSelectedFiles.length === 0) {
+        resetPdfImportState();
+    } else {
+        renderSelectedAiFiles();
+        renderImportPlanPreviewList([], 'pdf');
+    }
+}
+
+function renderSelectedAiFiles() {
+    const dropzone = document.getElementById('pdf-dropzone');
+    const cardWrap = document.getElementById('pdf-selected-card');
+    const badgeEl = document.getElementById('pdf-selected-badge');
+    const nameEl = document.getElementById('pdf-selected-name');
+    const sizeEl = document.getElementById('pdf-selected-size');
+    const thumbsEl = document.getElementById('ai-thumbs-strip');
+
+    if (_aiSelectedFiles.length === 0) {
+        dropzone?.classList.remove('hidden');
+        cardWrap?.classList.add('hidden');
+        if (thumbsEl) thumbsEl.classList.add('hidden');
+        return;
+    }
+
+    const totalBytes = _aiSelectedFiles.reduce((acc, f) => acc + (f.byteLength || 0), 0);
+    const isPdf = _aiSelectedFiles[0].kind === 'pdf';
+
+    if (badgeEl) badgeEl.textContent = isPdf ? 'PDF' : 'IMG';
+    if (nameEl) {
+        nameEl.textContent = isPdf
+            ? _aiSelectedFiles[0].name
+            : (_aiSelectedFiles.length === 1
+                ? _aiSelectedFiles[0].name
+                : `${_aiSelectedFiles.length} foto selezionate`);
+    }
+    if (sizeEl) {
+        sizeEl.textContent = isPdf
+            ? formatFileSize(totalBytes)
+            : `${formatFileSize(totalBytes)} · ottimizzate`;
+    }
+
+    if (thumbsEl) {
+        if (isPdf) {
+            thumbsEl.innerHTML = '';
+            thumbsEl.classList.add('hidden');
+        } else {
+            const thumbsHtml = _aiSelectedFiles.map((item, idx) => `
+                <div class="ai-thumb-item">
+                    <img src="${item.previewUrl}" alt="Foto ${idx + 1}">
+                    <button type="button" data-action="remove-ai-file" data-file-index="${idx}" class="ai-thumb-remove" title="Rimuovi foto">×</button>
+                </div>
+            `).join('');
+
+            const addMoreHtml = _aiSelectedFiles.length < MAX_AI_IMAGES
+                ? `<button type="button" data-action="add-more-photos" class="ai-thumb-add" title="Aggiungi un'altra foto">
+                       ${UI_SVG.plus}
+                       <span>Foto</span>
+                   </button>`
+                : '';
+
+            thumbsEl.innerHTML = thumbsHtml + addMoreHtml;
+            thumbsEl.classList.remove('hidden');
+        }
+    }
+
+    dropzone?.classList.add('hidden');
+    cardWrap?.classList.remove('hidden');
 }
 
 function readFileAsBase64(file) {
@@ -2559,16 +2791,16 @@ function readFileAsBase64(file) {
             const commaIdx = res.indexOf(',');
             resolve(commaIdx >= 0 ? res.slice(commaIdx + 1) : res);
         };
-        reader.onerror = () => reject(new Error('Impossibile leggere il file PDF dal dispositivo.'));
+        reader.onerror = () => reject(new Error('Impossibile leggere il file dal dispositivo.'));
         reader.readAsDataURL(file);
     });
 }
 
 async function analyzePdfWithAi() {
-    if (!_pdfSelectedFile || _pdfParsingInFlight) return;
+    if (_aiSelectedFiles.length === 0 || _pdfParsingInFlight) return;
 
     if (!navigator.onLine) {
-        setPdfError('Sei offline. Serve una connessione internet per analizzare il PDF con Gemini AI.');
+        setPdfError('Sei offline. Serve una connessione internet per analizzare la scheda con Gemini AI.');
         return;
     }
 
@@ -2582,15 +2814,32 @@ async function analyzePdfWithAi() {
     renderImportPlanPreviewList([], 'pdf');
 
     try {
-        const pdfBase64 = await readFileAsBase64(_pdfSelectedFile);
+        const preparedFiles = [];
+        for (const item of _aiSelectedFiles) {
+            if (item.kind === 'pdf') {
+                const base64 = await readFileAsBase64(item.file);
+                preparedFiles.push({
+                    base64,
+                    mimeType: 'application/pdf',
+                    fileName: item.name,
+                });
+            } else {
+                preparedFiles.push({
+                    base64: item.base64,
+                    mimeType: item.mimeType || 'image/jpeg',
+                    fileName: item.name,
+                });
+            }
+        }
+
         if (reqId !== _pdfParseReqId) return;
 
         const res = await fetch('/api/parse-pdf', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                pdfBase64,
-                fileName: _pdfSelectedFile.name || 'scheda.pdf',
+                files: preparedFiles,
+                fileName: preparedFiles[0]?.fileName || 'scheda',
             }),
         });
 
@@ -2605,17 +2854,17 @@ async function analyzePdfWithAi() {
 
         if (!res.ok) {
             if (res.status === 413) {
-                throw new Error('Il file PDF è troppo pesante per il server (max 3 MB).');
+                throw new Error('I file sono troppo pesanti per il server (max 3 MB totali).');
             }
             if (res.status === 504) {
-                throw new Error('Tempo scaduto durante l\'analisi del PDF. Prova con un file più leggero.');
+                throw new Error('Tempo scaduto durante l\'analisi AI. Prova con meno pagine o un file più leggero.');
             }
             throw new Error(data?.error || `Errore server AI (codice ${res.status}).`);
         }
 
         const days = Array.isArray(data?.days) ? data.days : [];
         if (days.length === 0) {
-            throw new Error('Nessun giorno o esercizio trovato in questo PDF.');
+            throw new Error('Nessun giorno o esercizio trovato in questo file.');
         }
 
         _pdfParsedDays = days;
@@ -2628,7 +2877,7 @@ async function analyzePdfWithAi() {
         }
     } catch (err) {
         if (reqId !== _pdfParseReqId) return;
-        const msg = (err && err.message) ? err.message : 'Errore imprevisto durante l\'analisi del PDF.';
+        const msg = (err && err.message) ? err.message : 'Errore imprevisto durante l\'analisi AI.';
         setPdfError(msg);
         if (_importPlanTab === 'pdf') {
             renderImportPlanPreviewList([], 'pdf');
@@ -2683,10 +2932,10 @@ function renderImportPlanPreviewList(days, mode = 'text') {
     if (!Array.isArray(days) || days.length === 0) {
         if (mode === 'pdf') {
             const placeholder = _pdfParsingInFlight
-                ? 'Lettura del PDF in corso...'
-                : (_pdfSelectedFile
+                ? 'Lettura della scheda con AI in corso...'
+                : (_aiSelectedFiles.length > 0
                     ? 'Premi "Analizza AI" per estrarre la scheda in anteprima.'
-                    : 'Carica un file PDF sopra per vedere qui l\'anteprima estratta dall\'AI.');
+                    : 'Carica una foto, uno screenshot o un PDF sopra per vedere qui l\'anteprima estratta dall\'AI.');
             preview.innerHTML = `<p class="text-dim italic text-center py-4">${placeholder}</p>`;
         } else {
             const hasText = document.getElementById('import-plan-text')?.value.trim();
@@ -3663,6 +3912,14 @@ function setupDelegatedEvents() {
                     if (!isNaN(pw)) copyProgFromWeekForward(actionEl.dataset.progPrefix, pw);
                     return;
                 }
+                case 'remove-ai-file': {
+                    const idx = parseInt(actionEl.dataset.fileIndex, 10);
+                    if (!isNaN(idx)) removeAiSelectedFile(idx);
+                    return;
+                }
+                case 'add-more-photos':
+                    document.getElementById('import-photo-file')?.click();
+                    return;
                 default:
                     break;
             }

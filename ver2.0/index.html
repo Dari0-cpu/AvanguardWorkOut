@@ -352,7 +352,7 @@
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 mt-1">
                     <button onclick="openImportPlanModal()" class="btn btn-outline w-full">
                         <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><polyline points="9 15 12 12 15 15"/></svg>
-                        Incolla / PDF (AI)
+                        Testo / PDF / Foto (AI)
                     </button>
                     <button onclick="openAddDayModal()" class="btn btn-ghost w-full">
                         <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
@@ -643,17 +643,17 @@
         </div>
     </div>
 
-    <!-- IMPORT FULL PLAN (TESTO + PDF AI) -->
+    <!-- IMPORT FULL PLAN (TESTO + PDF / FOTO AI) -->
     <div id="import-plan-modal" class="fixed inset-0 modal-overlay z-50 hidden flex-col justify-end sm:justify-center p-3 sm:p-4">
         <div class="modal-card w-full max-w-lg mx-auto p-5 flex flex-col max-h-[88vh]">
             <div class="flex justify-between items-center mb-3 flex-shrink-0">
-                <h3 class="text-base font-extrabold">Incolla Scheda Intera</h3>
+                <h3 class="text-base font-extrabold">Importa Scheda</h3>
                 <button onclick="closeImportPlanModal()" class="icon-btn !w-8 !h-8">
                     <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                 </button>
             </div>
 
-            <!-- Tabs: Testo | Importa PDF (AI) -->
+            <!-- Tabs: Testo | PDF / Foto (AI) -->
             <div class="import-tabs mb-3 flex-shrink-0" role="tablist">
                 <button type="button" id="import-tab-btn-text" data-import-tab="text" onclick="switchImportPlanTab('text')" class="import-tab-btn active" role="tab" aria-selected="true">
                     <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
@@ -661,7 +661,7 @@
                 </button>
                 <button type="button" id="import-tab-btn-pdf" data-import-tab="pdf" onclick="switchImportPlanTab('pdf')" class="import-tab-btn" role="tab" aria-selected="false">
                     <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>
-                    <span>Importa PDF (AI)</span>
+                    <span>PDF / Foto (AI)</span>
                 </button>
             </div>
 
@@ -673,45 +673,62 @@
                 <textarea id="import-plan-text" rows="6" oninput="updateImportPlanPreview()" class="field !font-mono !text-xs mb-3" placeholder="Giorno 1 - Petto e Bicipiti&#10;Panca piana - S1-2: 4x6 (2'30&quot;) | S3-4: 2x4 (3') + 2x6 (2') | S5-6: 3x3 (3')&#10;Spinte manubri - 3x8 (2')&#10;&#10;Giorno 2 - Gambe&#10;Squat - 4x6 (3')&#10;Leg press - 3x10 (2')"></textarea>
             </div>
 
-            <!-- PANNELLO 2: PDF AI -->
+            <!-- PANNELLO 2: PDF / FOTO AI -->
             <div id="import-tab-pdf" class="hidden flex-shrink-0 mb-3 space-y-2.5">
                 <p class="text-xs text-muted leading-relaxed">
-                    Carica il PDF della tua scheda (max <strong>3 MB</strong>). L'AI estrae giorni, icone, recuperi, note tecniche e progressioni fino a <strong>S6</strong> (oltre all'eventuale S0). Se il ciclo è esteso, S7–S9 vengono inizializzate copiando target e recuperi di S6: potrai poi personalizzarle. Prima di importare vedrai l'anteprima qui sotto.
+                    Carica un <strong>PDF</strong> (max 3 MB) oppure fino a <strong>5 foto/screenshot</strong> della tua scheda (le foto vengono ottimizzate automaticamente). L'AI estrae giorni, icone, recuperi, note tecniche e progressioni settimanali prima dell'importazione.
                 </p>
 
-                <input type="file" id="import-pdf-file" accept=".pdf,application/pdf" class="hidden" onchange="handlePdfFileSelected(event)">
+                <input type="file" id="import-pdf-file" accept=".pdf,application/pdf" class="hidden" onchange="handleAiFilesSelected(event, 'pdf')">
+                <input type="file" id="import-photo-file" accept="image/*" multiple class="hidden" onchange="handleAiFilesSelected(event, 'image')">
 
-                <div id="pdf-dropzone" class="pdf-dropzone" role="button" tabindex="0" onclick="document.getElementById('import-pdf-file').click()">
-                    <span class="pdf-dropzone-icon">
-                        <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                    </span>
-                    <div class="min-w-0">
-                        <div class="text-xs font-extrabold text-app">Scegli un file PDF o trascinalo qui</div>
-                        <div class="text-[11px] text-dim mt-0.5">Formato .pdf · massimo 3 MB</div>
+                <div id="pdf-dropzone" class="pdf-dropzone-wrap">
+                    <div id="pdf-dropzone-area" class="pdf-dropzone" role="button" tabindex="0" onclick="document.getElementById('import-photo-file').click()">
+                        <span class="pdf-dropzone-icon">
+                            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
+                        </span>
+                        <div class="min-w-0">
+                            <div class="text-xs font-extrabold text-app">Carica foto, screenshot o PDF</div>
+                            <div class="text-[11px] text-dim mt-0.5">Trascina qui oppure scegli sotto · max 5 foto o 1 PDF</div>
+                        </div>
+                    </div>
+                    <div class="ai-picker-actions">
+                        <button type="button" onclick="document.getElementById('import-photo-file').click()" class="btn btn-outline !py-2 !text-xs w-full">
+                            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></svg>
+                            Foto / Galleria
+                        </button>
+                        <button type="button" onclick="document.getElementById('import-pdf-file').click()" class="btn btn-ghost !py-2 !text-xs w-full">
+                            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                            Scegli PDF
+                        </button>
                     </div>
                 </div>
 
-                <!-- File selezionato -->
-                <div id="pdf-selected-card" class="pdf-file-card hidden">
-                    <div class="flex items-center gap-2.5 min-w-0 flex-1">
-                        <span class="pdf-file-badge">PDF</span>
-                        <div class="min-w-0 flex-1">
-                            <div id="pdf-selected-name" class="text-xs font-bold text-app truncate">scheda.pdf</div>
-                            <div id="pdf-selected-size" class="text-[10.5px] text-dim tabular-nums">0 KB</div>
+                <!-- File / Foto selezionati -->
+                <div id="pdf-selected-card" class="pdf-file-card-wrap hidden">
+                    <div class="pdf-file-card">
+                        <div class="flex items-center gap-2.5 min-w-0 flex-1">
+                            <span id="pdf-selected-badge" class="pdf-file-badge">PDF</span>
+                            <div class="min-w-0 flex-1">
+                                <div id="pdf-selected-name" class="text-xs font-bold text-app truncate">scheda.pdf</div>
+                                <div id="pdf-selected-size" class="text-[10.5px] text-dim tabular-nums">0 KB</div>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-1.5 flex-shrink-0">
+                            <button type="button" id="pdf-change-btn" onclick="resetPdfImportState()" class="btn btn-ghost !py-1.5 !px-2.5 !text-[11px]">Cambia</button>
+                            <button type="button" id="pdf-analyze-btn" onclick="analyzePdfWithAi()" class="btn btn-primary !py-1.5 !px-3 !text-[11px]">Analizza AI</button>
                         </div>
                     </div>
-                    <div class="flex items-center gap-1.5 flex-shrink-0">
-                        <button type="button" id="pdf-change-btn" onclick="document.getElementById('import-pdf-file').click()" class="btn btn-ghost !py-1.5 !px-2.5 !text-[11px]">Cambia</button>
-                        <button type="button" id="pdf-analyze-btn" onclick="analyzePdfWithAi()" class="btn btn-primary !py-1.5 !px-3 !text-[11px]">Analizza AI</button>
-                    </div>
+                    <!-- Miniature foto (visibili solo quando carichi immagini) -->
+                    <div id="ai-thumbs-strip" class="ai-thumbs-strip hidden"></div>
                 </div>
 
                 <!-- Stato caricamento AI -->
                 <div id="pdf-loading-state" class="pdf-loading-box hidden" role="status" aria-live="polite">
                     <span class="ai-spinner" aria-hidden="true"></span>
                     <div class="min-w-0">
-                        <div id="pdf-loading-title" class="text-xs font-extrabold text-app">Analisi PDF con Gemini AI in corso...</div>
-                        <div class="text-[11px] text-muted mt-0.5">Estrazione fino a S6; le eventuali settimane successive ereditano S6.</div>
+                        <div id="pdf-loading-title" class="text-xs font-extrabold text-app">Analisi con Gemini AI in corso...</div>
+                        <div class="text-[11px] text-muted mt-0.5">Estrazione giorni, serie, recuperi e note tecniche dalla scheda.</div>
                     </div>
                 </div>
 
@@ -728,7 +745,7 @@
                 </div>
             </div>
 
-            <!-- Anteprima condivisa (Testo e PDF AI) -->
+            <!-- Anteprima condivisa (Testo e PDF/Foto AI) -->
             <div id="import-plan-preview" class="scroll-area flex-1 bg-surface-2 border border-app rounded-xl p-3 text-xs mb-4">
                 <p class="text-dim italic text-center py-4">Incolla la scheda sopra per vedere l'anteprima...</p>
             </div>
