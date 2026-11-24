@@ -1306,13 +1306,16 @@ function toggleExMenu(event, popId) {
     closeAllPopovers();
     if (wasHidden) {
         el.classList.remove('hidden');
+        el.closest('.ex-card')?.classList.add('popover-open');
         openPopoverId = popId;
     }
 }
 
 function closeAllPopovers() {
     if (openPopoverId) {
-        document.getElementById(openPopoverId)?.classList.add('hidden');
+        const el = document.getElementById(openPopoverId);
+        el?.classList.add('hidden');
+        el?.closest('.ex-card')?.classList.remove('popover-open');
         openPopoverId = null;
     }
 }
