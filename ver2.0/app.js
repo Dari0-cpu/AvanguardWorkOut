@@ -985,10 +985,21 @@ function renderWorkoutView(currentUser) {
     // 1. Barra orizzontale tab giorni (delegata via data-action)
     strip.innerHTML = currentUser.days.map(day => {
         const isActive = day.id === activeDayId;
+        const total = day.exercises.length;
+        let done = 0;
+        for (let i = 0; i < total; i++) {
+            const lk = `w${appState.week}_${currentUser.id}_${day.id}_${day.exercises[i].id}`;
+            if (appState.logs[lk]?.done) done++;
+        }
+        const isDayDone = total > 0 && done === total;
+        const doneDotHtml = (isDayDone && !isActive)
+            ? `<span class="day-done-dot" aria-hidden="true"></span>`
+            : '';
         return `
             <button type="button" data-action="select-day" data-day-id="${escapeHtml(day.id)}" class="day-tab-pill ${isActive ? 'active' : ''}">
                 ${getDayIconSvg(day)}
                 <span>${escapeHtml(day.name)}</span>
+                ${doneDotHtml}
             </button>
         `;
     }).join('') + `
@@ -1209,7 +1220,7 @@ function renderExerciseCardInternal(dayId, ex, logKey, log, blocks, restsArray, 
     const hasNote = currentNote.trim().length > 0;
     const isNoteOpen = _openNoteKeys.has(logKey);
     const weekShort = appState.week === 0 ? 'S0' : `S${appState.week}`;
-    const noteTitle = appState.week < 6
+    const noteTitle = appState.week < getProgramWeekCount()
         ? `Nota ${weekShort} · promemoria in S${appState.week + 1}`
         : `Nota ${weekShort}`;
 

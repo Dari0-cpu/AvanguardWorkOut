@@ -19,8 +19,6 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script>tailwind.config = { darkMode: 'class' };</script>
 
-    <!-- Chart.js (Grafico peso corporeo) -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 
     <!-- jsPDF (Export PDF vettoriale) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -41,8 +39,8 @@
 
             <!-- Brand + Profilo attivo -->
             <button onclick="switchTab('settings')" class="flex items-center gap-2.5 min-w-0 text-left group">
-                <span class="w-9 h-9 rounded-xl flex items-center justify-center brand-soft-bg brand-text flex-shrink-0">
-                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10v4"/><path d="M21 10v4"/><rect x="5" y="7" width="3" height="10" rx="1"/><rect x="16" y="7" width="3" height="10" rx="1"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+                <span class="w-9 h-9 rounded-xl overflow-hidden border border-white/10 bg-surface-2 flex-shrink-0">
+                    <img src="logo.png" alt="Avanguard" class="w-full h-full object-cover">
                 </span>
                 <div class="min-w-0">
                     <div class="text-sm font-black tracking-tight text-app leading-none">AVANGUARD</div>
@@ -132,10 +130,10 @@
                 <div id="weight-chart-wrap" class="w-full"></div>
             </div>
 
-            <!-- Griglia settimane configurabili -->
+        <!-- Griglia settimane configurabili -->
             <div class="panel-card p-4">
                 <span class="micro-label">Storico Settimane (tocca per modificare)</span>
-                <div id="weight-weeks-grid" class="grid grid-cols-3 sm:grid-cols-9 gap-2 mt-1"></div>
+                <div id="weight-weeks-grid" class="grid grid-cols-3 gap-2 mt-1"></div>
             </div>
         </section>
 
@@ -312,15 +310,14 @@
 
     <!-- ============ BOTTOM NAVIGATION BAR ============ -->
     <nav class="bottom-nav">
-        <div id="bottom-nav-inner" class="bottom-nav-inner" style="--nav-idx: 0;">
-            <!-- Layer fluido Symbiote (dietro icone e testo, mai applicato alle label) -->
-            <div class="symbiote-track" aria-hidden="true">
-                <div class="symbiote-goo-layer">
-                    <span class="symbiote-blob symbiote-blob-tail"></span>
-                    <span class="symbiote-blob symbiote-blob-drop"></span>
-                    <span class="symbiote-blob symbiote-blob-head"></span>
-                </div>
+    <div id="bottom-nav-inner" class="bottom-nav-inner" style="--nav-idx: 0;">
+        <div class="symbiote-track" aria-hidden="true">
+            <div class="symbiote-goo-layer">
+                <span class="symbiote-blob symbiote-blob-tail"></span>
+                <span class="symbiote-blob symbiote-blob-drop"></span>
+                <span class="symbiote-blob symbiote-blob-head"></span>
             </div>
+        </div>
 
             <button data-nav-tab="workout" onclick="switchTab('workout')" class="nav-item active">
                 <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10v4"/><path d="M21 10v4"/><rect x="5" y="7" width="3" height="10" rx="1"/><rect x="16" y="7" width="3" height="10" rx="1"/><line x1="8" y1="12" x2="16" y2="12"/></svg>

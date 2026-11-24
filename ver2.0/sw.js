@@ -1,5 +1,5 @@
-// Service Worker v11 - Cache aggiornata per ciclo settimane configurabile
-const CACHE_NAME = 'avanguard-cache-v12';
+// Service Worker v13 - Restyling UI + rimozione Chart.js
+const CACHE_NAME = 'avanguard-cache-v13';
 
 const CORE_ASSETS = [
     './',
@@ -13,7 +13,6 @@ const CORE_ASSETS = [
 
 const CDN_ASSETS = [
     'https://cdn.tailwindcss.com',
-    'https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js',
     'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js'
 ];
 
