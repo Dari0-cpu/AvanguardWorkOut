@@ -1,5 +1,5 @@
 // Service Worker v13 - Restyling UI + rimozione Chart.js
-const CACHE_NAME = 'avanguard-cache-v16';
+const CACHE_NAME = 'avanguard-cache-v17';
 
 const CORE_ASSETS = [
     './',
@@ -8,7 +8,9 @@ const CORE_ASSETS = [
     './app.js',
     './pdfexp.js',
     './manifest.json',
-    './logo.png'
+    './logo.png',
+    './logo-192.png',
+    './splash-skinny.png'
 ];
 
 const CDN_ASSETS = [
@@ -43,15 +45,15 @@ self.addEventListener('fetch', event => {
 
     if (isLocal) {
         event.respondWith(
-            fetch(req)
-                .then(res => {
-                    if (res && res.ok) {
-                        const copy = res.clone();
-                        caches.open(CACHE_NAME).then(c => c.put(req, copy));
-                    }
-                    return res;
+            caches.open(CACHE_NAME).then(cache =>
+                cache.match(req).then(cached => {
+                    const networkFetch = fetch(req).then(res => {
+                        if (res && res.ok) cache.put(req, res.clone());
+                        return res;
+                    }).catch(() => cached);
+                    return cached || networkFetch;
                 })
-                .catch(() => caches.match(req))
+            )
         );
     } else {
         event.respondWith(

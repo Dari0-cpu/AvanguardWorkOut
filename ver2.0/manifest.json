@@ -1,15 +1,22 @@
 {
-  "name": "Avanguard WorkOut",
+  "name": "\u2800",
   "short_name": "Avanguard",
   "start_url": "./index.html",
   "display": "standalone",
-  "background_color": "#08090d",
-  "theme_color": "#f43f5e",
+  "background_color": "#07070a",
+  "theme_color": "#07070a",
   "icons": [
     {
-      "src": "logo.png",
+      "src": "logo-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "splash-skinny.png",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
     }
   ]
 }
