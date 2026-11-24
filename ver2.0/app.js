@@ -240,10 +240,31 @@ let _restTimerEndAt = null;
 let _restTimerPaused = false;
 let _restTimerActive = false;
 
+
+function initSplashScreen() {
+    const splash = document.getElementById('avanguard-splash');
+    if (!splash) return;
+
+    let dismissed = false;
+    const dismiss = () => {
+        if (dismissed) return;
+        dismissed = true;
+        splash.classList.add('is-leaving');
+        setTimeout(() => splash.remove(), 380);
+    };
+
+    // Tap/click ovunque per saltare subito se hai fretta in palestra
+    splash.addEventListener('click', dismiss, { once: true });
+
+    const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
+    setTimeout(dismiss, reducedMotion ? 600 : 1850);
+}
+
 // ============================================================
 //  INIT
 // ============================================================
 async function init() {
+    initSplashScreen();
     const warningEl = document.getElementById('cloud-warning');
     if (warningEl && CLOUD_ENABLED) warningEl.classList.add('hidden');
 

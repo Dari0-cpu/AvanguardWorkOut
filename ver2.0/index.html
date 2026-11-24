@@ -33,6 +33,162 @@
 </head>
 <body class="antialiased pb-28">
 
+
+    <!-- ============ SPLASH SCREEN ANIMATA (DA SECCO A ENORME) ============ -->
+    <div id="avanguard-splash" class="splash-screen" role="presentation" aria-hidden="true">
+        <div class="splash-stage">
+            <div class="splash-aura" aria-hidden="true"></div>
+
+            <svg class="splash-svg" viewBox="0 0 240 240" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <!-- Ombra a terra -->
+                <ellipse class="splash-shadow" cx="120" cy="211" rx="44" ry="7" />
+
+                <!-- Onda d'urto fumetto alla trasformazione -->
+                <circle class="splash-ring" cx="120" cy="114" r="76" />
+
+                <!-- Raggi impatto comic -->
+                <g class="splash-burst" stroke-linecap="round">
+                    <line x1="120" y1="14" x2="120" y2="28" />
+                    <line x1="56" y1="30" x2="66" y2="41" />
+                    <line x1="184" y1="30" x2="174" y2="41" />
+                    <line x1="18" y1="88" x2="31" y2="92" />
+                    <line x1="222" y1="88" x2="209" y2="92" />
+                    <line x1="26" y1="150" x2="38" y2="144" />
+                    <line x1="214" y1="150" x2="202" y2="144" />
+                </g>
+
+                <!-- FASE 1: SECCO E RILASSATO -->
+                <g class="guy-skinny">
+                    <!-- Gambe sottili -->
+                    <rect x="108" y="166" width="8" height="34" rx="4" fill="#F2B88F" stroke="#18181B" stroke-width="3.2" />
+                    <rect x="124" y="166" width="8" height="34" rx="4" fill="#F2B88F" stroke="#18181B" stroke-width="3.2" />
+
+                    <!-- Scarpe -->
+                    <path d="M100 198 C100 193 107 192 117 194 L117 205 L98 205 C98 202 99 200 100 198 Z" fill="#3F3F46" stroke="#18181B" stroke-width="3.2" stroke-linejoin="round" />
+                    <path d="M140 198 C140 193 133 192 123 194 L123 205 L142 205 C142 202 141 200 140 198 Z" fill="#3F3F46" stroke="#18181B" stroke-width="3.2" stroke-linejoin="round" />
+
+                    <!-- Pantaloncini -->
+                    <path d="M106 150 L134 150 L137 171 L122 171 L120 162 L118 171 L103 171 Z" fill="#27272A" stroke="#18181B" stroke-width="3.2" stroke-linejoin="round" />
+
+                    <!-- Braccia magre rilassate -->
+                    <path d="M108 107 Q97 128 99 150" stroke="#18181B" stroke-width="11.5" stroke-linecap="round" />
+                    <path d="M108 107 Q97 128 99 150" stroke="#F2B88F" stroke-width="5.5" stroke-linecap="round" />
+                    <circle cx="99" cy="152" r="4.8" fill="#F2B88F" stroke="#18181B" stroke-width="3" />
+
+                    <path d="M132 107 Q143 128 141 150" stroke="#18181B" stroke-width="11.5" stroke-linecap="round" />
+                    <path d="M132 107 Q143 128 141 150" stroke="#F2B88F" stroke-width="5.5" stroke-linecap="round" />
+                    <circle cx="141" cy="152" r="4.8" fill="#F2B88F" stroke="#18181B" stroke-width="3" />
+
+                    <!-- Busto stretto + canotta tema -->
+                    <path d="M108 104 L132 104 L130 152 L110 152 Z" class="splash-brand-fill" stroke="#18181B" stroke-width="3.2" stroke-linejoin="round" />
+                    <path d="M114 104 Q120 112 126 104" fill="#F2B88F" stroke="#18181B" stroke-width="2.8" stroke-linecap="round" />
+
+                    <!-- Collo e Testa -->
+                    <rect x="116" y="92" width="8" height="14" rx="3" fill="#F2B88F" stroke="#18181B" stroke-width="3" />
+                    <circle cx="120" cy="78" r="17.5" fill="#F2B88F" stroke="#18181B" stroke-width="3.2" />
+                    <!-- Capelli spettinati -->
+                    <path d="M102 74 C102 56 116 54 123 58 C131 54 138 61 137 73 C131 66 125 65 119 67 C113 64 107 67 102 74 Z" fill="#1F2028" stroke="#18181B" stroke-width="3" stroke-linejoin="round" />
+                    <!-- Espressione rilassata/assonnata -->
+                    <circle cx="114" cy="78" r="2.1" fill="#18181B" />
+                    <circle cx="126" cy="78" r="2.1" fill="#18181B" />
+                    <path d="M115 86 Q120 85 125 86" stroke="#18181B" stroke-width="2.6" stroke-linecap="round" />
+                </g>
+
+                <!-- FASE 2: ENORME IN POSA DOPPIO BICIPITE -->
+                <g class="guy-buff">
+                    <!-- Gambe atletiche -->
+                    <path d="M103 166 Q97 181 102 198 L114 198 Q116 182 115 166 Z" fill="#F2B88F" stroke="#18181B" stroke-width="3.2" stroke-linejoin="round" />
+                    <path d="M137 166 Q143 181 138 198 L126 198 Q124 182 125 166 Z" fill="#F2B88F" stroke="#18181B" stroke-width="3.2" stroke-linejoin="round" />
+
+                    <!-- Scarpe tema -->
+                    <path d="M94 198 C95 191 104 190 116 193 L116 205 L92 205 Z" class="splash-brand-fill" stroke="#18181B" stroke-width="3.2" stroke-linejoin="round" />
+                    <line x1="93" y1="202" x2="115" y2="202" stroke="#FFFFFF" stroke-width="2.4" stroke-linecap="round" />
+                    <path d="M146 198 C145 191 136 190 124 193 L124 205 L148 205 Z" class="splash-brand-fill" stroke="#18181B" stroke-width="3.2" stroke-linejoin="round" />
+                    <line x1="125" y1="202" x2="147" y2="202" stroke="#FFFFFF" stroke-width="2.4" stroke-linecap="round" />
+
+                    <!-- Pantaloncini -->
+                    <path d="M101 147 L139 147 L144 172 L123 172 L120 162 L117 172 L96 172 Z" fill="#27272A" stroke="#18181B" stroke-width="3.2" stroke-linejoin="round" />
+
+                    <!-- Trapezi giganti -->
+                    <path d="M81 96 Q120 65 159 96 Z" fill="#E3A67C" stroke="#18181B" stroke-width="3.2" stroke-linejoin="round" />
+
+                    <!-- Braccio Sinistro (Flex animato) -->
+                    <g class="buff-arm-l">
+                        <path d="M68 91 Q51 67 35 94 Q36 113 67 110 Z" fill="#F2B88F" stroke="#18181B" stroke-width="3.2" stroke-linejoin="round" />
+                        <path d="M47 89 Q54 82 61 88" stroke="#D39268" stroke-width="2.4" stroke-linecap="round" />
+                        <circle cx="74" cy="96" r="15.5" fill="#F2B88F" stroke="#18181B" stroke-width="3.2" />
+                        <path d="M31 99 Q24 78 36 60 L51 65 Q45 81 47 99 Z" fill="#F2B88F" stroke="#18181B" stroke-width="3.2" stroke-linejoin="round" />
+                        <rect x="34" y="61" width="17" height="7" rx="3" transform="rotate(14 42 64)" class="splash-brand-fill" stroke="#18181B" stroke-width="2.6" />
+                        <ellipse cx="47" cy="56" rx="11.5" ry="10" fill="#F2B88F" stroke="#18181B" stroke-width="3.2" />
+                        <path d="M42 54 Q47 57 52 54 M43 59 Q48 61 53 59" stroke="#18181B" stroke-width="2.2" stroke-linecap="round" />
+                    </g>
+
+                    <!-- Braccio Destro (Flex animato) -->
+                    <g class="buff-arm-r">
+                        <path d="M172 91 Q189 67 205 94 Q204 113 173 110 Z" fill="#F2B88F" stroke="#18181B" stroke-width="3.2" stroke-linejoin="round" />
+                        <path d="M193 89 Q186 82 179 88" stroke="#D39268" stroke-width="2.4" stroke-linecap="round" />
+                        <circle cx="166" cy="96" r="15.5" fill="#F2B88F" stroke="#18181B" stroke-width="3.2" />
+                        <path d="M209 99 Q216 78 204 60 L189 65 Q195 81 193 99 Z" fill="#F2B88F" stroke="#18181B" stroke-width="3.2" stroke-linejoin="round" />
+                        <rect x="189" y="61" width="17" height="7" rx="3" transform="rotate(-14 198 64)" class="splash-brand-fill" stroke="#18181B" stroke-width="2.6" />
+                        <ellipse cx="193" cy="56" rx="11.5" ry="10" fill="#F2B88F" stroke="#18181B" stroke-width="3.2" />
+                        <path d="M188 54 Q193 57 198 54 M187 59 Q192 61 197 59" stroke="#18181B" stroke-width="2.2" stroke-linecap="round" />
+                    </g>
+
+                    <!-- Busto V-Taper + Dorsali -->
+                    <path d="M73 95 Q69 122 97 142 L102 150 L138 150 L143 142 Q171 122 167 95 Q145 84 120 84 Q95 84 73 95 Z" fill="#F2B88F" stroke="#18181B" stroke-width="3.2" stroke-linejoin="round" />
+
+                    <!-- Canotta aderente colore accent -->
+                    <path d="M91 88 L103 86 Q120 105 137 86 L149 88 L145 110 Q152 125 139 149 L101 149 Q88 125 95 110 Z" class="splash-brand-fill" stroke="#18181B" stroke-width="3.2" stroke-linejoin="round" />
+                    <!-- Linee pettorali & addome -->
+                    <path d="M98 113 Q109 120 119 112 M121 112 Q131 120 142 113" stroke="#18181B" stroke-opacity="0.45" stroke-width="2.5" stroke-linecap="round" />
+                    <path d="M120 118 V143 M111 128 H129 M112 136 H128" stroke="#18181B" stroke-opacity="0.32" stroke-width="2.1" stroke-linecap="round" />
+
+                    <!-- Testa carica + fascia -->
+                    <circle cx="120" cy="67" r="17" fill="#F2B88F" stroke="#18181B" stroke-width="3.2" />
+                    <!-- Capelli a punta -->
+                    <path d="M103 60 L106 46 L114 54 L120 42 L127 54 L135 46 L137 60 Q120 55 103 60 Z" fill="#1F2028" stroke="#18181B" stroke-width="3" stroke-linejoin="round" />
+                    <!-- Fascia fronte colore accent -->
+                    <path d="M103 60 Q120 54 137 60 L136 66 Q120 60 104 66 Z" class="splash-brand-fill" stroke="#18181B" stroke-width="2.6" stroke-linejoin="round" />
+                    <!-- Sopracciglia determinate, occhi e sorrisone -->
+                    <path d="M109 67 L117 70 M131 67 L123 70" stroke="#18181B" stroke-width="2.6" stroke-linecap="round" />
+                    <circle cx="114" cy="72" r="2.2" fill="#18181B" />
+                    <circle cx="126" cy="72" r="2.2" fill="#18181B" />
+                    <path d="M111 77 Q120 86 129 77 Z" fill="#FFFFFF" stroke="#18181B" stroke-width="2.4" stroke-linejoin="round" />
+                </g>
+
+                <!-- Scintille sui bicipiti -->
+                <g class="splash-sparkles">
+                    <path class="sparkle-l" d="M53 64 L55.5 70.5 L62 73 L55.5 75.5 L53 82 L50.5 75.5 L44 73 L50.5 70.5 Z" />
+                    <path class="sparkle-r" d="M187 64 L189.5 70.5 L196 73 L189.5 75.5 L187 82 L184.5 75.5 L178 73 L184.5 70.5 Z" />
+                </g>
+            </svg>
+        </div>
+    </div>
+    <script>
+        (function () {
+            try {
+                const raw = localStorage.getItem('gym_tracker_pro_v6');
+                if (!raw) return;
+                const s = JSON.parse(raw);
+                const mode = s.mode === 'light' ? 'light' : 'dark';
+                document.documentElement.setAttribute('data-theme', mode);
+                if (s.bgStyle) document.documentElement.setAttribute('data-bg', String(s.bgStyle));
+                const map = {
+                    red: ['#f43f5e', '244, 63, 94'], orange: ['#f97316', '249, 115, 22'],
+                    yellow: ['#f59e0b', '245, 158, 11'], green: ['#10b981', '16, 185, 129'],
+                    cyan: ['#06b6d4', '6, 182, 212'], blue: ['#3b82f6', '59, 130, 246'],
+                    indigo: ['#6366f1', '99, 102, 241'], purple: ['#a855f7', '168, 85, 247'],
+                    pink: ['#ec4899', '236, 72, 153'],
+                    zinc: mode === 'light' ? ['#18181b', '24, 24, 27'] : ['#f4f4f5', '244, 244, 245']
+                };
+                const picked = map[s.theme] || map.red;
+                document.documentElement.style.setProperty('--brand-500', picked[0]);
+                document.documentElement.style.setProperty('--brand-rgb', picked[1]);
+            } catch (_) {}
+        })();
+    </script>
+
+    
     <!-- ============ HEADER COMPATTO ============ -->
     <header class="fixed top-0 left-0 right-0 glass-header z-40 px-4 py-2.5">
         <div class="max-w-2xl mx-auto flex items-center justify-between gap-3">
