@@ -123,18 +123,6 @@ flowchart LR
 
 ---
 
-## Variabili d'Ambiente (Vercel)
-
-Per il deploy su Vercel (Root Directory: `ver2.0`), configura le seguenti Environment Variables:
-
-| Variabile | Descrizione |
-| :--- | :--- |
-| `SUPABASE_URL` | URL del progetto Supabase |
-| `SUPABASE_SERVICE_ROLE_KEY` | Chiave segreta Supabase (`sb_secret_...` o service role) per `/api/sync` |
-| `GEMINI_API_KEY` | Chiave API Google Gemini per l'importazione schede da PDF/Foto (`/api/parse-pdf`) |
-
----
-
 ## Stack Tecnologico
 
 - **Frontend:** HTML5, CSS3 (Design System con CSS Variables, Glassmorphism & filtri SVG), Tailwind CSS (CDN), Vanilla JavaScript (ES6+, architettura *zero-build*)
