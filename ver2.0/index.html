@@ -174,8 +174,10 @@
                 document.documentElement.setAttribute('data-theme', mode);
                 if (s.bgStyle) document.documentElement.setAttribute('data-bg', String(s.bgStyle));
                 const map = {
-                    red: ['#f43f5e', '244, 63, 94'], orange: ['#f97316', '249, 115, 22'],
-                    yellow: ['#f59e0b', '245, 158, 11'], green: ['#10b981', '16, 185, 129'],
+                    red: ['#f43f5e', '244, 63, 94'], ruby: ['#dc2626', '220, 38, 38'],
+                    orange: ['#f97316', '249, 115, 22'], copper: ['#c6733b', '198, 115, 59'],
+                    yellow: ['#f59e0b', '245, 158, 11'], lime: ['#84cc16', '132, 204, 22'],
+                    green: ['#10b981', '16, 185, 129'], teal: ['#14b8a6', '20, 184, 166'],
                     cyan: ['#06b6d4', '6, 182, 212'], blue: ['#3b82f6', '59, 130, 246'],
                     indigo: ['#6366f1', '99, 102, 241'], purple: ['#a855f7', '168, 85, 247'],
                     pink: ['#ec4899', '236, 72, 153'],
@@ -382,11 +384,6 @@
 
             <!-- Stile e Temi -->
             <div class="panel-card p-4">
-                
-                <span class="micro-label">Aspetto</span>
-
-                <!-- Stile e Temi -->
-            <div class="panel-card p-4">
                 <span class="micro-label">Sfondo</span>
                 <div class="bg-selector mb-4" role="group" aria-label="Selettore sfondo">
                     <button type="button" data-action="cycle-bg" data-delta="-1" class="bg-arrow-btn" aria-label="Sfondo precedente">
@@ -404,6 +401,7 @@
                     </button>
                 </div>
 
+                <span class="micro-label">Aspetto</span>
                 <div class="flex gap-2 mt-1 mb-4">
                     <button data-mode-btn="dark" onclick="setMode('dark')" class="theme-mode-btn">
                         <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
@@ -414,12 +412,14 @@
                         Chiaro
                     </button>
                 </div>
+
                 <span class="micro-label">Colore Accent</span>
                 <div id="theme-swatches-grid" class="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-1"></div>
             </div>
 
+
             <!-- Cloud Sync & Backup -->
-            <div id="cloud-section" class="panel-card p-4">
+            <div id="cloud-section" class="panel-card p-4" style="padding: 2vmax;">
                 <div class="flex items-center justify-between mb-1">
                     <span class="micro-label !mb-0">Cloud Sync Sicuro</span>
                     <span id="cloud-status-badge" class="text-[11px] font-bold text-muted">Locale</span>

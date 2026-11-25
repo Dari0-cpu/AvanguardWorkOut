@@ -14,9 +14,13 @@ const WEIGHT_INPUT_DEBOUNCE_MS = 500;
 // ============================================================
 const THEMES = {
     red:    { label: 'Crimson',     400: '#fb7185', 500: '#f43f5e', 600: '#e11d48', 700: '#be123c', rgb: '244, 63, 94',  contrast: '#ffffff' },
+    ruby:   { label: 'Scarlet',     400: '#f87171', 500: '#dc2626', 600: '#b91c1c', 700: '#991b1b', rgb: '220, 38, 38',  contrast: '#ffffff' },
     orange: { label: 'Volcanic',    400: '#fb923c', 500: '#f97316', 600: '#ea580c', 700: '#c2410c', rgb: '249, 115, 22', contrast: '#ffffff' },
+    copper: { label: 'Copper',      400: '#e09866', 500: '#c6733b', 600: '#a85b28', 700: '#87451b', rgb: '198, 115, 59', contrast: '#ffffff' },
     yellow: { label: 'Solar Gold',  400: '#fbbf24', 500: '#f59e0b', 600: '#d97706', 700: '#b45309', rgb: '245, 158, 11', contrast: '#111318' },
+    lime:   { label: 'Volt',        400: '#a3e635', 500: '#84cc16', 600: '#65a30d', 700: '#4d7c0f', rgb: '132, 204, 22', contrast: '#0b1604' },
     green:  { label: 'Emerald',     400: '#34d399', 500: '#10b981', 600: '#059669', 700: '#047857', rgb: '16, 185, 129', contrast: '#06281e' },
+    teal:   { label: 'Abyss',       400: '#2dd4bf', 500: '#14b8a6', 600: '#0d9488', 700: '#0f766e', rgb: '20, 184, 166', contrast: '#042625' },
     cyan:   { label: 'Glacier',     400: '#22d3ee', 500: '#06b6d4', 600: '#0891b2', 700: '#0e7490', rgb: '6, 182, 212',  contrast: '#06242b' },
     blue:   { label: 'Cobalt',      400: '#60a5fa', 500: '#3b82f6', 600: '#2563eb', 700: '#1d4ed8', rgb: '59, 130, 246', contrast: '#ffffff' },
     indigo: { label: 'Midnight',    400: '#818cf8', 500: '#6366f1', 600: '#4f46e5', 700: '#4338ca', rgb: '99, 102, 241', contrast: '#ffffff' },
@@ -26,12 +30,19 @@ const THEMES = {
 };
 
 const BACKGROUNDS = [
-    { id: 1, name: 'Sfondo 1', desc: 'Luci soffuse' },
-    { id: 2, name: 'Sfondo 2', desc: 'Grigi & Nero' },
-    { id: 3, name: 'Sfondo 3', desc: 'Fascio obliquo' },
-    { id: 4, name: 'Sfondo 4', desc: 'Aurora mesh' },
-    { id: 5, name: 'Sfondo 5', desc: 'Ossidiana grid' },
+    { id: 1,  name: 'Sfondo 1',  desc: 'Luci soffuse' },
+    { id: 2,  name: 'Sfondo 2',  desc: 'Grigi & Nero' },
+    { id: 3,  name: 'Sfondo 3',  desc: 'Fascio obliquo' },
+    { id: 4,  name: 'Sfondo 4',  desc: 'Aurora mesh' },
+    { id: 5,  name: 'Sfondo 5',  desc: 'Ossidiana grid' },
+    { id: 6,  name: 'Sfondo 6',  desc: 'Carbonio / Kevlar' },
+    { id: 7,  name: 'Sfondo 7',  desc: 'Radar concentrico' },
+    { id: 8,  name: 'Sfondo 8',  desc: 'Topografia' },
+    { id: 9,  name: 'Sfondo 9',  desc: 'Ghisa spazzolata' },
+    { id: 10, name: 'Sfondo 10', desc: 'Onda sismica' },
+    { id: 11, name: 'Sfondo 11', desc: 'AMOLED Pure Black' },
 ];
+
 
 // ============================================================
 //  ICONE SVG INLINE (100% offline)

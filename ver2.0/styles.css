@@ -2036,6 +2036,230 @@ input:checked + .ex-check svg { opacity: 1; transform: scale(1); }
     mask-image: radial-gradient(ellipse 85% 70% at 50% 35%, #000 18%, transparent 88%);
 }
 
+/* ---------- SFONDO 6: CARBONIO / KEVLAR (TRAMA INTRECCIATA) ---------- */
+[data-bg="6"] body {
+    background: #08080a;
+}
+[data-bg="6"] body::before {
+    background-color: #0b0b0e;
+    background-image:
+        linear-gradient(27deg, #141419 5px, transparent 5px),
+        linear-gradient(207deg, #141419 5px, transparent 5px),
+        linear-gradient(27deg, #1d1d24 5px, transparent 5px),
+        linear-gradient(207deg, #1d1d24 5px, transparent 5px),
+        linear-gradient(90deg, #0e0e13 10px, transparent 10px),
+        linear-gradient(#121217 25%, #0c0c10 25%, #0c0c10 50%, transparent 50%, transparent 75%, #16161c 75%, #16161c);
+    background-size: 16px 16px;
+    background-position: 0 4px, 8px 0, 0 8px, 8px 4px, 0 0, 0 0;
+}
+[data-bg="6"] body::after {
+    background:
+        radial-gradient(75% 42% at 50% 0%, rgba(255, 255, 255, 0.055) 0%, transparent 65%),
+        radial-gradient(90% 70% at 50% 50%, transparent 38%, rgba(0, 0, 0, 0.72) 100%);
+}
+
+[data-theme="light"][data-bg="6"] body {
+    background: #e4e7ec;
+}
+[data-theme="light"][data-bg="6"] body::before {
+    background-color: #e6e9ef;
+    background-image:
+        linear-gradient(27deg, #dce0e8 5px, transparent 5px),
+        linear-gradient(207deg, #dce0e8 5px, transparent 5px),
+        linear-gradient(27deg, #cfd5df 5px, transparent 5px),
+        linear-gradient(207deg, #cfd5df 5px, transparent 5px),
+        linear-gradient(90deg, #e1e5ec 10px, transparent 10px),
+        linear-gradient(#e7eaf0 25%, #dfe3eb 25%, #dfe3eb 50%, transparent 50%, transparent 75%, #d6dbe5 75%, #d6dbe5);
+    background-size: 16px 16px;
+    background-position: 0 4px, 8px 0, 0 8px, 8px 4px, 0 0, 0 0;
+}
+[data-theme="light"][data-bg="6"] body::after {
+    background:
+        radial-gradient(85% 65% at 50% 45%, transparent 45%, rgba(15, 23, 42, 0.08) 100%);
+}
+
+/* ---------- SFONDO 7: ANELLI CONCENTRICI (RADAR / TARGET) ---------- */
+[data-bg="7"] body {
+    background: #06070a;
+}
+[data-bg="7"] body::before {
+    background:
+        radial-gradient(circle at 50% 42%, rgba(var(--brand-rgb), 0.16) 0%, rgba(var(--brand-rgb), 0.04) 36%, transparent 68%),
+        repeating-radial-gradient(
+            circle at 50% 42%,
+            transparent 0 38px,
+            rgba(var(--brand-rgb), 0.16) 38px 39.2px,
+            transparent 39.2px 76px
+        );
+    -webkit-mask-image: radial-gradient(circle at 50% 42%, #000 10%, rgba(0, 0, 0, 0.65) 54%, transparent 92%);
+    mask-image: radial-gradient(circle at 50% 42%, #000 10%, rgba(0, 0, 0, 0.65) 54%, transparent 92%);
+}
+[data-bg="7"] body::after {
+    background:
+        radial-gradient(12px 12px at 50% 42%, rgba(var(--brand-rgb), 0.34) 0%, transparent 100%),
+        radial-gradient(95% 75% at 50% 45%, transparent 45%, rgba(0, 0, 0, 0.55) 100%);
+}
+
+[data-theme="light"][data-bg="7"] body {
+    background: #edf0f6;
+}
+[data-theme="light"][data-bg="7"] body::before {
+    background:
+        radial-gradient(circle at 50% 42%, rgba(var(--brand-rgb), 0.11) 0%, transparent 62%),
+        repeating-radial-gradient(
+            circle at 50% 42%,
+            transparent 0 38px,
+            rgba(var(--brand-rgb), 0.15) 38px 39.2px,
+            transparent 39.2px 76px
+        );
+    -webkit-mask-image: radial-gradient(circle at 50% 42%, #000 12%, rgba(0, 0, 0, 0.6) 56%, transparent 92%);
+    mask-image: radial-gradient(circle at 50% 42%, #000 12%, rgba(0, 0, 0, 0.6) 56%, transparent 92%);
+}
+[data-theme="light"][data-bg="7"] body::after {
+    background: none;
+}
+
+/* ---------- SFONDO 8: TOPOGRAFIA (CURVE DI LIVELLO) ---------- */
+[data-bg="8"] body {
+    background: #07080b;
+}
+[data-bg="8"] body::before {
+    background:
+        radial-gradient(65% 44% at 18% 12%, rgba(var(--brand-rgb), 0.14) 0%, transparent 70%),
+        radial-gradient(60% 44% at 86% 86%, rgba(var(--brand-rgb), 0.10) 0%, transparent 72%);
+}
+[data-bg="8"] body::after {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240' viewBox='0 0 240 240'%3E%3Cg fill='none' stroke='rgba(255,255,255,0.048)' stroke-width='1.1'%3E%3Cpath d='M0 24 Q 60 0 120 24 T 240 24'/%3E%3Cpath d='M0 58 Q 60 32 120 58 T 240 58'/%3E%3Cpath d='M0 98 Q 60 72 120 98 T 240 98'/%3E%3Cpath d='M0 144 Q 60 118 120 144 T 240 144'/%3E%3Cpath d='M0 192 Q 60 164 120 192 T 240 192'/%3E%3Cpath d='M0 228 Q 60 206 120 228 T 240 228'/%3E%3Cpath d='M68 118 C 56 96 86 78 118 86 C 148 94 152 122 124 134 C 98 144 78 136 68 118 Z'/%3E%3Cpath d='M82 114 C 76 102 94 93 114 98 C 132 103 134 118 118 124 C 102 130 88 124 82 114 Z'/%3E%3Cpath d='M152 178 C 144 162 168 150 192 156 C 212 162 214 182 194 190 C 174 198 158 190 152 178 Z'/%3E%3Cpath d='M168 175 C 164 167 176 162 188 165 C 198 168 199 178 189 182 C 179 186 171 182 168 175 Z'/%3E%3C/g%3E%3C/svg%3E");
+    background-size: 240px 240px;
+}
+
+[data-theme="light"][data-bg="8"] body {
+    background: #eff2f6;
+}
+[data-theme="light"][data-bg="8"] body::before {
+    background:
+        radial-gradient(65% 44% at 18% 12%, rgba(var(--brand-rgb), 0.10) 0%, transparent 70%),
+        radial-gradient(60% 44% at 86% 86%, rgba(var(--brand-rgb), 0.08) 0%, transparent 72%);
+}
+[data-theme="light"][data-bg="8"] body::after {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240' viewBox='0 0 240 240'%3E%3Cg fill='none' stroke='rgba(15,23,42,0.055)' stroke-width='1.1'%3E%3Cpath d='M0 24 Q 60 0 120 24 T 240 24'/%3E%3Cpath d='M0 58 Q 60 32 120 58 T 240 58'/%3E%3Cpath d='M0 98 Q 60 72 120 98 T 240 98'/%3E%3Cpath d='M0 144 Q 60 118 120 144 T 240 144'/%3E%3Cpath d='M0 192 Q 60 164 120 192 T 240 192'/%3E%3Cpath d='M0 228 Q 60 206 120 228 T 240 228'/%3E%3Cpath d='M68 118 C 56 96 86 78 118 86 C 148 94 152 122 124 134 C 98 144 78 136 68 118 Z'/%3E%3Cpath d='M82 114 C 76 102 94 93 114 98 C 132 103 134 118 118 124 C 102 130 88 124 82 114 Z'/%3E%3Cpath d='M152 178 C 144 162 168 150 192 156 C 212 162 214 182 194 190 C 174 198 158 190 152 178 Z'/%3E%3Cpath d='M168 175 C 164 167 176 162 188 165 C 198 168 199 178 189 182 C 179 186 171 182 168 175 Z'/%3E%3C/g%3E%3C/svg%3E");
+    background-size: 240px 240px;
+}
+
+/* ---------- SFONDO 9: ACCIAIO SPAZZOLATO / GHISA ---------- */
+[data-bg="9"] body {
+    background: #0c0d10;
+}
+[data-bg="9"] body::before {
+    background:
+        repeating-linear-gradient(
+            180deg,
+            rgba(255, 255, 255, 0.032) 0px,
+            rgba(255, 255, 255, 0.032) 1px,
+            transparent 1px,
+            transparent 3px,
+            rgba(0, 0, 0, 0.22) 3px,
+            rgba(0, 0, 0, 0.22) 4px
+        ),
+        linear-gradient(
+            115deg,
+            #090a0c 0%,
+            #1c1f24 28%,
+            #111317 52%,
+            #22262c 76%,
+            #0a0b0e 100%
+        );
+}
+[data-bg="9"] body::after {
+    background:
+        linear-gradient(90deg, rgba(0, 0, 0, 0.62) 0%, transparent 24%, transparent 76%, rgba(0, 0, 0, 0.62) 100%),
+        radial-gradient(80% 55% at 50% 20%, rgba(255, 255, 255, 0.05) 0%, transparent 70%);
+}
+
+[data-theme="light"][data-bg="9"] body {
+    background: #dfe3ea;
+}
+[data-theme="light"][data-bg="9"] body::before {
+    background:
+        repeating-linear-gradient(
+            180deg,
+            rgba(255, 255, 255, 0.45) 0px,
+            rgba(255, 255, 255, 0.45) 1px,
+            transparent 1px,
+            transparent 3px,
+            rgba(15, 23, 42, 0.045) 3px,
+            rgba(15, 23, 42, 0.045) 4px
+        ),
+        linear-gradient(
+            115deg,
+            #d3d8e0 0%,
+            #eef1f5 30%,
+            #dce1e9 56%,
+            #f3f5f8 78%,
+            #cfd5df 100%
+        );
+}
+[data-theme="light"][data-bg="9"] body::after {
+    background:
+        linear-gradient(90deg, rgba(15, 23, 42, 0.10) 0%, transparent 22%, transparent 78%, rgba(15, 23, 42, 0.10) 100%);
+}
+
+/* ---------- SFONDO 10: ONDA SISMICA / BATTITO ---------- */
+[data-bg="10"] body {
+    background: #06070b;
+}
+[data-bg="10"] body::before {
+    background:
+        radial-gradient(115% 16% at 50% 24%, rgba(var(--brand-rgb), 0.28) 0%, rgba(var(--brand-rgb), 0.08) 46%, transparent 76%),
+        radial-gradient(125% 18% at 48% 54%, rgba(var(--ambient-secondary-rgb), 0.20) 0%, rgba(var(--brand-rgb), 0.10) 44%, transparent 76%),
+        radial-gradient(115% 15% at 52% 84%, rgba(var(--brand-rgb), 0.24) 0%, transparent 74%);
+}
+[data-bg="10"] body::after {
+    background:
+        radial-gradient(78% 1.4% at 50% 24%, rgba(var(--brand-rgb), 0.45) 0%, transparent 72%),
+        radial-gradient(84% 1.6% at 48% 54%, rgba(255, 255, 255, 0.18) 0%, transparent 70%),
+        radial-gradient(72% 1.4% at 52% 84%, rgba(var(--brand-rgb), 0.36) 0%, transparent 72%);
+}
+
+[data-theme="light"][data-bg="10"] body {
+    background: #eef1f7;
+}
+[data-theme="light"][data-bg="10"] body::before {
+    background:
+        radial-gradient(115% 18% at 50% 24%, rgba(var(--brand-rgb), 0.20) 0%, rgba(var(--brand-rgb), 0.05) 48%, transparent 76%),
+        radial-gradient(125% 18% at 48% 54%, rgba(var(--ambient-secondary-rgb), 0.18) 0%, transparent 74%),
+        radial-gradient(115% 16% at 52% 84%, rgba(var(--brand-rgb), 0.16) 0%, transparent 74%);
+}
+[data-theme="light"][data-bg="10"] body::after {
+    background:
+        radial-gradient(78% 1.6% at 50% 24%, rgba(var(--brand-rgb), 0.30) 0%, transparent 72%),
+        radial-gradient(82% 1.6% at 48% 54%, rgba(255, 255, 255, 0.72) 0%, transparent 70%),
+        radial-gradient(72% 1.6% at 52% 84%, rgba(var(--brand-rgb), 0.24) 0%, transparent 72%);
+}
+
+/* ---------- SFONDO 11: AMOLED PURE BLACK (RISPARMIO BATTERIA) ---------- */
+[data-theme="dark"][data-bg="11"] {
+    --bg: #000000;
+}
+[data-bg="11"] body {
+    background: #000000;
+}
+[data-bg="11"] body::before,
+[data-bg="11"] body::after {
+    background: none;
+}
+
+[data-theme="light"][data-bg="11"] {
+    --bg: #ffffff;
+}
+[data-theme="light"][data-bg="11"] body {
+    background: #ffffff;
+}
+[data-theme="light"][data-bg="11"] body::before,
+[data-theme="light"][data-bg="11"] body::after {
+    background: none;
+}
+
 /* ====================================================================
    SPLASH SCREEN ANIMATA (CARICATURA PUMP-UP: SECCO -> ENORME)
    ==================================================================== */
