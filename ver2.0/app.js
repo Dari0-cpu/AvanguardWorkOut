@@ -2043,6 +2043,7 @@ function handleProgRestRowInput(inputEl) {
 function prepareSingleAdd(dayId) {
     tempTargetDayId = dayId;
     document.getElementById('single-ex-name').value = '';
+    document.getElementById('single-ex-coach-note').value = '';
     document.getElementById('single-ex-target').value = '';
 
     _modalProgDraft.single = {
@@ -2065,6 +2066,7 @@ function prepareBulkAdd(dayId) {
 
 function saveSingleExercise() {
     const name = document.getElementById('single-ex-name').value.trim();
+    const coachNote = (document.getElementById('single-ex-coach-note')?.value || '').trim().slice(0, 220);
     const rawTarget = document.getElementById('single-ex-target').value.trim() || '3x10';
     if (!name) return;
 
@@ -2074,6 +2076,7 @@ function saveSingleExercise() {
 
     const draft = _modalProgDraft.single;
     const newEx = { id: 'e_' + Date.now(), name: name, progression: [] };
+    if (coachNote) newEx.coachNote = coachNote;
 
     if (draft && (draft.open || draft.touched)) {
         applyProgressionAndRestsToExercise(newEx, draft.targets, draft.rests);
@@ -2284,6 +2287,7 @@ function openEditEx(dayId, exId) {
     const initialRests = getRestsForWeek(ex, appState.week);
 
     document.getElementById('edit-ex-name').value = ex.name;
+    document.getElementById('edit-ex-coach-note').value = ex.coachNote || '';
     document.getElementById('edit-ex-target').value = parsed.cleanTarget;
     document.getElementById('edit-ex-week-label').textContent = appState.week === 0 ? '0 - Prova' : appState.week;
 
@@ -2327,6 +2331,9 @@ function saveEditEx() {
     if (!ex) return;
 
     ex.name = newName;
+    const coachNote = (document.getElementById('edit-ex-coach-note')?.value || '').trim().slice(0, 220);
+    if (coachNote) ex.coachNote = coachNote;
+    else delete ex.coachNote;
 
     const parsed = parseTargetAndRests(rawTarget);
     const manualRests = collectRestInputs('edit');

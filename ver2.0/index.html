@@ -641,9 +641,10 @@
             </div>
             <label class="micro-label">Nome</label>
             <input type="text" id="single-ex-name" class="field mb-3" placeholder="es. Panca Piana">
+            <label class="micro-label">Annotazione tecnica / TUT (opzionale)</label>
+            <input type="text" id="single-ex-coach-note" maxlength="220" class="field mb-3" placeholder="es. 2&quot; ecc. · fermo 1&quot; al petto">
             <label class="micro-label">Target base (blocchi separati da +)</label>
             <input type="text" id="single-ex-target" oninput="handleExerciseTargetInput('single')" class="field mb-3" placeholder="es. 2x4 (3') + 1x6 (2')  oppure  3x10+10">
-            <div id="single-ex-rests-container" class="mb-3.5"></div>
 
             <!-- Accordion Progressione settimanale -->
             <div class="prog-accordion mb-4">
@@ -808,6 +809,8 @@
             </div>
             <label class="micro-label">Nome</label>
             <input type="text" id="edit-ex-name" class="field mb-3">
+            <label class="micro-label">Annotazione tecnica / TUT (svuota per rimuoverla)</label>
+            <input type="text" id="edit-ex-coach-note" maxlength="220" class="field mb-3" placeholder="es. 2&quot; ecc. · fermo 1&quot; al petto">
             <label class="micro-label">Target (settimana <span id="edit-ex-week-label">1</span>)</label>
             <input type="text" id="edit-ex-target" oninput="handleExerciseTargetInput('edit')" class="field mb-3" placeholder="es. 2x4 + 1x6  oppure  3x10+10">
             <div id="edit-ex-rests-container" class="mb-3"></div>
