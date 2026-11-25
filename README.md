@@ -1,20 +1,20 @@
 <div align="center">
   <img src="ver2.0/logo.png" alt="Avanguard WorkOut Logo" width="88" height="88" />
   <h1>AVANGUARD WORKOUT</h1>
-  <p><strong>PWA offline-first per tracciare allenamenti, progressioni settimanali, recuperi e peso corporeo — con importazione PDF AI e sync cloud protetto da RLS.</strong></p>
+  <p><strong>PWA offline-first per tracciare allenamenti, progressioni settimanali (S0–S9), recuperi, 1RM e peso corporeo — con importazione AI da PDF/Foto e sync cloud protetto da RLS.</strong></p>
 
   <p>
-    <a href="https://avanguardworkout-git-main-dari0-cpus-projects.vercel.app/">
+    <a href="https://avanguardworkout.vercel.app/">
       <img src="https://img.shields.io/badge/Live-Vercel-000000?style=for-the-badge&logo=vercel&logoColor=white" alt="Live App" />
     </a>
     <a href="https://supabase.com/">
       <img src="https://img.shields.io/badge/Supabase-PostgreSQL%20%2B%20RLS-3ECF8E?style=for-the-badge&logo=supabase&logoColor=white" alt="Supabase" />
     </a>
     <a href="#architettura-e-sicurezza">
-      <img src="https://img.shields.io/badge/Gemini%202.5%20Flash-PDF%20AI%20Import-4285F4?style=for-the-badge&logo=googlegemini&logoColor=white" alt="Gemini AI" />
+      <img src="https://img.shields.io/badge/Gemini%20AI-PDF%20%26%20Foto%20Import-4285F4?style=for-the-badge&logo=googlegemini&logoColor=white" alt="Gemini AI" />
     </a>
     <a href="#architettura-e-sicurezza">
-      <img src="https://img.shields.io/badge/PWA-Offline%20Ready-f43f5e?style=for-the-badge&logo=pwa&logoColor=white" alt="PWA" />
+      <img src="https://img.shields.io/badge/PWA-Offline%20First-f43f5e?style=for-the-badge&logo=pwa&logoColor=white" alt="PWA" />
     </a>
     <a href="#stack-tecnologico">
       <img src="https://img.shields.io/badge/Frontend-Vanilla%20JS%20%2B%20SVG-f59e0b?style=for-the-badge&logo=javascript&logoColor=black" alt="Vanilla JS" />
@@ -30,30 +30,30 @@
   <table>
     <tr>
       <td align="center">
-        <img src="assets/1.jpeg" width="230" alt="Scheda allenamento" /><br />
-        <sub><b>Scheda &amp; Tab Giorni</b></sub>
+        <img src="assets/1.jpeg" width="230" alt="Scheda allenamento, note e timer recupero" /><br />
+        <sub><b>Scheda, Note &amp; Timer Recupero</b></sub>
       </td>
       <td align="center">
-        <img src="assets/2.jpeg" width="230" alt="Timer recupero floating" /><br />
-        <sub><b>Timer Recupero per Blocco</b></sub>
+        <img src="assets/2.jpeg" width="230" alt="Report PDF vettoriale multipagina" /><br />
+        <sub><b>Report PDF Vettoriale</b></sub>
       </td>
       <td align="center">
-        <img src="assets/3.jpeg" width="230" alt="Grafico peso corporeo SVG" /><br />
+        <img src="assets/3.jpeg" width="230" alt="Grafico peso corporeo SVG con traguardo" /><br />
         <sub><b>Peso Corporeo &amp; Traguardo</b></sub>
       </td>
     </tr>
     <tr>
       <td align="center">
-        <img src="assets/4.jpeg" width="230" alt="Importazione scheda completa" /><br />
-        <sub><b>Import Scheda (Testo &amp; PDF AI)</b></sub>
+        <img src="assets/4.jpeg" width="230" alt="Report e Calcolatore 1RM e Avvicinamento" /><br />
+        <sub><b>Calcolatore 1RM &amp; Avvicinamento</b></sub>
       </td>
       <td align="center">
-        <img src="assets/5.jpeg" width="230" alt="Report PDF vettoriale" /><br />
-        <sub><b>Report PDF Vettoriale</b></sub>
+        <img src="assets/5.jpeg" width="230" alt="Importazione scheda da Testo, PDF o Foto AI" /><br />
+        <sub><b>Import AI (Testo, PDF &amp; Foto)</b></sub>
       </td>
       <td align="center">
-        <img src="assets/6.jpeg" width="230" alt="Temi e Impostazioni" /><br />
-        <sub><b>10 Temi, Light/Dark &amp; Cloud</b></sub>
+        <img src="assets/6.jpeg" width="230" alt="11 sfondi ambientali, 14 temi e Cloud Sync" /><br />
+        <sub><b>11 Sfondi, 14 Temi &amp; Cloud Sync</b></sub>
       </td>
     </tr>
   </table>
@@ -63,21 +63,21 @@
 
 ## Funzionalità Principali
 
-- **Esperienza Mobile-First & Animazione *Symbiote*:** bottom navigation dock con transizione liquida fluida in stile *Venom/Symbiote* (filtro SVG *gooey* inline a 60fps con supporto `prefers-reduced-motion`), tab scorrevoli dei giorni con **11 icone SVG muscolari** auto-rilevate e barra di avanzamento sessione.
-- **Settimana 0 (Prova / Calibrazione):** navigazione estesa da `S0` a `S6` con banner dedicato per testare tecnica e carichi iniziali. Passando a `S1`, i pesi della Settimana 0 vengono riportati automaticamente con il badge `da S0`.
-- **Progressioni Settimanali (Target & Recuperi Dinamici):** gestisce schede in cui serie, ripetizioni, numero di blocchi o recuperi cambiano lungo il mesociclo (`S1–S6`). Nel modale esercizio è disponibile l'accordion per settimana con azione rapida *"Applica da questa settimana in poi"*.
-- **Importazione PDF con AI (`Gemini 2.5 Flash`):** carica direttamente il PDF della tua scheda (fino a 3 MB) dal tab **Importa PDF (AI)**. L'endpoint serverless riconosce automaticamente giorni, icone muscolari, progressioni settimanali, blocchi multipli, recuperi e note tecniche, mostrando un'anteprima interattiva prima di importare.
-- **Note Esercizio con Promemoria Automatico:** aggiungi note rapide per la sessione corrente (fermi, RPE/RIR, sensazioni) senza appesantire l'interfaccia; nella settimana successiva appare un chip promemoria dedicato (es. `📝 Nota da S2: "Fermo 2s al petto, chiuse bene"`).
-- **Esercizi Multi-Blocco & Timer Recupero Anti-Standby:** distingue blocchi con carichi diversi (`2x4 (3') + 1x6 (2')`) dalle reps alternate (`3x10+10`). Il timer floating usa timestamp reali (`Date.now()`), restando preciso anche bloccando lo schermo o cambiando app, con pulsanti `±15s`, suono e vibrazione.
-- **Grafico Peso Corporeo 100% SVG con Traguardo:** grafico vettoriale scritto da zero con **stella SVG dorata** sul peso obiettivo, distanza dal traguardo e **scala intelligente** con taglio asse (`≈`).
-- **Report Carichi & PDF Vettoriale (`jsPDF`):** esporta un singolo giorno o l'intera scheda in Markdown o PDF A4 multi-pagina con griglia `S1–S6` (e riferimento opzionale `S0`), troncamento automatico dei blocchi modificati e calcolo trend accurato anche sui multi-blocco.
-- **Sync Offline-Safe, Multi-Profilo & 10 Temi:** sincronizzazione cloud con debounce, coda serializzata e risoluzione conflitti basata su `updatedAt` per non perdere mai gli allenamenti offline. Profili illimitati, Light/Dark mode, 10 palette colore e backup locale JSON.
+- **Esperienza Mobile-First, Splash Animata & Dock *Symbiote*:** apertura istantanea con splash screen vettoriale animata (*zero-flash*, 100% offline), bottom navigation dock in stile *Venom/Symbiote* (filtro SVG *gooey* a 60fps con supporto `prefers-reduced-motion`), tab scorrevoli dei giorni con **11 icone SVG muscolari** auto-rilevate e barra di avanzamento sessione.
+- **Ciclo Configurabile (S0–S9) & Settimana di Prova:** durata estendibile dinamicamente da **6 a 9 settimane** senza perdere lo storico, più **Settimana 0 (Prova/Calibrazione)** con banner dedicato. Passando a `S1`, i carichi iniziali vengono riportati automaticamente con il badge `da S0`.
+- **Importazione AI da PDF, Foto e Screenshot:** carica un **PDF** (fino a 3 MB) oppure fino a **5 foto/screenshot** (ottimizzate e compresse automaticamente lato client). L'endpoint serverless con **Gemini AI** estrae giorni, icone muscolari, blocchi multipli, progressioni settimanali, recuperi e note tecniche con anteprima interattiva prima del salvataggio.
+- **Progressioni Settimanali & Esercizi Multi-Blocco:** gestisce schede in cui serie, ripetizioni, numero di blocchi o recuperi cambiano lungo il mesociclo (`S1–S9`). Distingue blocchi con carichi separati (`2x4 (3') + 1x6 (2')`) dalle reps unilaterali (`3x10+10`), con accordion dedicato e azione rapida *"Da Sx in poi"*.
+- **Timer Recupero Anti-Standby & Note Promemoria:** il timer floating usa timestamp reali (`Date.now()`), restando preciso anche a schermo bloccato, con controlli `±15s`, suono e vibrazione. Le note salvate su un esercizio compaiono automaticamente come promemoria nella settimana successiva.
+- **Calcolatore Carichi (1RM & Avvicinamento):** integrato nella tab **Report** e collegato agli esercizi della scheda. Calcola il **massimale stimato (1RM, formula Epley)** con tabella percentuali `95%–70%` oppure genera la **scaletta progressiva consigliata** (`50% → 90%`) dal carico allenante con arrotondamento a `0.25 kg`.
+- **Grafico Peso Corporeo 100% SVG:** grafico vettoriale scritto da zero con **stella SVG dorata** sul peso obiettivo, calcolo distanza dal traguardo, riferimento opzionale `S0` e **scala intelligente** con taglio asse (`≈`).
+- **Report Carichi & PDF Vettoriale (`jsPDF`):** esporta un singolo giorno o l'intera scheda in Markdown o in **PDF A4 multi-pagina** con griglia settimanale, target dinamici e calcolo trend anche sui multi-blocco.
+- **11 Sfondi Ambientali, 14 Temi & Sync Offline-Safe:** selettore sfondi dedicati (tra cui *Luci soffuse*, *Carbonio/Kevlar*, *Radar concentrico*, *Topografia*, *Ghisa spazzolata*, *Onda sismica* e *AMOLED Pure Black*), **14 palette accent**, Light/Dark mode, multi-profilo, backup locale JSON e sincronizzazione cloud con coda serializzata e risoluzione conflitti via `updatedAt`.
 
 ---
 
-## Sintassi Smart Input (Testo o Importa PDF AI)
+## Sintassi Smart Input (Testo, PDF o Foto AI)
 
-Puoi caricare un **PDF** tramite il parser AI oppure incollare la tua scheda testuale. Il parser riconosce giorni, icone, blocchi, recuperi e **progressioni tra le settimane**:
+Puoi caricare un **PDF** o delle **foto** tramite il parser AI, oppure incollare direttamente la tua scheda testuale. Il parser riconosce giorni, icone, blocchi, recuperi e **progressioni settimanali**:
 
 ```text
 Giorno 1 - Petto e Bicipiti
@@ -101,7 +101,7 @@ Leg press - 3x10 (2')
 
 ## Architettura e Sicurezza
 
-L'app salva istantaneamente in `localStorage` per lavorare senza rete in palestra e comunica con i servizi esterni esclusivamente tramite **Vercel Serverless Functions** a zero dipendenze npm.
+L'app salva istantaneamente in `localStorage` e usa una strategia **Stale-While-Revalidate** nel Service Worker per aprirsi all'istante anche senza rete in palestra. Tutte le comunicazioni esterne passano da **Vercel Serverless Functions** a zero dipendenze npm.
 
 ```mermaid
 flowchart LR
@@ -109,16 +109,16 @@ flowchart LR
     SYNC["Vercel Serverless<br/>/api/sync"]
     PDF["Vercel Serverless<br/>/api/parse-pdf"]
     DB[("Supabase PostgreSQL<br/>RLS Attivo · 0 Policy Pubbliche")]
-    AI["Google Gemini API<br/>(gemini-2.5-flash)"]
+    AI["Google Gemini API<br/>(JSON Schema + Vision)"]
 
     PWA <-->|"HTTPS · Header x-sync-key<br/>(Sync Offline-Safe via updatedAt)"| SYNC
     SYNC <-->|"Secret Key lato server"| DB
-    PWA <-->|"PDF Base64 (max 3 MB)"| PDF
+    PWA <-->|"PDF / Foto Base64 (max 3 MB)"| PDF
     PDF <-->|"GEMINI_API_KEY lato server"| AI
 ```
 
 - **Zero segreti nel frontend:** né le chiavi Supabase né la `GEMINI_API_KEY` sono mai esposte nel client.
-- **Database sigillato & Hardening API:** Row Level Security (RLS) abilitato senza policy pubbliche; `/api/sync` valida schema JSON e dimensione massima del payload (`512 KB`, HTTP `413`), mentre il frontend usa *event delegation* con attributi `data-*` per prevenire XSS e pulisce automaticamente le chiavi orfane alla cancellazione di esercizi, giorni o profili.
+- **Database sigillato & Hardening API:** Row Level Security (RLS) abilitato senza policy pubbliche; `/api/sync` valida schema JSON, rate-limit e dimensione massima del payload (`512 KB`, HTTP `413`), mentre `/api/parse-pdf` verifica i *magic bytes* reali di PDF, JPEG, PNG e WebP.
 - **Sync Anti-Perdita Dati:** le modifiche locali marcano lo stato come *dirty* con timestamp `updatedAt`. Al ritorno online, se i dati locali sono più recenti del cloud vengono inviati invece di essere sovrascritti.
 
 ---
@@ -131,18 +131,18 @@ Per il deploy su Vercel (Root Directory: `ver2.0`), configura le seguenti Enviro
 | :--- | :--- |
 | `SUPABASE_URL` | URL del progetto Supabase |
 | `SUPABASE_SERVICE_ROLE_KEY` | Chiave segreta Supabase (`sb_secret_...` o service role) per `/api/sync` |
-| `GEMINI_API_KEY` | Chiave API Google Gemini per l'importazione schede PDF (`/api/parse-pdf`) |
+| `GEMINI_API_KEY` | Chiave API Google Gemini per l'importazione schede da PDF/Foto (`/api/parse-pdf`) |
 
 ---
 
 ## Stack Tecnologico
 
-- **Frontend:** HTML5, CSS3 (Design System con CSS Variables + filtri SVG), Tailwind CSS (CDN), Vanilla JavaScript (ES6+, architettura *zero-build*)
-- **Grafica & Data Viz:** SVG inline nativo (icone UI, icone muscolari e grafico peso corporeo custom)
+- **Frontend:** HTML5, CSS3 (Design System con CSS Variables, Glassmorphism & filtri SVG), Tailwind CSS (CDN), Vanilla JavaScript (ES6+, architettura *zero-build*)
+- **Grafica & Data Viz:** SVG inline nativo (splash animata, icone UI, icone muscolari e grafico peso corporeo custom)
 - **Export PDF:** `jsPDF` (rendering vettoriale A4 multi-pagina)
-- **Backend & AI:** Vercel Serverless Functions (Node.js `fetch` nativo, zero dipendenze npm) + Google Gemini REST API (`gemini-2.5-flash`)
+- **Backend & AI:** Vercel Serverless Functions (Node.js `fetch` nativo, zero dipendenze npm) + Google Gemini REST API
 - **Database:** Supabase (PostgreSQL + Row Level Security)
-- **PWA:** Web App Manifest + Service Worker custom (`avanguard-cache-v5`)
+- **PWA:** Web App Manifest + Service Worker custom (*Stale-While-Revalidate*)
 
 ---
 
