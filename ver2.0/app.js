@@ -3714,48 +3714,50 @@ function getExerciseReportData(userId, dayId, ex) {
 }
 
 // ============================================================
-//  VISTA REPORT CARICHI (compatibile con pdfexp.js)
+//  VISTA REPORT CARICHI & CALCOLATORE 1RM / AVVICINAMENTO
 // ============================================================
+let _calcMode = '1rm'; // '1rm' | 'warmup'
+
 function renderReportView() {
     const currentUser = appState.users.find(u => u.id === appState.currentUserId);
     const selector = document.getElementById('export-day-selector');
-    const preview = document.getElementById('export-preview');
 
     if (!currentUser || !currentUser.days || currentUser.days.length === 0) {
-        selector.innerHTML = '<option value="">— Nessun giorno —</option>';
-        preview.textContent = 'Aggiungi almeno un giorno alla tua scheda per generare il report.';
+        if (selector) selector.innerHTML = '<option value="">— Nessun giorno —</option>';
         currentExportText = '';
-        return;
+    } else if (selector) {
+        const prevVal = selector.value;
+        selector.innerHTML = '';
+
+        const allOpt = document.createElement('option');
+        allOpt.value = '__ALL__';
+        allOpt.textContent = 'Tutta la scheda (tutti i giorni)';
+        selector.appendChild(allOpt);
+
+        currentUser.days.forEach(d => {
+            const opt = document.createElement('option');
+            opt.value = d.id;
+            opt.textContent = d.name;
+            selector.appendChild(opt);
+        });
+
+        if (prevVal && Array.from(selector.options).some(o => o.value === prevVal)) {
+            selector.value = prevVal;
+        } else if (activeDayId && currentUser.days.some(d => d.id === activeDayId)) {
+            selector.value = activeDayId;
+        } else {
+            selector.value = '__ALL__';
+        }
+
+        generateReport();
     }
 
-    const prevVal = selector.value;
-    selector.innerHTML = '';
-
-    const allOpt = document.createElement('option');
-    allOpt.value = '__ALL__';
-    allOpt.textContent = 'Tutta la scheda (tutti i giorni)';
-    selector.appendChild(allOpt);
-
-    currentUser.days.forEach(d => {
-        const opt = document.createElement('option');
-        opt.value = d.id;
-        opt.textContent = d.name;
-        selector.appendChild(opt);
-    });
-
-    if (prevVal && Array.from(selector.options).some(o => o.value === prevVal)) {
-        selector.value = prevVal;
-    } else if (activeDayId && currentUser.days.some(d => d.id === activeDayId)) {
-        selector.value = activeDayId;
-    } else {
-        selector.value = '__ALL__';
-    }
-
-    generateReport();
+    populateCalcExerciseSelector();
+    updateLoadCalculator();
 }
 
 function generateReport() {
-    const selected = document.getElementById('export-day-selector').value;
+    const selected = document.getElementById('export-day-selector')?.value;
     const currentUser = appState.users.find(u => u.id === appState.currentUserId);
     if (!currentUser || !selected) return;
 
@@ -3800,8 +3802,9 @@ function generateReport() {
     });
 
     currentExportText = md;
-    document.getElementById('export-preview').textContent = md;
 }
+
+// VISTA REPORT CARICHI
 
 function copyExport() {
     if (!currentExportText) return;
@@ -3811,6 +3814,246 @@ function copyExport() {
         btn.innerHTML = `${UI_SVG.check} Copiato!`;
         setTimeout(() => { btn.innerHTML = original; }, 1500);
     });
+}
+
+function formatCalcKg(val) {
+    const rounded = Math.round(val * 4) / 4; // step 0.25 kg coerente con gli input
+    return Number.isInteger(rounded) ? String(rounded) : String(rounded);
+}
+
+function getLatestExerciseWeightAndReps(userId, dayId, ex) {
+    const maxW = getProgramWeekCount();
+    const order = [appState.week];
+    for (let w = maxW; w >= 0; w--) {
+        if (w !== appState.week) order.push(w);
+    }
+
+    let foundWeight = null;
+    let foundWeek = null;
+
+    for (const w of order) {
+        const entry = buildWeekWeightEntry(userId, dayId, ex, w);
+        const firstNum = entry.nums.find(n => n !== null && n > 0);
+        if (firstNum !== undefined) {
+            foundWeight = firstNum;
+            foundWeek = w;
+            break;
+        }
+    }
+
+    const refWeek = foundWeek !== null ? foundWeek : appState.week;
+    const rawTarget = getRawTargetForWeek(ex, refWeek);
+    const cleanTarget = parseTargetAndRests(rawTarget).cleanTarget;
+    const firstBlock = parseTargetBlocks(cleanTarget)[0] || cleanTarget;
+    const repMatch = firstBlock.match(/\d+\s*[x×]\s*(\d+)/i);
+    const reps = repMatch ? parseInt(repMatch[1], 10) : 6;
+
+    return {
+        weight: foundWeight,
+        reps: Number.isFinite(reps) && reps > 0 ? reps : 6,
+        week: foundWeek,
+        blockLabel: firstBlock,
+    };
+}
+
+function populateCalcExerciseSelector() {
+    const sel = document.getElementById('calc-ex-selector');
+    if (!sel) return;
+
+    const currentUser = appState.users.find(u => u.id === appState.currentUserId);
+    const prevVal = sel.value;
+
+    sel.innerHTML = '<option value="">Inserimento manuale</option>';
+    if (!currentUser || !Array.isArray(currentUser.days) || currentUser.days.length === 0) {
+        const hintEl = document.getElementById('calc-ex-hint');
+        if (hintEl) hintEl.textContent = '';
+        return;
+    }
+
+    let firstLoggedVal = '';
+    currentUser.days.forEach(day => {
+        if (!day.exercises || day.exercises.length === 0) return;
+        const group = document.createElement('optgroup');
+        group.label = day.name;
+
+        day.exercises.forEach(ex => {
+            const val = `${day.id}:::${ex.id}`;
+            const latest = getLatestExerciseWeightAndReps(currentUser.id, day.id, ex);
+            if (!firstLoggedVal && latest.weight !== null) firstLoggedVal = val;
+
+            const opt = document.createElement('option');
+            opt.value = val;
+            opt.textContent = latest.weight !== null
+                ? `${ex.name} (${formatCalcKg(latest.weight)} kg)`
+                : ex.name;
+            group.appendChild(opt);
+        });
+
+        sel.appendChild(group);
+    });
+
+    const hasPrev = prevVal && Array.from(sel.options).some(o => o.value === prevVal);
+    if (hasPrev) {
+        sel.value = prevVal;
+    } else if (firstLoggedVal && !document.getElementById('calc-weight-input')?.value) {
+        sel.value = firstLoggedVal;
+        onCalcExerciseChange();
+    }
+}
+
+function onCalcExerciseChange() {
+    const sel = document.getElementById('calc-ex-selector');
+    const weightInput = document.getElementById('calc-weight-input');
+    const repsInput = document.getElementById('calc-reps-input');
+    const hintEl = document.getElementById('calc-ex-hint');
+    if (!sel || !weightInput || !repsInput) return;
+
+    const val = sel.value;
+    if (!val) {
+        if (hintEl) hintEl.textContent = 'Modalità manuale';
+        updateLoadCalculator();
+        return;
+    }
+
+    const [dayId, exId] = val.split(':::');
+    const currentUser = appState.users.find(u => u.id === appState.currentUserId);
+    const day = currentUser?.days.find(d => d.id === dayId);
+    const ex = day?.exercises.find(e => e.id === exId);
+    if (!ex) return;
+
+    const latest = getLatestExerciseWeightAndReps(currentUser.id, day.id, ex);
+    weightInput.value = latest.weight !== null ? String(latest.weight) : '';
+    repsInput.value = String(latest.reps);
+
+    if (hintEl) {
+        hintEl.textContent = latest.week !== null
+            ? `S${latest.week} · ${latest.blockLabel}`
+            : `Target: ${latest.blockLabel}`;
+    }
+
+    updateLoadCalculator();
+}
+
+function setCalcMode(mode) {
+    _calcMode = mode === 'warmup' ? 'warmup' : '1rm';
+    const isWarmup = _calcMode === 'warmup';
+
+    const tab1rm = document.getElementById('calc-tab-1rm');
+    const tabWarmup = document.getElementById('calc-tab-warmup');
+    const repsWrap = document.getElementById('calc-reps-wrap');
+    const inputsGrid = document.getElementById('calc-inputs-grid');
+    const weightLabel = document.getElementById('calc-weight-label');
+
+    if (tab1rm) {
+        tab1rm.classList.toggle('active', !isWarmup);
+        tab1rm.setAttribute('aria-selected', isWarmup ? 'false' : 'true');
+    }
+    if (tabWarmup) {
+        tabWarmup.classList.toggle('active', isWarmup);
+        tabWarmup.setAttribute('aria-selected', isWarmup ? 'true' : 'false');
+    }
+    if (repsWrap) repsWrap.classList.toggle('hidden', isWarmup);
+    if (inputsGrid) {
+        inputsGrid.classList.toggle('grid-cols-2', !isWarmup);
+        inputsGrid.classList.toggle('grid-cols-1', isWarmup);
+    }
+    if (weightLabel) {
+        weightLabel.textContent = isWarmup ? 'Carico allenante (kg)' : 'Carico usato (kg)';
+    }
+
+    updateLoadCalculator();
+}
+
+function updateLoadCalculator() {
+    const output = document.getElementById('calc-output');
+    const weightRaw = document.getElementById('calc-weight-input')?.value;
+    const repsRaw = document.getElementById('calc-reps-input')?.value;
+    if (!output) return;
+
+    const weight = parseFloat(String(weightRaw || '').replace(',', '.'));
+    if (!Number.isFinite(weight) || weight <= 0) {
+        output.innerHTML = `
+            <div class="calc-empty">
+                Seleziona un esercizio o inserisci un carico in kg per calcolare ${
+                    _calcMode === '1rm' ? 'il massimale stimato.' : 'la scaletta progressiva consigliata.'
+                }
+            </div>
+        `;
+        return;
+    }
+
+    if (_calcMode === '1rm') {
+        const reps = Math.max(1, Math.min(30, parseInt(repsRaw, 10) || 1));
+        const est1RM = reps === 1 ? weight : weight * (1 + reps / 30);
+
+        const rows = [
+            { pct: 95, title: 'Forza massima',      reps: '2 rip' },
+            { pct: 90, title: 'Forza sub-max',      reps: '3–4 rip' },
+            { pct: 85, title: 'Forza / Ipertrofia', reps: '5–6 rip' },
+            { pct: 80, title: 'Ipertrofia',         reps: '7–8 rip' },
+            { pct: 75, title: 'Volume',             reps: '9–10 rip' },
+            { pct: 70, title: 'Resistenza / Pump',  reps: '11–12 rip' },
+        ];
+
+        output.innerHTML = `
+            <div class="calc-hero">
+                <div>
+                    <div class="calc-hero-label">Massimale Stimato (1RM)</div>
+                    <div class="calc-hero-sub">Formula Epley · ${formatCalcKg(weight)} kg × ${reps} rip</div>
+                </div>
+                <div class="calc-hero-val tabular-nums">${formatCalcKg(est1RM)} <span>kg</span></div>
+            </div>
+            <div class="calc-list">
+                ${rows.map((r, idx) => `
+                    <div class="calc-row ${idx === 0 ? 'is-peak' : ''}">
+                        <span class="calc-row-bar" style="width: ${r.pct}%;" aria-hidden="true"></span>
+                        <div class="calc-row-inner">
+                            <span class="calc-pct-pill tabular-nums">${r.pct}%</span>
+                            <div class="calc-row-info">
+                                <span class="calc-row-title">${r.title}</span>
+                                <span class="calc-reps-badge tabular-nums">${r.reps}</span>
+                            </div>
+                            <span class="calc-row-kg tabular-nums">${formatCalcKg(est1RM * (r.pct / 100))} <small>kg</small></span>
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+        `;
+    } else {
+        const steps = [
+            { pct: 50, title: 'Riscaldamento',        reps: '8 rip' },
+            { pct: 60, title: 'Attivazione',          reps: '6 rip' },
+            { pct: 70, title: 'Avvicinamento',        reps: '4–5 rip' },
+            { pct: 80, title: 'Carico medio',         reps: '3 rip' },
+            { pct: 85, title: 'Prep. carico',         reps: '2 rip' },
+            { pct: 90, title: 'Ultimo avvicinamento', reps: '1–2 rip' },
+        ];
+
+        output.innerHTML = `
+            <div class="calc-hero">
+                <div>
+                    <div class="calc-hero-label">Carico Allenante (100%)</div>
+                    <div class="calc-hero-sub">Scaletta progressiva consigliata</div>
+                </div>
+                <div class="calc-hero-val tabular-nums">${formatCalcKg(weight)} <span>kg</span></div>
+            </div>
+            <div class="calc-list">
+                ${steps.map((s, idx) => `
+                    <div class="calc-row ${idx === steps.length - 1 ? 'is-peak' : ''}">
+                        <span class="calc-row-bar" style="width: ${s.pct}%;" aria-hidden="true"></span>
+                        <div class="calc-row-inner">
+                            <span class="calc-pct-pill tabular-nums">${s.pct}%</span>
+                            <div class="calc-row-info">
+                                <span class="calc-row-title">${s.title}</span>
+                                <span class="calc-reps-badge tabular-nums">${s.reps}</span>
+                            </div>
+                            <span class="calc-row-kg tabular-nums">${formatCalcKg(weight * (s.pct / 100))} <small>kg</small></span>
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+        `;
+    }
 }
 
 // ============================================================
