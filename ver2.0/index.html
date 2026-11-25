@@ -181,7 +181,11 @@
                     cyan: ['#06b6d4', '6, 182, 212'], blue: ['#3b82f6', '59, 130, 246'],
                     indigo: ['#6366f1', '99, 102, 241'], purple: ['#a855f7', '168, 85, 247'],
                     pink: ['#ec4899', '236, 72, 153'],
-                    zinc: mode === 'light' ? ['#18181b', '24, 24, 27'] : ['#f4f4f5', '244, 244, 245']
+                    zinc: mode === 'light' ? ['#18181b', '24, 24, 27'] : ['#f4f4f5', '244, 244, 245'],
+                    cyber: ['#facc15', '250, 204, 21'],
+                    champagne: ['#d4b483', '212, 180, 131'],
+                    mint: ['#00f5a0', '0, 245, 160'],
+                    holo: ['#a78bfa', '167, 139, 250'],
                 };
                 const picked = map[s.theme] || map.red;
                 document.documentElement.style.setProperty('--brand-500', picked[0]);

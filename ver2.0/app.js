@@ -27,6 +27,10 @@ const THEMES = {
     purple: { label: 'Ultraviolet', 400: '#c084fc', 500: '#a855f7', 600: '#9333ea', 700: '#7e22ce', rgb: '168, 85, 247', contrast: '#ffffff' },
     pink:   { label: 'Plasma',      400: '#f472b6', 500: '#ec4899', 600: '#db2777', 700: '#be185d', rgb: '236, 72, 153', contrast: '#ffffff' },
     zinc:   { label: 'Titanium',    adaptive: true },
+    cyber:     { label: 'Cyber',     400: '#fde047', 500: '#facc15', 600: '#eab308', 700: '#ca8a04', rgb: '250, 204, 21',  contrast: '#111318' },
+    champagne: { label: 'Champagne', 400: '#e6cfa8', 500: '#d4b483', 600: '#b8945e', 700: '#967442', rgb: '212, 180, 131', contrast: '#111318' },
+    mint:   { label: 'Hyper Mint',  400: '#5eead4', 500: '#00f5a0', 600: '#00d98b', 700: '#0284c7', rgb: '0, 245, 160',   contrast: '#032016', dot: 'linear-gradient(135deg, #00f5a0 0%, #0284c7 100%)' },
+    holo:   { label: 'Holo Prism',  400: '#38bdf8', 500: '#a78bfa', 600: '#8b5cf6', 700: '#f43f5e', rgb: '167, 139, 250', contrast: '#0f0a1e', dot: 'linear-gradient(135deg, #38bdf8 0%, #a78bfa 50%, #f43f5e 100%)' },
 };
 
 const BACKGROUNDS = [
@@ -723,7 +727,7 @@ function renderThemeSwatches() {
     const grid = document.getElementById('theme-swatches-grid');
     if (!grid) return;
     grid.innerHTML = Object.entries(THEMES).map(([key, t]) => {
-        const dotColor = t.adaptive ? 'linear-gradient(135deg, #f4f4f5 50%, #18181b 50%)' : t[500];
+        const dotColor = t.dot || (t.adaptive ? 'linear-gradient(135deg, #f4f4f5 50%, #18181b 50%)' : t[500]);
         return `
             <button type="button" data-color-swatch="${escapeHtml(key)}" data-action="set-theme" data-theme-key="${escapeHtml(key)}" class="theme-card-btn">
                 <span class="theme-dot" style="background: ${dotColor};"></span>
