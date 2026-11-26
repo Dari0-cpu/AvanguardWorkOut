@@ -45,6 +45,15 @@ const BACKGROUNDS = [
     { id: 9,  name: 'Sfondo 9',  desc: 'Ghisa spazzolata' },
     { id: 10, name: 'Sfondo 10', desc: 'Onda sismica' },
     { id: 11, name: 'Sfondo 11', desc: 'AMOLED Pure Black' },
+    { id: 11, name: 'Sfondo 11', desc: 'AMOLED Pure Black' },
+    { id: 12, name: 'Sfondo 12', desc: 'Strawhat' },
+    { id: 12, name: 'Sfondo 12', desc: 'Strawhat' },
+    { id: 13, name: 'Sfondo 13', desc: 'Astrolabio' },
+    { id: 14, name: 'Sfondo 14', desc: 'Fiore della Vita' },
+    { id: 15, name: 'Sfondo 15', desc: 'Mappa Stellare' },
+    { id: 16, name: 'Sfondo 16', desc: 'Velo Astrale' },
+    { id: 17, name: 'Sfondo 17', desc: 'Apple Silk' },
+    { id: 18, name: 'Sfondo 18', desc: 'Eclissi di Sangue' },
 ];
 
 
