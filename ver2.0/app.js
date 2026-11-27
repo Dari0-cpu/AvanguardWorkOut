@@ -29,7 +29,16 @@ const THEMES = {
     zinc:   { label: 'Titanium',    adaptive: true },
     cyber:     { label: 'Cyber',     400: '#fde047', 500: '#facc15', 600: '#eab308', 700: '#ca8a04', rgb: '250, 204, 21',  contrast: '#111318' },
     champagne: { label: 'Champagne', 400: '#e6cfa8', 500: '#d4b483', 600: '#b8945e', 700: '#967442', rgb: '212, 180, 131', contrast: '#111318' },
-    mint:   { label: 'Hyper Mint',  400: '#5eead4', 500: '#00f5a0', 600: '#00d98b', 700: '#0284c7', rgb: '0, 245, 160',   contrast: '#032016', dot: 'linear-gradient(135deg, #00f5a0 0%, #0284c7 100%)' },
+    mint: { 
+  label: 'Hyper Mint',  
+  400: '#5eead4', 
+  500: '#00f5a0', 
+  600: '#00d98b', 
+  700: '#0d9488', 
+  rgb: '0, 245, 160', 
+  contrast: '#032016', 
+  dot: 'linear-gradient(135deg, #00f5a0 0%, #0d9488 100%)' 
+},
     holo:   { label: 'Holo Prism',  400: '#38bdf8', 500: '#a78bfa', 600: '#8b5cf6', 700: '#f43f5e', rgb: '167, 139, 250', contrast: '#0f0a1e', dot: 'linear-gradient(135deg, #38bdf8 0%, #a78bfa 50%, #f43f5e 100%)' },
 };
 
