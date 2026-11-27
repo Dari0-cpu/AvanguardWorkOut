@@ -492,6 +492,17 @@
                         </button>
                     </div>
                     <input type="file" id="backup-file-input" accept=".json,application/json" class="hidden" onchange="importJsonBackup(event)">
+                    <input type="file" id="backup-file-input" accept=".json,application/json" class="hidden" onchange="importJsonBackup(event)">
+                </div>
+
+                <div class="divider-soft pt-3.5 mt-3.5">
+                    <button type="button" onclick="openNewAccountModal()" class="btn-glass-danger w-full">
+                        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
+                        <span>Apri nuovo</span>
+                    </button>
+                </div>
+            </div>
+                
                 </div>
             </div>
         </section>
@@ -858,6 +869,40 @@
             <button onclick="saveEditEx()" class="btn btn-primary w-full">Salva</button>
         </div>
     </div>
+
+
+    <!-- NEW ACCOUNT / CLEAN SESSION -->
+    <div id="new-account-modal" class="fixed inset-0 modal-overlay z-50 hidden flex-col justify-end sm:justify-center p-3 sm:p-4">
+        <div class="modal-card w-full max-w-md mx-auto p-5">
+            <div class="flex justify-between items-center mb-3">
+                <h3 class="text-base font-extrabold">Apri Nuovo Utente</h3>
+                <button type="button" onclick="closeModal('new-account-modal')" class="icon-btn !w-8 !h-8">
+                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+            </div>
+
+            <div id="new-account-status-banner" class="new-account-notice mb-3.5"></div>
+
+            <label class="micro-label">Nuova chiave Cloud Sync</label>
+            <div class="flex gap-2 mb-3">
+                <input type="text" id="new-account-sync-key" class="field font-mono text-sm flex-1" placeholder="es. marco-2026">
+                <button type="button" onclick="generateRandomSyncKey()" class="btn btn-ghost !px-3 !text-xs flex-shrink-0" title="Genera chiave casuale">Genera</button>
+            </div>
+
+            <label class="micro-label">Nome profilo iniziale (opzionale)</label>
+            <input type="text" id="new-account-user-name" class="field mb-4" placeholder="es. Marco (lascia vuoto se la chiave esiste già)">
+
+            <div class="space-y-2">
+                <button type="button" id="new-account-confirm-btn" onclick="confirmNewAccount()" class="btn-glass-danger w-full">
+                    Apri con questa chiave
+                </button>
+                <button type="button" id="new-account-blank-btn" onclick="confirmNewAccount({ blankLocal: true })" class="btn btn-ghost w-full !text-xs">
+                    Apri pagina vuota senza chiave
+                </button>
+            </div>
+        </div>
+    </div>
+    
 
     <!-- ============ SCRIPTS ============ -->
     <script src="app.js"></script>

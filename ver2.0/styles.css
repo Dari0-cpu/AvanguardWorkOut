@@ -572,16 +572,157 @@ code {
 
 .ex-blocks-list {
     margin-top: 10px;
+    padding: 9px 0 8px;
     border-top: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
 }
 
 .ex-block-item {
+    position: relative;
+    overflow: hidden;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 12px;
-    padding: 9px 0;
+    gap: 10px;
+    padding: 8px 10px;
+    border-radius: 13px;
+    border: 1px solid transparent;
+    background: rgba(255, 255, 255, 0.02);
+    cursor: pointer;
+    user-select: none;
+    -webkit-user-select: none;
+    transition:
+        background-color 0.2s ease,
+        border-color 0.2s ease,
+        box-shadow 0.22s ease,
+        transform 0.12s ease;
 }
+[data-theme="light"] .ex-block-item {
+    background: rgba(15, 23, 42, 0.025);
+}
+.ex-block-item:hover {
+    border-color: var(--border);
+}
+.ex-block-item:active {
+    transform: scale(0.992);
+}
+
+/* Pallino/spunta discreto sulla sinistra di ogni blocco */
+.block-status-dot {
+    width: 18px;
+    height: 18px;
+    border-radius: 6px;
+    border: 1.5px solid var(--border-strong);
+    background: var(--input-glass-bg);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: all 0.18s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.block-status-dot svg {
+    width: 11px;
+    height: 11px;
+    opacity: 0;
+    transform: scale(0.4);
+    color: var(--brand-contrast);
+    transition: all 0.16s cubic-bezier(0.22, 1.35, 0.36, 1);
+}
+
+/* Singola riga illuminata */
+.ex-block-item.is-block-done {
+    background: linear-gradient(
+        90deg,
+        rgba(var(--brand-rgb), 0.22) 0%,
+        rgba(var(--brand-rgb), 0.10) 58%,
+        rgba(var(--brand-rgb), 0.04) 100%
+    );
+    border-color: rgba(var(--brand-rgb), 0.44);
+    box-shadow:
+        inset 3px 0 0 var(--brand-500),
+        inset 0 1px 0 rgba(255, 255, 255, 0.10),
+        0 4px 14px rgba(var(--brand-rgb), 0.14);
+}
+[data-theme="light"] .ex-block-item.is-block-done {
+    background: linear-gradient(
+        90deg,
+        rgba(var(--brand-rgb), 0.15) 0%,
+        rgba(var(--brand-rgb), 0.06) 65%,
+        rgba(var(--brand-rgb), 0.02) 100%
+    );
+    border-color: rgba(var(--brand-rgb), 0.40);
+    box-shadow:
+        inset 3px 0 0 var(--brand-500),
+        0 3px 10px rgba(var(--brand-rgb), 0.10);
+}
+.ex-block-item.is-block-done .block-status-dot {
+    background: var(--brand-500);
+    border-color: var(--brand-500);
+    box-shadow: 0 0 10px rgba(var(--brand-rgb), 0.45);
+}
+.ex-block-item.is-block-done .block-status-dot svg {
+    opacity: 1;
+    transform: scale(1);
+}
+
+/* Quando l'intera card è già completata, armonizza il glow delle righe */
+.ex-card.done .ex-block-item.is-block-done {
+    background: linear-gradient(
+        90deg,
+        rgba(var(--brand-rgb), 0.14) 0%,
+        rgba(var(--brand-rgb), 0.05) 100%
+    );
+    border-color: rgba(var(--brand-rgb), 0.26);
+    box-shadow: inset 2.5px 0 0 rgba(var(--brand-rgb), 0.85);
+}
+
+/* Fascio luminoso rapido sulla singola riga appena accesa */
+.block-shine-layer {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    overflow: hidden;
+    border-radius: inherit;
+    z-index: 0;
+}
+.block-shine-layer::after {
+    content: "";
+    position: absolute;
+    top: -30%;
+    bottom: -30%;
+    left: -55%;
+    width: 48%;
+    opacity: 0;
+    transform: translate3d(0, 0, 0) skewX(-22deg);
+    background: linear-gradient(
+        90deg,
+        transparent 0%,
+        rgba(var(--brand-rgb), 0.28) 30%,
+        rgba(255, 255, 255, 0.52) 52%,
+        rgba(var(--brand-rgb), 0.22) 76%,
+        transparent 100%
+    );
+}
+.ex-block-item > :not(.block-shine-layer) {
+    position: relative;
+    z-index: 1;
+}
+.ex-block-item.just-lit .block-shine-layer::after {
+    animation: ex-block-sweep 0.56s cubic-bezier(0.2, 0.85, 0.3, 1) both;
+}
+.ex-block-item.just-lit .block-status-dot {
+    animation: ex-check-pop 0.36s cubic-bezier(0.22, 1.35, 0.36, 1) both;
+}
+
+@keyframes ex-block-sweep {
+    0%   { opacity: 0; transform: translate3d(0%, 0, 0) skewX(-22deg); }
+    20%  { opacity: 1; }
+    80%  { opacity: 0.85; }
+    100% { opacity: 0; transform: translate3d(340%, 0, 0) skewX(-22deg); }
+}
+
 .ex-block-item + .ex-block-item {
     border-top: 1px dashed var(--border);
 }
@@ -2871,4 +3012,117 @@ input:checked + .ex-check svg { opacity: 1; transform: scale(1); }
     font-size: 10.5px;
     font-weight: 700;
     color: var(--text-dim);
+}
+
+/* ====================================================================
+   PULSANTE ROSSO GLASS ("APRI NUOVO") & BANNER MODALE
+   ==================================================================== */
+
+.btn-glass-danger {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    padding: 10px 15px;
+    border-radius: 13px;
+    font-weight: 800;
+    font-size: 13px;
+    letter-spacing: -0.01em;
+    color: #f87171;
+    border: 1px solid rgba(239, 68, 68, 0.52);
+    background:
+        linear-gradient(
+            165deg,
+            rgba(255, 255, 255, 0.085) 0%,
+            rgba(239, 68, 68, 0.10) 48%,
+            rgba(239, 68, 68, 0.04) 100%
+        ),
+        rgba(239, 68, 68, 0.06);
+    backdrop-filter: blur(14px) saturate(165%);
+    -webkit-backdrop-filter: blur(14px) saturate(165%);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.15),
+        inset 0 -1px 0 rgba(239, 68, 68, 0.12),
+        0 6px 18px rgba(239, 68, 68, 0.14);
+    cursor: pointer;
+    user-select: none;
+    transition: all 0.18s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.btn-glass-danger:hover:not(:disabled) {
+    color: #fca5a5;
+    border-color: rgba(248, 113, 113, 0.80);
+    background:
+        linear-gradient(
+            165deg,
+            rgba(255, 255, 255, 0.11) 0%,
+            rgba(239, 68, 68, 0.18) 55%,
+            rgba(239, 68, 68, 0.08) 100%
+        ),
+        rgba(239, 68, 68, 0.11);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.20),
+        0 8px 22px rgba(239, 68, 68, 0.24);
+}
+.btn-glass-danger:active:not(:disabled) {
+    transform: scale(0.985);
+}
+.btn-glass-danger:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+[data-theme="light"] .btn-glass-danger {
+    color: #dc2626;
+    border-color: rgba(220, 38, 38, 0.46);
+    background:
+        linear-gradient(
+            165deg,
+            rgba(255, 255, 255, 0.72) 0%,
+            rgba(239, 68, 68, 0.09) 55%,
+            rgba(239, 68, 68, 0.04) 100%
+        ),
+        rgba(255, 255, 255, 0.35);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.90),
+        0 4px 14px rgba(220, 38, 38, 0.10);
+}
+[data-theme="light"] .btn-glass-danger:hover:not(:disabled) {
+    color: #b91c1c;
+    border-color: rgba(220, 38, 38, 0.75);
+    background:
+        linear-gradient(
+            165deg,
+            rgba(255, 255, 255, 0.80) 0%,
+            rgba(239, 68, 68, 0.15) 60%,
+            rgba(239, 68, 68, 0.08) 100%
+        ),
+        rgba(255, 255, 255, 0.45);
+}
+
+.new-account-notice {
+    font-size: 12px;
+    line-height: 1.45;
+    font-weight: 600;
+    padding: 10px 12px;
+    border-radius: 12px;
+    border: 1px solid var(--border-strong);
+    background: var(--surface-2);
+    color: var(--text-muted);
+}
+.new-account-notice.is-safe {
+    border-color: rgba(16, 185, 129, 0.32);
+    background: rgba(16, 185, 129, 0.09);
+    color: var(--text);
+}
+.new-account-notice.is-warn {
+    border-color: rgba(245, 158, 11, 0.38);
+    background: rgba(245, 158, 11, 0.10);
+    color: var(--week0-text);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .ex-block-item.just-lit .block-shine-layer::after,
+    .ex-block-item.just-lit .block-status-dot {
+        animation: none !important;
+    }
 }

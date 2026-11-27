@@ -1,5 +1,5 @@
 // Service Worker v13 - Restyling UI + rimozione Chart.js
-const CACHE_NAME = 'avanguard-cache-v21';
+const CACHE_NAME = 'avanguard-cache-v22';
 
 const CORE_ASSETS = [
     './',

@@ -45,8 +45,6 @@ const BACKGROUNDS = [
     { id: 9,  name: 'Sfondo 9',  desc: 'Ghisa spazzolata' },
     { id: 10, name: 'Sfondo 10', desc: 'Onda sismica' },
     { id: 11, name: 'Sfondo 11', desc: 'AMOLED Pure Black' },
-    { id: 11, name: 'Sfondo 11', desc: 'AMOLED Pure Black' },
-    { id: 12, name: 'Sfondo 12', desc: 'Strawhat' },
     { id: 12, name: 'Sfondo 12', desc: 'Strawhat' },
     { id: 13, name: 'Sfondo 13', desc: 'Astrolabio' },
     { id: 14, name: 'Sfondo 14', desc: 'Fiore della Vita' },
@@ -226,6 +224,8 @@ let openPopoverId = null;
 let _symbioteMorphTimer = null;
 let _justCompletedLogKey = null;
 let _justCompletedClearTimer = null;
+let _justLitBlockKey = null;
+let _justLitBlockClearTimer = null;
 
 let tempTargetDayId = null;
 let tempEditDayId = null;
@@ -579,6 +579,180 @@ async function saveCloudKey() {
         updateCloudStatusUi('ok');
     }
     renderApp();
+}
+
+function createBlankAppState({ keepAppearance = true } = {}) {
+    return {
+        users: [],
+        currentUserId: null,
+        week: 1,
+        totalWeeks: DEFAULT_PROGRAM_WEEKS,
+        logs: {},
+        bodyWeight: {},
+        bodyWeightGoal: {},
+        theme: keepAppearance ? (appState.theme || 'red') : 'red',
+        mode: keepAppearance ? (appState.mode || 'dark') : 'dark',
+        bgStyle: keepAppearance ? (appState.bgStyle || 1) : 1,
+        syncKey: '',
+        carried: {},
+        updatedAt: 0,
+    };
+}
+
+function openNewAccountModal() {
+    const keyInput = document.getElementById('new-account-sync-key');
+    const nameInput = document.getElementById('new-account-user-name');
+    const banner = document.getElementById('new-account-status-banner');
+    if (keyInput) keyInput.value = '';
+    if (nameInput) nameInput.value = '';
+
+    if (banner) {
+        if (CLOUD_ENABLED && appState.syncKey) {
+            banner.className = 'new-account-notice is-safe mb-3.5';
+            banner.innerHTML = `L'account attuale (<code>${escapeHtml(appState.syncKey)}</code>) resta salvato sul cloud. Puoi tornarci in qualsiasi momento reinserendo la stessa chiave.`;
+        } else if (hasMeaningfulLocalData(appState)) {
+            banner.className = 'new-account-notice is-warn mb-3.5';
+            banner.innerHTML = `<strong>Attenzione:</strong> non hai una chiave Cloud attiva. I dati presenti solo su questo dispositivo verranno azzerati (esporta prima un backup JSON se vuoi conservarli).`;
+        } else {
+            banner.className = 'new-account-notice mb-3.5';
+            banner.textContent = `Inserisci una nuova chiave per iniziare un account pulito sul cloud, oppure apri una pagina vuota in locale.`;
+        }
+    }
+
+    openModal('new-account-modal');
+    setTimeout(() => keyInput?.focus(), 80);
+}
+
+function generateRandomSyncKey() {
+    const chars = 'abcdefghjkmnpqrstuvwxyz23456789';
+    const part = (len) => {
+        const bytes = new Uint8Array(len);
+        if (window.crypto?.getRandomValues) window.crypto.getRandomValues(bytes);
+        else for (let i = 0; i < len; i++) bytes[i] = Math.floor(Math.random() * 256);
+        return Array.from(bytes, b => chars[b % chars.length]).join('');
+    };
+    const input = document.getElementById('new-account-sync-key');
+    if (input) {
+        input.value = `avg-${part(4)}-${part(4)}`;
+        input.focus();
+        input.select();
+    }
+}
+
+async function confirmNewAccount({ blankLocal = false } = {}) {
+    const keyInput = document.getElementById('new-account-sync-key');
+    const nameInput = document.getElementById('new-account-user-name');
+    const confirmBtn = document.getElementById('new-account-confirm-btn');
+    const blankBtn = document.getElementById('new-account-blank-btn');
+
+    const newKey = blankLocal ? '' : (keyInput?.value.trim() || '');
+    const initialName = nameInput?.value.trim() || '';
+    const prevSyncKey = appState.syncKey || '';
+
+    if (!blankLocal) {
+        if (newKey.length < 4) {
+            alert('Inserisci una chiave di almeno 4 caratteri, oppure usa "Apri pagina vuota senza chiave".');
+            keyInput?.focus();
+            return;
+        }
+        if (newKey === prevSyncKey) {
+            alert('Stai già usando questa chiave Cloud Sync. Inseriscine una diversa per aprire un nuovo utente.');
+            keyInput?.focus();
+            return;
+        }
+    }
+
+    if (!prevSyncKey && hasMeaningfulLocalData(appState)) {
+        const ok = confirm('I dati locali attuali non sono collegati a nessuna chiave cloud e verranno azzerati. Vuoi continuare?');
+        if (!ok) return;
+    }
+
+    if (confirmBtn) { confirmBtn.disabled = true; confirmBtn.textContent = 'Apertura in corso...'; }
+    if (blankBtn) blankBtn.disabled = true;
+
+    try {
+        // 1. Salva eventuali modifiche ancora in debounce sull'account corrente prima di cambiare
+        if (_weightInputDebounceTimer) {
+            clearTimeout(_weightInputDebounceTimer);
+            _weightInputDebounceTimer = null;
+            _hasPendingWeightInput = false;
+            appState.updatedAt = Date.now();
+            setLocalDirty(true);
+            persistLocalOnly();
+        }
+        if (_noteInputDebounceTimer) {
+            clearTimeout(_noteInputDebounceTimer);
+            _noteInputDebounceTimer = null;
+            _hasPendingNoteInput = false;
+            appState.updatedAt = Date.now();
+            setLocalDirty(true);
+            persistLocalOnly();
+        }
+        if (_cloudDebounceTimer) {
+            clearTimeout(_cloudDebounceTimer);
+            _cloudDebounceTimer = null;
+        }
+        if (CLOUD_ENABLED && prevSyncKey && isLocalDirty() && navigator.onLine) {
+            await flushCloudSync();
+        }
+
+        // 2. Pulisci completamente la sessione locale (come aprire in incognito)
+        stopRestTimer(true);
+        closeAllPopovers();
+        _openNoteKeys.clear();
+        activeDayId = null;
+
+        appState = createBlankAppState({ keepAppearance: true });
+        try { localStorage.removeItem(STORAGE_KEY); } catch (_) {}
+        setLocalDirty(false);
+
+        const cloudInput = document.getElementById('cloud-sync-key');
+
+        if (blankLocal) {
+            if (initialName) {
+                const uid = 'u_' + Date.now();
+                appState.users.push({ id: uid, name: initialName, days: [] });
+                appState.currentUserId = uid;
+            }
+            if (cloudInput) cloudInput.value = '';
+            persistLocalOnly();
+            updateCloudStatusUi('ok');
+        } else {
+            appState.syncKey = newKey;
+            if (cloudInput) cloudInput.value = newKey;
+            persistLocalOnly();
+
+            if (CLOUD_ENABLED) {
+                const res = await syncWithCloud({ isManualConnect: true });
+                if (!res.ok) {
+                    alert('Nuova sessione aperta in locale, ma la connessione a /api/sync non è riuscita.');
+                } else if (res.action === 'noop' && initialName) {
+                    const uid = 'u_' + Date.now();
+                    appState.users.push({ id: uid, name: initialName, days: [] });
+                    appState.currentUserId = uid;
+                    await saveData({ immediate: true });
+                }
+            } else {
+                if (initialName) {
+                    const uid = 'u_' + Date.now();
+                    appState.users.push({ id: uid, name: initialName, days: [] });
+                    appState.currentUserId = uid;
+                    persistLocalOnly();
+                }
+                updateCloudStatusUi('ok');
+            }
+        }
+
+        closeModal('new-account-modal');
+        applyMode();
+        applyTheme();
+        applyBackground();
+        renderApp();
+        switchTab('workout');
+    } finally {
+        if (confirmBtn) { confirmBtn.disabled = false; confirmBtn.textContent = 'Apri con questa chiave'; }
+        if (blankBtn) blankBtn.disabled = false;
+    }
 }
 
 function updateCloudStatusUi(status = 'ok') {
@@ -1268,10 +1442,14 @@ function renderExerciseCard(currentUser, day, ex) {
 
 function renderExerciseCardInternal(dayId, ex, logKey, log, blocks, restsArray, upBadgeHtml, prevNoteHtml, isCarried) {
     const weightsArray = log.weights || [];
+    const blocksDone = getNormalizedBlocksDone(log, blocks.length);
     const popId = `pop_${ex.id}`;
 
     const blocksHtml = blocks.map((block, i) => {
         const val = weightsArray[i] ?? '';
+        const isBlockDone = !!blocksDone[i];
+        const blockLitKey = `${logKey}:${i}`;
+        const isJustLit = isBlockDone && _justLitBlockKey === blockLitKey;
         const restVal = (restsArray && restsArray[i]) ? restsArray[i] : '';
         const restPillHtml = restVal
             ? `<button type="button"
@@ -1286,8 +1464,15 @@ function renderExerciseCardInternal(dayId, ex, logKey, log, blocks, restsArray, 
             : '';
 
         return `
-            <div class="ex-block-item">
+            <div class="ex-block-item ${isBlockDone ? 'is-block-done' : ''} ${isJustLit ? 'just-lit' : ''}"
+                 data-action="toggle-block"
+                 data-log-key="${escapeHtml(logKey)}"
+                 data-block-index="${i}"
+                 data-block-count="${blocks.length}"
+                 data-block-row-key="${escapeHtml(blockLitKey)}">
+                <span class="block-shine-layer" aria-hidden="true"></span>
                 <div class="flex flex-wrap items-center gap-2 min-w-0 flex-1">
+                    <span class="block-status-dot" aria-hidden="true">${UI_SVG.check}</span>
                     <span class="text-xs font-extrabold brand-text uppercase tracking-wide tabular-nums">${escapeHtml(block)}</span>
                     ${restPillHtml}
                 </div>
@@ -1328,7 +1513,8 @@ function renderExerciseCardInternal(dayId, ex, logKey, log, blocks, restsArray, 
                 <label class="cursor-pointer mt-0.5 flex-shrink-0">
                     <input type="checkbox" class="sr-only" ${log.done ? 'checked' : ''}
                         data-action="toggle-done"
-                        data-log-key="${escapeHtml(logKey)}">
+                        data-log-key="${escapeHtml(logKey)}"
+                        data-block-count="${blocks.length}">
                     <span class="ex-check">${UI_SVG.check}</span>
                 </label>
                 <div class="flex-1 min-w-0">
@@ -1392,6 +1578,15 @@ function renderExerciseCardInternal(dayId, ex, logKey, log, blocks, restsArray, 
             <div class="ex-blocks-list">${blocksHtml}</div>
         </div>
     `;
+}
+
+function getNormalizedBlocksDone(log, blockCount) {
+    const count = Math.max(1, Number(blockCount) || 1);
+    if (log && log.done) return Array(count).fill(true);
+    if (log && Array.isArray(log.blocksDone)) {
+        return Array.from({ length: count }, (_, i) => !!log.blocksDone[i]);
+    }
+    return Array(count).fill(false);
 }
 
 function toggleExMenu(event, popId) {
@@ -3065,9 +3260,13 @@ function executeImportPlan() {
 // ============================================================
 //  LOGS & SETTIMANE (0..6, input debounced 500ms + change/blur)
 // ============================================================
-function toggleDone(logKey, isChecked) {
+function toggleDone(logKey, isChecked, blockCount = 1) {
     if (!appState.logs[logKey]) appState.logs[logKey] = { weights: [] };
-    appState.logs[logKey].done = isChecked;
+    const count = Math.max(1, Number(blockCount) || 1);
+
+    appState.logs[logKey].done = !!isChecked;
+    appState.logs[logKey].blocksDone = Array(count).fill(!!isChecked);
+    _justLitBlockKey = null;
 
     if (isChecked) {
         _justCompletedLogKey = logKey;
@@ -3089,6 +3288,57 @@ function toggleDone(logKey, isChecked) {
             if (card) card.classList.remove('just-completed');
             _justCompletedClearTimer = null;
         }, 900);
+    }
+}
+
+function toggleBlockDone(logKey, blockIndex, blockCount = 1) {
+    if (!logKey) return;
+    if (!appState.logs[logKey]) appState.logs[logKey] = { done: false, weights: [], up: false };
+
+    const count = Math.max(1, Number(blockCount) || 1);
+    const nextBlocks = getNormalizedBlocksDone(appState.logs[logKey], count);
+    if (blockIndex < 0 || blockIndex >= count) return;
+
+    nextBlocks[blockIndex] = !nextBlocks[blockIndex];
+    const allDone = nextBlocks.every(Boolean);
+
+    appState.logs[logKey].blocksDone = nextBlocks;
+    appState.logs[logKey].done = allDone;
+
+    const litKey = `${logKey}:${blockIndex}`;
+    if (allDone) {
+        _justCompletedLogKey = logKey;
+        _justLitBlockKey = null;
+        if (navigator.vibrate) navigator.vibrate(18);
+    } else if (nextBlocks[blockIndex]) {
+        _justCompletedLogKey = null;
+        _justLitBlockKey = litKey;
+        if (navigator.vibrate) navigator.vibrate(10);
+    } else {
+        _justCompletedLogKey = null;
+        _justLitBlockKey = null;
+    }
+
+    saveData();
+    renderApp();
+
+    _justCompletedLogKey = null;
+    _justLitBlockKey = null;
+
+    if (allDone) {
+        if (_justCompletedClearTimer) clearTimeout(_justCompletedClearTimer);
+        _justCompletedClearTimer = setTimeout(() => {
+            const card = document.querySelector(`[data-ex-card-key="${CSS.escape(logKey)}"]`);
+            if (card) card.classList.remove('just-completed');
+            _justCompletedClearTimer = null;
+        }, 900);
+    } else if (nextBlocks[blockIndex]) {
+        if (_justLitBlockClearTimer) clearTimeout(_justLitBlockClearTimer);
+        _justLitBlockClearTimer = setTimeout(() => {
+            const row = document.querySelector(`[data-block-row-key="${CSS.escape(litKey)}"]`);
+            if (row) row.classList.remove('just-lit');
+            _justLitBlockClearTimer = null;
+        }, 620);
     }
 }
 
@@ -4194,8 +4444,17 @@ function setupDelegatedEvents() {
                 case 'add-more-photos':
                     document.getElementById('import-photo-file')?.click();
                     return;
+                case 'toggle-block': {
+                    // Ignora i tap su input kg o sul bottone del timer recupero
+                    if (e.target.closest('.weight-pill, .rest-pill, input, button, a, label')) return;
+                    const bIdx = parseInt(actionEl.dataset.blockIndex, 10);
+                    const bCnt = parseInt(actionEl.dataset.blockCount, 10) || 1;
+                    if (!isNaN(bIdx)) toggleBlockDone(actionEl.dataset.logKey, bIdx, bCnt);
+                    return;
+                }
                 default:
                     break;
+
             }
         }
 
@@ -4222,6 +4481,10 @@ function setupDelegatedEvents() {
 
     document.addEventListener('change', (e) => {
         const target = e.target;
+        if (target.matches('input[data-action="toggle-done"]')) {
+            const bCnt = parseInt(target.dataset.blockCount, 10) || 1;
+            toggleDone(target.dataset.logKey, target.checked, bCnt);
+        }
         if (!target || !target.matches) return;
         if (target.matches('input[data-action="toggle-done"]')) {
             toggleDone(target.dataset.logKey, target.checked);
